@@ -1,0 +1,11 @@
+.instruction-page { overflow-y: auto; }
+.instruction-page .feature-page-shell { max-width: 1500px; }
+.instruction-page p,.instruction-page li { overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.55; }
+.instruction-card,.instruction-notice { padding: 20px; margin: 16px 0; border: 1px solid var(--line); border-radius: 12px; background: white; min-width: 0; }
+.instruction-card>header,.instruction-filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.instruction-card h2 { font-size: 24px; margin: 8px 0; }.instruction-card h3 { font-size: 16px; }
+.instruction-fields,.instruction-transitions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.instruction-page button,.instruction-page input,.instruction-page select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); max-width: 100%; white-space: normal; }
+.instruction-page button { cursor: pointer; }.instruction-filters label { display: grid; gap: 7px; flex: 1; min-width: 200px; }
+.instruction-warning { color: #a54420; }
+@media(max-width:750px) { .instruction-fields,.instruction-transitions { grid-template-columns: 1fr; }.instruction-card { padding: 14px; } }
