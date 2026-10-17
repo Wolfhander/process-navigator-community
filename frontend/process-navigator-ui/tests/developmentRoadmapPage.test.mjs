@@ -18,8 +18,8 @@ function render(query='') {
 }
 test('page shows child status and its limited coverage separately from parent totals',()=>{
   const html=render();
-  assert.match(html,/46 из 103/);
-  assert.match(html,/17 из 17 проверок пройдено/);
+  assert.match(html,/48 из 103/);
+  assert.match(html,/19 из 19 проверок пройдено/);
   assert.match(html,/не проверка вашего компьютера/);
   assert.match(html,/Детализировано пунктов: 5 из 103/);
   assert.match(html,/Подзадачи пункта 100/);

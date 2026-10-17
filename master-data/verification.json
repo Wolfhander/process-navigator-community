@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "synthetic": true,
-  "checkedAt": "2026-10-17T21:23:27.924Z",
+  "checkedAt": "2026-10-17T21:37:49.391Z",
   "status": "passed",
-  "inputsFingerprint": "ee4e55183270ebaa5d2abfe13c25c73029600c08b358bf853f3c16df565a7a8d",
+  "inputsFingerprint": "26daa77b6674fa36ad95c98395e361a12544b7d3f94143e18da1035accb4b1b0",
   "checks": [
     {
       "id": "xlsx-roundtrip",
@@ -42,6 +42,14 @@
       "status": "passed"
     },
     {
+      "id": "analytics-views",
+      "status": "passed"
+    },
+    {
+      "id": "analytics-export",
+      "status": "passed"
+    },
+    {
       "id": "analytics",
       "status": "passed"
     },
@@ -76,7 +84,10 @@
   ],
   "manualAcceptance": {
     "basis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
-    "evidence": "master-data/acceptance-2026-10-18.md",
+    "evidence": [
+      "master-data/acceptance-2026-10-18.md",
+      "master-data/analytics-acceptance-2026-10-18.md"
+    ],
     "repeatedByThisRun": false
   },
   "coverage": [
@@ -102,6 +113,16 @@
     },
     {
       "roadmap": "64",
+      "automated": "passed",
+      "remaining": ""
+    },
+    {
+      "roadmap": "72",
+      "automated": "passed",
+      "remaining": ""
+    },
+    {
+      "roadmap": "73",
       "automated": "passed",
       "remaining": ""
     },

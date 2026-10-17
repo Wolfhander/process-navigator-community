@@ -47,6 +47,22 @@
       "remaining": ""
     },
     {
+      "roadmap": "72",
+      "input": "spec.json",
+      "checks": [
+        "analytics-views"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "73",
+      "input": "spec.json",
+      "checks": [
+        "analytics-export"
+      ],
+      "remaining": ""
+    },
+    {
       "roadmap": "74",
       "input": "spec.json#expected",
       "checks": [
@@ -105,5 +121,8 @@
     }
   ],
   "acceptanceBasis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
-  "manualEvidence": "master-data/acceptance-2026-10-18.md"
+  "manualEvidence": [
+    "master-data/acceptance-2026-10-18.md",
+    "master-data/analytics-acceptance-2026-10-18.md"
+  ]
 }

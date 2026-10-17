@@ -97,6 +97,7 @@ internal static class MasterDataChecks
                 await File.WriteAllBytesAsync(Path.Combine(reportDirectory,"master-processes.xlsx"),exported.Content);
                 await File.WriteAllBytesAsync(Path.Combine(reportDirectory,"master-large-3000.xlsx"),large);
                 await File.WriteAllTextAsync(Path.Combine(reportDirectory,"registry-actual.json"),JsonSerializer.Serialize(objects,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
+                await File.WriteAllTextAsync(Path.Combine(reportDirectory,"analytics-actual.json"),JsonSerializer.Serialize(analytics,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
             }
         }
         finally

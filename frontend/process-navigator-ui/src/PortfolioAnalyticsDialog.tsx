@@ -4,9 +4,11 @@ import { loadPortfolioAnalytics } from './api';
 import type { PortfolioAnalytics } from './types';
 import './portfolio-analytics.css';
 import { PortfolioCharts } from './PortfolioCharts';
+import { AnalyticsWorkspaceControls } from './AnalyticsWorkspaceControls';
+import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
-type Props = { onClose: () => void; onOpenProcess: (id: string) => void };
-type View = 'overview' | 'processes' | 'departments' | 'systems';
+type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
+type View = AnalyticsView;
 
 function percent(value: number, total: number) { return total ? Math.round(value / total * 100) : 0; }
 function duration(value?: number) {
@@ -16,31 +18,29 @@ function duration(value?: number) {
   return `${(value / 480).toFixed(1)} раб. дн.`;
 }
 
-export function PortfolioAnalyticsDialog({ onClose, onOpenProcess }: Props) {
+export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: Props) {
   const [data, setData] = useState<PortfolioAnalytics>();
   const [error, setError] = useState('');
   const [view, setView] = useState<View>('overview');
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<AnalyticsFilter>('all');
+  const [metrics, setMetrics] = useState<AnalyticsMetric[]>([...defaultAnalyticsSelection.metrics]);
+  const [loadedAt, setLoadedAt] = useState('');
+  const [exportError, setExportError] = useState('');
 
   const [refreshing, setRefreshing] = useState(false);
-  const refresh = async () => { setRefreshing(true); setError(''); try { setData(await loadPortfolioAnalytics()); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось загрузить аналитику.'); } finally { setRefreshing(false); } };
+  const refresh = async () => { setRefreshing(true); setError(''); try { setData(await loadPortfolioAnalytics()); setLoadedAt(new Date().toISOString()); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось загрузить аналитику.'); } finally { setRefreshing(false); } };
   useEffect(() => { void refresh(); }, []);
-  const processes = useMemo(() => {
-    if (!data) return [];
-    const needle = query.trim().toLocaleLowerCase('ru');
-    return data.processes.filter(process => {
-      const matchesQuery = !needle || [process.name, process.owner, ...process.directions, ...process.legalEntities]
-        .some(value => value.toLocaleLowerCase('ru').includes(needle));
-      const matchesFilter = filter === 'all'
-        || (filter === 'attention' && process.issues.length > 0)
-        || (filter === 'documents' && process.informationIssueCount > 0)
-        || (filter === 'timing' && process.timedTaskCount < process.taskCount)
-        || (filter === 'draft' && process.status.toLocaleLowerCase('ru').includes('draft'))
-        || (filter === 'execution' && process.totalInstances > 0);
-      return matchesQuery && matchesFilter;
-    });
-  }, [data, query, filter]);
+  const processes = useMemo(() => data ? selectAnalyticsProcesses(data, query, filter) : [], [data, query, filter]);
+  function exportCsv(scope: 'portfolio' | 'processes') {
+    if (!data) return;
+    try {
+      const csv = analyticsCsv(data, { view, query, filter, metrics }, scope, loadedAt);
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a'); link.href = url; link.download = 'process-analytics-' + scope + '.csv'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000); setExportError('');
+    } catch { setExportError('Не удалось подготовить выгрузку. Обновите данные и повторите.'); }
+  }
 
   return <main className="portfolio-page">
     <section className="portfolio-dialog" aria-label="Аналитика портфеля процессов">
@@ -57,15 +57,18 @@ export function PortfolioAnalyticsDialog({ onClose, onOpenProcess }: Props) {
       {error && <div className="portfolio-error"><AlertTriangle size={17}/>{error}</div>}
       {!data && !error && <div className="portfolio-loading"><div className="loader"/>Собираем показатели по всему репозиторию…</div>}
       {data && <div className="portfolio-content">
+        {error && <p role="status">Показаны ранее загруженные данные от {loadedAt}; обновление не удалось.</p>}
+        <AnalyticsWorkspaceControls profileId={profileId} current={{ view, query, filter, metrics }} loadedAt={loadedAt} count={processes.length} total={data.processes.length} onChange={next => { setView(next.view); setQuery(next.query); setFilter(next.filter); setMetrics(next.metrics); }} onExport={exportCsv}/>
+        {exportError && <p role="alert">{exportError}</p>}
         {view === 'overview' && <>
           <div className="portfolio-kpis">
-            <article><Layers3/><span>Процессов<strong>{data.totalProcesses}</strong><small>{data.publishedProcesses} действующих · {data.draftProcesses} черновиков</small></span></article>
-            <article><ShieldCheck/><span>Готовность<strong>{data.averageReadinessPercent}%</strong><small>владелец, дорожки, описания, нормативы</small></span></article>
-            <article><Building2/><span>Охват структуры<strong>{percent(data.participatingDepartments, data.totalDepartments)}%</strong><small>{data.participatingDepartments} из {data.totalDepartments} подразделений</small></span></article>
-            <article><Activity/><span>Выполнений<strong>{data.totalInstances}</strong><small>{data.activeInstances} активных · {data.completedInstances} завершено</small></span></article>
-            <article className={data.overdueSteps ? 'is-warning' : ''}><Clock3/><span>Просроченных шагов<strong>{data.overdueSteps}</strong><small>по заданным нормативам времени</small></span></article>
-            <article className={data.informationIssueCount ? 'is-warning' : ''}><FileWarning/><span>Разрывов данных<strong>{data.informationIssueCount}</strong><small>{data.informationObjectCount} документов и результатов в реестре</small></span></article>
-            <article><GitBranch/><span>Передач между дорожками<strong>{data.crossLaneTransferCount}</strong><small>переходы между подразделениями и участниками</small></span></article>
+            {metrics.includes('processes') && <article><Layers3/><span>Процессов<strong>{data.totalProcesses}</strong><small>{data.publishedProcesses} действующих · {data.draftProcesses} черновиков</small></span></article>}
+            {metrics.includes('readiness') && <article><ShieldCheck/><span>Готовность<strong>{data.averageReadinessPercent}%</strong><small>владелец, дорожки, описания, нормативы</small></span></article>}
+            {metrics.includes('coverage') && <article><Building2/><span>Охват структуры<strong>{percent(data.participatingDepartments, data.totalDepartments)}%</strong><small>{data.participatingDepartments} из {data.totalDepartments} подразделений</small></span></article>}
+            {metrics.includes('instances') && <article><Activity/><span>Выполнений<strong>{data.totalInstances}</strong><small>{data.activeInstances} активных · {data.completedInstances} завершено</small></span></article>}
+            {metrics.includes('overdue') && <article className={data.overdueSteps ? 'is-warning' : ''}><Clock3/><span>Просроченных шагов<strong>{data.overdueSteps}</strong><small>по заданным нормативам времени</small></span></article>}
+            {metrics.includes('documents') && <article className={data.informationIssueCount ? 'is-warning' : ''}><FileWarning/><span>Разрывов данных<strong>{data.informationIssueCount}</strong><small>{data.informationObjectCount} документов и результатов в реестре</small></span></article>}
+            {metrics.includes('transfers') && <article><GitBranch/><span>Передач между дорожками<strong>{data.crossLaneTransferCount}</strong><small>переходы между подразделениями и участниками</small></span></article>}
           </div>
           <PortfolioCharts data={data}/>
           <details className="portfolio-methodology"><summary>Как рассчитаны показатели</summary><div><p><strong>Готовность</strong> — владелец 20%, оргпривязки дорожек 35%, полное описание задач 25%, нормативы 10%, направление 10%.</p><p><strong>Разрыв данных</strong> — у документа или результата нет источника/получателя, найдено несколько источников либо конфликтуют версии.</p><p><strong>Передача</strong> — переход BPMN между шагами разных дорожек. Ручные и внешние шаги определяются по способу выполнения в карточке этапа.</p></div></details>
@@ -79,7 +82,7 @@ export function PortfolioAnalyticsDialog({ onClose, onOpenProcess }: Props) {
           </div>
         </>}
         {view === 'processes' && <>
-          <div className="portfolio-toolbar"><label><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Название, владелец, направление…"/></label><select value={filter} onChange={event => setFilter(event.target.value)}><option value="all">Все процессы</option><option value="attention">Требуют внимания</option><option value="documents">С разрывами документов</option><option value="timing">Без полных нормативов</option><option value="draft">Черновики</option><option value="execution">С данными выполнения</option></select></div>
+          <div className="portfolio-toolbar"><label><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} aria-label="Поиск процессов аналитики" maxLength={300} placeholder="ID, название, владелец, направление…"/></label><select aria-label="Фильтр процессов аналитики" value={filter} onChange={event => setFilter(event.target.value as AnalyticsFilter)}><option value="all">Все процессы</option><option value="attention">Требуют внимания</option><option value="documents">С разрывами документов</option><option value="timing">Без полных нормативов</option><option value="draft">Черновики</option><option value="execution">С данными выполнения</option></select></div>
           <div className="portfolio-process-list">{processes.map(process => <button key={process.id} onClick={() => onOpenProcess(process.id)}>
             <span className="portfolio-score" style={{ '--score': `${process.readinessPercent}%` } as CSSProperties}><strong>{process.readinessPercent}%</strong><small>готовность</small></span>
             <span className="portfolio-process-main"><strong>{process.name}</strong><small>Уровень {process.level} · {process.owner} · {process.directions.join(', ') || 'направление не назначено'}</small><span>{process.issues.slice(0, 3).map(issue => <em key={issue}><AlertTriangle size={11}/>{issue}</em>)}</span></span>

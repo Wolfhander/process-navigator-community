@@ -11,7 +11,8 @@ const coverage=JSON.parse(fs.readFileSync(path.join(root,'master-data','v1','cov
 const phases=[
   ['frontend',process.execPath,['--test','--test-reporter=spec','tests/masterData.test.mjs'],path.join(root,'frontend','process-navigator-ui')],
   ['server','dotnet',['run','--no-restore','--project','backend/ProcessNavigator.Checks','--configuration','Release'],root],
-  ['registry',process.execPath,['tools/verify-registry-control.mjs',path.join(directory,'registry-actual.json')],root]
+  ['registry',process.execPath,['tools/verify-registry-control.mjs',path.join(directory,'registry-actual.json')],root],
+  ['analytics',process.execPath,['tools/verify-analytics-workspace.mjs',directory],root]
 ];
 const outcomes=[];
 const passed=new Set();

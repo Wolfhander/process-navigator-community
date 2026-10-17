@@ -514,7 +514,7 @@ export default function App() {
       onClose={() => setAnalyticsOpen(false)}
       onSelectStep={elementId => { setAnalyticsOpen(false); setPersonalMode(false); setSelected(process.nodes.find(node => node.id === elementId)); }}
     />}
-    {portfolioAnalyticsOpen && <PortfolioAnalyticsDialog
+    {portfolioAnalyticsOpen && <PortfolioAnalyticsDialog key={session.currentUser.id} profileId={session.currentUser.id}
       onClose={() => navigateSection('home')}
       onOpenProcess={id => { setPortfolioAnalyticsOpen(false); openProcess(id); }}/>
     }
