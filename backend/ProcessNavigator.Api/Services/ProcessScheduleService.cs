@@ -9,11 +9,13 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     public async Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
         CancellationToken cancellationToken = default)
     {
-        var direction = request.Direction.Equals("Backward", StringComparison.OrdinalIgnoreCase) ? "Backward"
-            : request.Direction.Equals("Forward", StringComparison.OrdinalIgnoreCase) ? "Forward"
+        var direction = request.Direction?.Equals("Backward", StringComparison.OrdinalIgnoreCase) == true ? "Backward"
+            : request.Direction?.Equals("Forward", StringComparison.OrdinalIgnoreCase) == true ? "Forward"
             : throw new InvalidDataException("Направление расчёта должно быть Forward или Backward.");
         if (string.IsNullOrWhiteSpace(request.RootProcessId)) throw new InvalidDataException("Выберите исходный процесс.");
+        if (request.AnchorDate.Year is < 1000 or > 9000) throw new InvalidDataException("Дата расчёта должна находиться в диапазоне 1000–9000 годов.");
         var calendar = BuildCalendar(request);
+        if (!double.IsFinite(request.DurationScalePercent) || !double.IsFinite(request.TransferDelayHours)) throw new InvalidDataException("Числовые параметры должны быть конечными.");
         if (request.DurationScalePercent is < 1 or > 1000) throw new InvalidDataException("Коэффициент длительности должен быть от 1 до 1000 процентов.");
         if (request.TransferDelayHours is < 0 or > 10000) throw new InvalidDataException("Задержка передачи должна быть от 0 до 10 000 часов.");
         var durationFactor = request.DurationScalePercent / 100d;
@@ -21,12 +23,18 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         var summaries = await catalog.ListAsync(cancellationToken);
         var summaryById = summaries.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
         if (!summaryById.ContainsKey(request.RootProcessId)) throw new FileNotFoundException("Процесс не найден.");
+        request = request with { RootProcessId = summaryById[request.RootProcessId].Id };
 
         var objectRegistry = await registry.BuildAsync(includeDrafts, cancellationToken);
         var allDependencies = BuildDependencies(objectRegistry);
         var relevantIds = Traverse(request.RootProcessId, allDependencies, direction);
         var dependencies = allDependencies.Where(item => relevantIds.Contains(item.SourceProcessId) && relevantIds.Contains(item.TargetProcessId)).ToArray();
         ValidateScenarioParameters(request, relevantIds);
+        var profiles = (request.ProcessCalendars ?? new Dictionary<string, ScheduleCalendarModel>()).ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+        if (relevantIds.Count > 200 || dependencies.Length > 5000) throw new InvalidDataException("Цепочка превышает предел: 200 процессов или 5000 зависимостей.");
+        var calendars = relevantIds.ToDictionary(id => id, id => profiles.TryGetValue(id, out var custom)
+            ? BuildCalendar(request with { WorkdayStart = custom.WorkdayStart, WorkdayEnd = custom.WorkdayEnd, WorkingDays = custom.WorkingDays, NonWorkingDates = custom.NonWorkingDates, UtcOffsetMinutes = custom.UtcOffsetMinutes }) : calendar, StringComparer.OrdinalIgnoreCase);
+        var sourceModels = new List<ProcessModel>();
         var issues = new List<ProcessScheduleIssueModel>();
         var estimates = new Dictionary<string, Estimate>(StringComparer.OrdinalIgnoreCase);
         var uncertaintyReasons = relevantIds.ToDictionary(id => id, _ => new HashSet<string>(StringComparer.CurrentCultureIgnoreCase), StringComparer.OrdinalIgnoreCase);
@@ -38,6 +46,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
                 var summary = summaryById[processId];
                 var useDraft = summary.Status == "Draft" || (includeDrafts && summary.HasDraft);
                 var process = await catalog.LoadAsync(processId, useDraft, cancellationToken);
+                sourceModels.Add(process);
                 var rawEstimate = EstimateProcess(process, request.IncludeWaitTime);
                 var processScale = request.ProcessDurationScalePercent?.GetValueOrDefault(processId, 100) ?? 100;
                 var appliedScale = request.DurationScalePercent * processScale / 100d;
@@ -57,6 +66,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             }
         }
 
+        if (estimates.Values.Any(item => !double.IsFinite(item.Hours) || item.Hours > 200000)) throw new InvalidDataException("Длительность процесса превышает предел 200 000 часов или не является конечной.");
         foreach (var issue in objectRegistry.Issues)
         {
             var item = objectRegistry.Objects.FirstOrDefault(value => value.Id.Equals(issue.ObjectId, StringComparison.OrdinalIgnoreCase));
@@ -85,16 +95,17 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         }
         PropagateUncertainty(order, dependencies, direction, uncertaintyReasons, summaryById);
 
+        if (request.ProcessCalendars?.Count > 0) issues.Add(new("calendar-reserve", "Warning", "Критическая цепочка и резерв рассчитаны в номинальных рабочих часах. При разных календарях календарные ожидания могут изменить фактическую критичность."));
         var critical = CalculateCriticalPath(order, dependencies, estimates, request.TransferDelayHours, hasCycle);
         var scheduled = direction == "Forward"
-            ? ScheduleForward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendar)
-            : ScheduleBackward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendar);
+            ? ScheduleForward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendars)
+            : ScheduleBackward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendars);
 
         var items = scheduled.Select(item =>
             {
                 DateTimeOffset? checkpoint = null;
                 if (request.Checkpoints?.TryGetValue(item.ProcessId, out var checkpointValue) == true) checkpoint = checkpointValue;
-                var checkpointDelta = checkpoint is not null ? SignedBusinessHours(checkpoint.Value, item.EndAt, calendar) : (double?)null;
+                var checkpointDelta = checkpoint is not null ? SignedBusinessHours(checkpoint.Value, item.EndAt, calendars[item.ProcessId]) : (double?)null;
                 if (checkpointDelta > .001)
                     issues.Add(new("checkpoint-missed", "Warning",
                         $"Контрольная дата нарушена на {Math.Round(checkpointDelta.Value, 2)} ч.", item.ProcessId));
@@ -113,11 +124,14 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         var assumptions = new ProcessScheduleAssumptionsModel(request.IncludeWaitTime, calendar.Start.ToString("hh\\:mm"), calendar.End.ToString("hh\\:mm"),
             calendar.WorkingDays.Select(value => (int)value).OrderBy(value => value).ToArray(), request.DurationScalePercent, request.TransferDelayHours,
             calendar.NonWorkingDates.OrderBy(value => value).Select(value => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray(),
-            request.ProcessDurationScalePercent ?? new Dictionary<string, double>(), request.Checkpoints ?? new Dictionary<string, DateTimeOffset>());
+            request.ProcessDurationScalePercent ?? new Dictionary<string, double>(), request.Checkpoints ?? new Dictionary<string, DateTimeOffset>(), (int)calendar.Offset.TotalMinutes,
+            relevantIds.Where(profiles.ContainsKey).ToDictionary(id => id, id => profiles[id]));
         return new(direction, request.RootProcessId, request.AnchorDate, startAt, endAt,
             Math.Round(items.Sum(item => item.DurationHours), 2), Math.Round(critical.DurationHours, 2),
             uncertaintyReasons.Values.All(value => value.Count == 0) && !issues.Any(item => item.Severity == "Error" || item.Code == "internal-cycle"), assumptions,
-            items, dependencies, issues.DistinctBy(item => $"{item.Code}:{item.ProcessId}:{item.ElementId}:{item.ObjectId}").ToArray());
+            items, dependencies, issues.DistinctBy(item => $"{item.Code}:{item.ProcessId}:{item.ElementId}:{item.ObjectId}").ToArray(),
+            new("schedule-v2-fixed-offset", DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
+                objectRegistry.Objects.Where(item => item.Producers.Concat(item.Consumers).Any(value => relevantIds.Contains(value.ProcessId))).ToArray()));
     }
 
     private static WorkCalendar BuildCalendar(ProcessScheduleRequestModel request)
@@ -126,7 +140,11 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             || !TimeSpan.TryParseExact(request.WorkdayEnd, ["h\\:mm", "hh\\:mm"], CultureInfo.InvariantCulture, out var end)
             || start < TimeSpan.Zero || end > TimeSpan.FromDays(1) || end <= start)
             throw new InvalidDataException("Проверьте начало и окончание рабочего дня.");
-        var days = (request.WorkingDays is { Count: > 0 } ? request.WorkingDays : [1, 2, 3, 4, 5]).Distinct().ToHashSet();
+        if (request.WorkingDays?.Count > 7 || request.NonWorkingDates?.Count > 366) throw new InvalidDataException("Допускается до 7 дней недели и 366 исключений календаря.");
+        if (request.WorkingDays is { Count: 0 }) throw new InvalidDataException("Выберите хотя бы один рабочий день.");
+        var offset = request.UtcOffsetMinutes ?? (int)request.AnchorDate.Offset.TotalMinutes;
+        if (offset is < -720 or > 840) throw new InvalidDataException("Сдвиг UTC должен быть от −720 до 840 минут.");
+        var days = (request.WorkingDays ?? [1, 2, 3, 4, 5]).Distinct().ToHashSet();
         if (days.Any(day => day is < 0 or > 6)) throw new InvalidDataException("Рабочие дни должны быть заданы числами от 0 (воскресенье) до 6 (суббота).");
         var nonWorkingDates = new HashSet<DateOnly>();
         foreach (var value in request.NonWorkingDates ?? [])
@@ -136,16 +154,22 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             nonWorkingDates.Add(date);
         }
         if (nonWorkingDates.Count > 366) throw new InvalidDataException("В одном сценарии допускается не более 366 нерабочих дат.");
-        return new(start, end, days.Select(day => (DayOfWeek)day).ToHashSet(), nonWorkingDates);
+        return new(start, end, days.Select(day => (DayOfWeek)day).ToHashSet(), nonWorkingDates, TimeSpan.FromMinutes(offset));
     }
 
     private static void ValidateScenarioParameters(ProcessScheduleRequestModel request, HashSet<string> relevantIds)
     {
+        if (request.ProcessCalendars?.Count > 200) throw new InvalidDataException("Не более 200 календарей в сценарии.");
+        if (request.ProcessCalendars?.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.ProcessCalendars?.Count) throw new InvalidDataException("ID календарей повторяются с разным регистром.");
+        foreach (var entry in request.ProcessCalendars ?? new Dictionary<string, ScheduleCalendarModel>())
+            if (!relevantIds.Contains(entry.Key) || entry.Value is null || entry.Value.WorkingDays is null || entry.Value.NonWorkingDates is null) throw new InvalidDataException("Календарь относится к неизвестному процессу или заполнен не полностью.");
         foreach (var (processId, scale) in request.ProcessDurationScalePercent ?? new Dictionary<string, double>())
         {
             if (!relevantIds.Contains(processId)) throw new InvalidDataException($"Процесс «{processId}» не входит в рассчитанную цепочку.");
-            if (scale is < 1 or > 1000) throw new InvalidDataException($"Коэффициент процесса «{processId}» должен быть от 1 до 1000 процентов.");
+            if (!double.IsFinite(scale) || scale is < 1 or > 1000) throw new InvalidDataException($"Коэффициент процесса «{processId}» должен быть от 1 до 1000 процентов.");
         }
+        if (request.ProcessDurationScalePercent?.Count > 200 || request.Checkpoints?.Count > 200) throw new InvalidDataException("Слишком много параметров сценария.");
+        if (request.Checkpoints?.Values.Any(value => value.Year is < 1000 or > 9000) == true) throw new InvalidDataException("Контрольная дата вне допустимого диапазона.");
         foreach (var processId in request.Checkpoints?.Keys ?? [])
             if (!relevantIds.Contains(processId)) throw new InvalidDataException($"Контрольная точка относится к процессу «{processId}», которого нет в рассчитанной цепочке.");
     }
@@ -312,11 +336,12 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     }
 
     private static Scheduled[] ScheduleForward(IReadOnlyList<string> order, IReadOnlyList<ProcessScheduleDependencyModel> dependencies,
-        IReadOnlyDictionary<string, Estimate> estimates, DateTimeOffset anchor, double transferDelayHours, WorkCalendar calendar)
+        IReadOnlyDictionary<string, Estimate> estimates, DateTimeOffset anchor, double transferDelayHours, IReadOnlyDictionary<string, WorkCalendar> calendars)
     {
         var result = new Dictionary<string, Scheduled>(StringComparer.OrdinalIgnoreCase);
         foreach (var id in order)
         {
+            var calendar = calendars[id];
             var predecessorEnds = dependencies.Where(item => item.TargetProcessId.Equals(id, StringComparison.OrdinalIgnoreCase))
                 .Select(item => result.TryGetValue(item.SourceProcessId, out var value) ? AddBusinessHours(value.EndAt, transferDelayHours, calendar) : (DateTimeOffset?)null).OfType<DateTimeOffset>().ToArray();
             var start = predecessorEnds.Length == 0 ? NormalizeForward(anchor, calendar) : NormalizeForward(predecessorEnds.Max(), calendar);
@@ -326,13 +351,14 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     }
 
     private static Scheduled[] ScheduleBackward(IReadOnlyList<string> order, IReadOnlyList<ProcessScheduleDependencyModel> dependencies,
-        IReadOnlyDictionary<string, Estimate> estimates, DateTimeOffset anchor, double transferDelayHours, WorkCalendar calendar)
+        IReadOnlyDictionary<string, Estimate> estimates, DateTimeOffset anchor, double transferDelayHours, IReadOnlyDictionary<string, WorkCalendar> calendars)
     {
         var result = new Dictionary<string, Scheduled>(StringComparer.OrdinalIgnoreCase);
         foreach (var id in order.Reverse())
         {
+            var calendar = calendars[id];
             var successorStarts = dependencies.Where(item => item.SourceProcessId.Equals(id, StringComparison.OrdinalIgnoreCase))
-                .Select(item => result.TryGetValue(item.TargetProcessId, out var value) ? SubtractBusinessHours(value.StartAt, transferDelayHours, calendar) : (DateTimeOffset?)null).OfType<DateTimeOffset>().ToArray();
+                .Select(item => result.TryGetValue(item.TargetProcessId, out var value) ? SubtractBusinessHours(value.StartAt, transferDelayHours, calendars[item.TargetProcessId]) : (DateTimeOffset?)null).OfType<DateTimeOffset>().ToArray();
             var end = successorStarts.Length == 0 ? NormalizeBackward(anchor, calendar) : NormalizeBackward(successorStarts.Min(), calendar);
             result[id] = new(id, SubtractBusinessHours(end, estimates[id].Hours, calendar), end);
         }
@@ -341,9 +367,10 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
     private static DateTimeOffset AddBusinessHours(DateTimeOffset value, double hours, WorkCalendar calendar)
     {
-        var current = NormalizeForward(value, calendar); var minutes = Math.Max(0, hours * 60);
+        var current = NormalizeForward(value, calendar); var minutes = Math.Max(0, hours * 60); var days = 0;
         while (minutes > .001)
         {
+            if (++days > 100000) throw new InvalidDataException("Расчёт превысил предел 100 000 рабочих дней. Уточните нормы и календарь.");
             var available = (current.Date + calendar.End - current.DateTime).TotalMinutes;
             if (minutes <= available) return current.AddMinutes(minutes);
             minutes -= available; current = NormalizeForward(current.Date.AddDays(1).Add(calendar.Start).WithOffset(current.Offset), calendar);
@@ -353,9 +380,10 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
     private static DateTimeOffset SubtractBusinessHours(DateTimeOffset value, double hours, WorkCalendar calendar)
     {
-        var current = NormalizeBackward(value, calendar); var minutes = Math.Max(0, hours * 60);
+        var current = NormalizeBackward(value, calendar); var minutes = Math.Max(0, hours * 60); var days = 0;
         while (minutes > .001)
         {
+            if (++days > 100000) throw new InvalidDataException("Расчёт превысил предел 100 000 рабочих дней. Уточните нормы и календарь.");
             var available = (current.DateTime - (current.Date + calendar.Start)).TotalMinutes;
             if (minutes <= available) return current.AddMinutes(-minutes);
             minutes -= available; current = NormalizeBackward(current.Date.AddDays(-1).Add(calendar.End).WithOffset(current.Offset), calendar);
@@ -367,10 +395,12 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     {
         if (from == to) return 0;
         if (to < from) return -SignedBusinessHours(to, from, calendar);
-        var current = from;
-        double minutes = 0;
+        var current = from.ToOffset(calendar.Offset);
+        to = to.ToOffset(calendar.Offset);
+        double minutes = 0; var days = 0;
         while (current < to)
         {
+            if (++days > 100000) throw new InvalidDataException("Слишком далёкая контрольная дата для сравнения.");
             current = NormalizeForward(current, calendar);
             if (current >= to) break;
             var endOfDay = current.Date.Add(calendar.End).WithOffset(current.Offset);
@@ -383,7 +413,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
     private static DateTimeOffset NormalizeForward(DateTimeOffset value, WorkCalendar calendar)
     {
-        var current = value;
+        var current = value.ToOffset(calendar.Offset);
         while (!IsWorkingDay(current, calendar)) current = current.Date.AddDays(1).Add(calendar.Start).WithOffset(current.Offset);
         if (current.TimeOfDay < calendar.Start) return current.Date.Add(calendar.Start).WithOffset(current.Offset);
         if (current.TimeOfDay >= calendar.End) return NormalizeForward(current.Date.AddDays(1).Add(calendar.Start).WithOffset(current.Offset), calendar);
@@ -392,7 +422,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
     private static DateTimeOffset NormalizeBackward(DateTimeOffset value, WorkCalendar calendar)
     {
-        var current = value;
+        var current = value.ToOffset(calendar.Offset);
         while (!IsWorkingDay(current, calendar)) current = current.Date.AddDays(-1).Add(calendar.End).WithOffset(current.Offset);
         if (current.TimeOfDay > calendar.End) return current.Date.Add(calendar.End).WithOffset(current.Offset);
         if (current.TimeOfDay < calendar.Start) return NormalizeBackward(current.Date.AddDays(-1).Add(calendar.End).WithOffset(current.Offset), calendar);
@@ -405,7 +435,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     private sealed record Estimate(double BaseHours, double Hours, double AppliedScalePercent, int MissingDurationCount, bool HasCycle, IReadOnlyList<ProcessScheduleIssueModel> Issues);
     private sealed record Scheduled(string ProcessId, DateTimeOffset StartAt, DateTimeOffset EndAt);
     private sealed record CriticalPath(double DurationHours, HashSet<string> CriticalIds, IReadOnlyDictionary<string, double> Slack);
-    private sealed record WorkCalendar(TimeSpan Start, TimeSpan End, HashSet<DayOfWeek> WorkingDays, HashSet<DateOnly> NonWorkingDates);
+    private sealed record WorkCalendar(TimeSpan Start, TimeSpan End, HashSet<DayOfWeek> WorkingDays, HashSet<DateOnly> NonWorkingDates, TimeSpan Offset);
 
     [GeneratedRegex("(\\d+(?:\\.\\d+)?)\\s*(?:рабоч(?:ий|ая|ее|его|ей|их)\\s+)?(минут(?:а|ы)?|мин|час(?:а|ов)?|день|дня|дней|дн(?:я|ей)?|недел(?:я|и|ь))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DurationPart();

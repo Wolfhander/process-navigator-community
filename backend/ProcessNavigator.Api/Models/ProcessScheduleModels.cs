@@ -12,7 +12,12 @@ public sealed record ProcessScheduleRequestModel(
     double TransferDelayHours = 0,
     IReadOnlyList<string>? NonWorkingDates = null,
     IReadOnlyDictionary<string, double>? ProcessDurationScalePercent = null,
-    IReadOnlyDictionary<string, DateTimeOffset>? Checkpoints = null);
+    IReadOnlyDictionary<string, DateTimeOffset>? Checkpoints = null,
+    int? UtcOffsetMinutes = null,
+    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null);
+
+public sealed record ScheduleCalendarModel(string WorkdayStart, string WorkdayEnd,
+    IReadOnlyList<int> WorkingDays, IReadOnlyList<string> NonWorkingDates, int UtcOffsetMinutes);
 
 public sealed record ProcessScheduleItemModel(
     string ProcessId,
@@ -58,7 +63,9 @@ public sealed record ProcessScheduleAssumptionsModel(
     double TransferDelayHours,
     IReadOnlyList<string> NonWorkingDates,
     IReadOnlyDictionary<string, double> ProcessDurationScalePercent,
-    IReadOnlyDictionary<string, DateTimeOffset> Checkpoints);
+    IReadOnlyDictionary<string, DateTimeOffset> Checkpoints,
+    int UtcOffsetMinutes = 0,
+    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null);
 
 public sealed record ProcessScheduleModel(
     string Direction,
@@ -72,4 +79,8 @@ public sealed record ProcessScheduleModel(
     ProcessScheduleAssumptionsModel Assumptions,
     IReadOnlyList<ProcessScheduleItemModel> Processes,
     IReadOnlyList<ProcessScheduleDependencyModel> Dependencies,
-    IReadOnlyList<ProcessScheduleIssueModel> Issues);
+    IReadOnlyList<ProcessScheduleIssueModel> Issues,
+    ScheduleSourceSnapshotModel? Sources = null);
+
+public sealed record ScheduleSourceSnapshotModel(string Algorithm, DateTimeOffset CapturedAt,
+    IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects);

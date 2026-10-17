@@ -548,7 +548,7 @@ export default function App() {
       setReloadKey(value => value + 1);
       setPendingAuditTarget(entry.elementId ? { processId: entry.processId, elementId: entry.elementId } : undefined);
     }}/>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage key={session.currentUser.id} userId={session.currentUser.id} catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'organization' && (organizationEditor ? <OrganizationAdminDialog page
       organization={organizationEditor}
       catalog={catalog}

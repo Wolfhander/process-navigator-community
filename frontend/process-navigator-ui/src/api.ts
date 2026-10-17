@@ -31,13 +31,7 @@ export async function saveInformationObject(objectId: string, update: Informatio
 }
 
 export async function calculateProcessSchedule(request: ProcessScheduleRequest): Promise<ProcessSchedule> {
-  const query = new URLSearchParams({ rootProcessId: request.rootProcessId, direction: request.direction, anchorDate: request.anchorDate,
-    includeWaitTime: String(request.includeWaitTime), workdayStart: request.workdayStart, workdayEnd: request.workdayEnd,
-    workingDays: request.workingDays.join(','), durationScalePercent: String(request.durationScalePercent), transferDelayHours: String(request.transferDelayHours),
-    nonWorkingDates: request.nonWorkingDates.join(','),
-    processDurationScalePercent: Object.entries(request.processDurationScalePercent).map(([id, value]) => `${id}=${value}`).join(';'),
-    checkpoints: Object.entries(request.checkpoints).map(([id, value]) => `${id}=${value}`).join(';') });
-  const response = await fetch(`/api/processes/schedule?${query}`, { headers: roleHeaders() });
+  const response = await fetch('/api/processes/schedule', { method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(request) });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось рассчитать сроки цепочки процессов.'));
   return response.json() as Promise<ProcessSchedule>;
 }

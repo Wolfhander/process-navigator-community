@@ -50,6 +50,7 @@ Check(!InformationObjectPolicy.Check(RegistryObject([], [consumer])).Any(issue =
 var versionRecipients = RegistryObject([producer], [consumer, consumer with { ProcessId = "needs-v2", Version = "2" }]);
 Check(InformationObjectPolicy.AffectedConsumers(versionRecipients, "version-source-missing").Single().ProcessId == "needs-v2", "Version-specific uncertainty targets only consumers needing the unavailable version");
 count += await RegistryLifecycleChecks.RunAsync();
+count += await ScheduleChecks.RunAsync();
 static bool RejectedTransition(string? previous, string? previousVersion, string state, string version)
 {
     try { InformationObjectLifecycle.Validate(previous, previousVersion, state, version); return false; }
