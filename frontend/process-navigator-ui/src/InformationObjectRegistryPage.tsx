@@ -5,6 +5,7 @@ import type { InformationObject, InformationObjectIssue, InformationObjectOccurr
 import { buildProcessDependencies } from './information-object-dependencies';
 import { InformationObjectDetailPage } from './InformationObjectDetailPage';
 import { InformationObjectCompositionEditor } from './InformationObjectCompositionEditor';
+import { InformationTransferPage } from './InformationTransferPage';
 import './information-object-registry.css';
 
 type Props = { canManage: boolean; onBack: () => void; onOpen: (occurrence: InformationObjectOccurrence) => void };
@@ -44,6 +45,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
   const [view, setView] = useState<'objects' | 'dependencies'>('objects');
   const [expanded, setExpanded] = useState<string>();
   const [detailId, setDetailId] = useState<string>();
+  const [transfers, setTransfers] = useState(false);
   const [editing, setEditing] = useState<string>();
   const [form, setForm] = useState<InformationObjectUpdate>();
   const [saving, setSaving] = useState(false);
@@ -94,10 +96,12 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
     URL.revokeObjectURL(url);
   };
   const detail = registry?.objects.find(item => item.id === detailId);
+  if (transfers) return <InformationTransferPage objects={objects} onBack={() => setTransfers(false)} onOpen={onOpen}/>;
   if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} objects={registry!.objects} onOpenObject={setDetailId} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Документы и результаты</strong></nav>
     <header className="registry-heading"><div><span className="eyebrow">Сквозные зависимости</span><h1>Документы и результаты</h1><p>Автоматический реестр входов и выходов всех доступных процессов. Он показывает, где объект создаётся, кто его получает и где цепочка обрывается.</p></div><div className="registry-heading-actions"><button disabled={!registry} onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button><button onClick={refresh}><RefreshCw size={16}/>Пересчитать</button></div></header>
+    <button disabled={!registry} onClick={() => setTransfers(true)}>Матрица передач по текущему фильтру</button>
     {error && <div className="registry-error">{error}</div>}
     {!registry && !error && <div className="editor-loading"><div className="loader"/>Сопоставляем входы, выходы и документы…</div>}
     {registry && <>
