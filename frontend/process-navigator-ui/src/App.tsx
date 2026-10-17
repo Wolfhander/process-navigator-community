@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { processLocationHash, readProcessLocation } from './process-location';
 import { Activity, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePenLine, GitPullRequest, History, Home, Maximize2, Minus, Network, PanelTop, PencilRuler, PlugZap, Plus, Rocket, RotateCcw, Search, Upload, UserCog, Users } from 'lucide-react';
 import { createDraft, loadArchivedProcess, loadAssignments, loadNotifications, loadOrganization, loadProcess, loadProcessCatalog, loadSession, markAllNotificationsRead, markNotificationRead, publishDraft, returnStep, setActiveUser, updateStep } from './api';
 import { ContextPanel } from './ContextPanel';
@@ -46,11 +47,13 @@ const BpmnEditor = lazy(() => import('./BpmnEditor').then(module => ({ default: 
 const HelpDialog = lazy(() => import('./HelpDialog').then(module => ({ default: module.HelpDialog })));
 
 export default function App() {
+  const [initialLocation] = useState(() => readProcessLocation(window.location.hash));
+  const restoreLocation = useRef(initialLocation);
   const hostContext = readHostContext();
   const [catalog, setCatalog] = useState<ProcessSummary[]>([]);
   const [session, setSession] = useState<Session>();
   const personalWorkspace = usePersonalWorkspace(session?.currentUser.id ?? '');
-  const [processId, setProcessId] = useState('');
+  const [processId, setProcessId] = useState(initialLocation?.processId ?? '');
   const [process, setProcess] = useState<ProcessModel>();
   const [selected, setSelected] = useState<ProcessNode>();
   const [message, setMessage] = useState('');
@@ -72,7 +75,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [oneCOpen, setOneCOpen] = useState(false);
   const [deploymentOpen, setDeploymentOpen] = useState(false);
-  const [enterpriseOpen, setEnterpriseOpen] = useState(true);
+  const [enterpriseOpen, setEnterpriseOpen] = useState(!initialLocation);
   const [homeSection, setHomeSection] = useState<'home' | 'map' | 'settings' | 'version' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog'>('home');
   const [organizationIdentity, setOrganizationIdentity] = useState<OrganizationMap>();
   const [organizationEditor, setOrganizationEditor] = useState<OrganizationMap>();
@@ -82,8 +85,8 @@ export default function App() {
   const [pendingSearchResult, setPendingSearchResult] = useState<SearchResult>();
   const [pendingAuditTarget, setPendingAuditTarget] = useState<{ processId: string; elementId: string }>();
   const [activeInstance, setActiveInstance] = useState<ProcessInstance>();
-  const [draftView, setDraftView] = useState(false);
-  const [archivedVersion, setArchivedVersion] = useState<string>();
+  const [draftView, setDraftView] = useState(initialLocation?.draft ?? false);
+  const [archivedVersion, setArchivedVersion] = useState<string | undefined>(initialLocation?.version);
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [publicationValidationOpen, setPublicationValidationOpen] = useState(false);
   const [lifecycleOpen, setLifecycleOpen] = useState(false);
@@ -150,10 +153,24 @@ export default function App() {
     const request = archivedVersion
       ? loadArchivedProcess(processId, archivedVersion, controller.signal)
       : loadProcess(processId, controller.signal, draftView);
-    request.then(result => { if (!controller.signal.aborted) { setProcess(result); personalWorkspace.visit(result.id); } })
+    request.then(result => { if (!controller.signal.aborted) {
+      setProcess(result); personalWorkspace.visit(result.id);
+      if (restoreLocation.current?.processId === result.id) {
+        const elementId = restoreLocation.current.elementId;
+        setSelected(result.nodes.find(node => node.id === elementId));
+        if (elementId && result.nodes.some(node => node.id === elementId)) setFocusCommand({ id: Date.now(), elementId });
+        restoreLocation.current = undefined;
+      }
+    } })
       .catch(reason => { if (reason.name !== 'AbortError') setError(reason.message); });
     return () => controller.abort();
   }, [processId, draftView, archivedVersion, reloadKey, enterpriseOpen, session?.currentUser.id]);
+
+  useEffect(() => {
+    if (!session || (!enterpriseOpen && process?.id !== processId)) return;
+    const hash = processLocationHash(enterpriseOpen ? undefined : { processId, elementId: selected?.id, draft: draftView, version: archivedVersion });
+    if (window.location.hash !== hash) window.history.replaceState(null, '', window.location.pathname + window.location.search + hash);
+  }, [session, enterpriseOpen, process, processId, selected?.id, draftView, archivedVersion]);
 
   useEffect(() => {
     if (!processId || !session || enterpriseOpen) return;
