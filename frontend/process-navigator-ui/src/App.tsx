@@ -95,7 +95,7 @@ export default function App() {
   const [zoomCommand, setZoomCommand] = useState({ id: 0, factor: 1 });
   const [fitCommand, setFitCommand] = useState(0);
   const [focusCommand, setFocusCommand] = useState<{ id: number; elementId: string }>();
-  const [processTrail, setProcessTrail] = useState<{ id: string; name: string }[]>([]);
+  const [processTrail, setProcessTrail] = useState<{ id: string; name: string }[]>(() => initialLocation?.trail?.map(id => ({ id, name: id })) ?? []);
 
   const refreshCatalog = async (preferredId?: string) => {
     const items = await loadProcessCatalog();
@@ -110,6 +110,7 @@ export default function App() {
     const controller = new AbortController();
     loadProcessCatalog(controller.signal).then(items => {
       setCatalog(items);
+      setProcessTrail(current => current.filter(parent => items.some(item => item.id === parent.id)).map(parent => ({ id: parent.id, name: items.find(item => item.id === parent.id)!.name })));
       // The home page does not require access to any individual process.
     }).catch(reason => { if (reason.name !== 'AbortError') setError(reason.message); });
     return () => controller.abort();
@@ -168,9 +169,12 @@ export default function App() {
 
   useEffect(() => {
     if (!session || (!enterpriseOpen && process?.id !== processId)) return;
-    const hash = processLocationHash(enterpriseOpen ? undefined : { processId, elementId: selected?.id, draft: draftView, version: archivedVersion });
+    const currentLocation = readProcessLocation(window.location.hash);
+    const hash = processLocationHash(enterpriseOpen ? undefined : { processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
+      expandedSteps: currentLocation?.processId === processId ? currentLocation.expandedSteps : undefined,
+      trail: processTrail.map(parent => parent.id) });
     if (window.location.hash !== hash) window.history.replaceState(null, '', window.location.pathname + window.location.search + hash);
-  }, [session, enterpriseOpen, process, processId, selected?.id, draftView, archivedVersion]);
+  }, [session, enterpriseOpen, process, processId, selected?.id, draftView, archivedVersion, processTrail]);
 
   useEffect(() => {
     if (!processId || !session || enterpriseOpen) return;

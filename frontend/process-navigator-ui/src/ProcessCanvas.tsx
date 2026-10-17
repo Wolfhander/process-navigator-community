@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { processLocationHash, readProcessLocation } from './process-location';
+import { restoreExpandedProcesses, type ExpandedProcess } from './expanded-location';
 import { resolveCapabilities } from './capabilities';
 import { loadOrganization, loadProcess } from './api';
 import type { Edge, OrganizationMap, Point, ProcessModel, ProcessNode } from './types';
 
 type ZoomCommand = { id: number; factor: number };
 type FocusCommand = { id: number; elementId: string };
-type ExpandedProcess = { process: ProcessModel; sourceProcessId: string; sourceProcessName: string; sourceElementId: string; sourceElementName: string };
 type Props = {
   process: ProcessModel;
   selectedId?: string;
@@ -146,6 +147,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
   const [organization, setOrganization] = useState<OrganizationMap>();
   const [expandedProcesses, setExpandedProcesses] = useState<ExpandedProcess[]>([]);
   const [expandError, setExpandError] = useState('');
+  const [restoringExpansion, setRestoringExpansion] = useState(true);
   const zoom = world.width / camera.width;
   const selectedNode = process.nodes.find(node => node.id === selectedId);
   const activeLane = process.lanes.find(lane => lane.id === selectedNode?.laneId)
@@ -171,7 +173,24 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
   });
 
   useEffect(() => { setCamera(world); }, [world]);
-  useEffect(() => { setExpandedProcesses([]); setExpandError(''); }, [process.id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const location = readProcessLocation(window.location.hash);
+    setExpandedProcesses([]); setExpandError(''); setRestoringExpansion(true);
+    const steps = location?.processId === process.id ? location.expandedSteps ?? [] : [];
+    restoreExpandedProcesses(process, steps, id => loadProcess(id, controller.signal), controller.signal).then(result => {
+      if (controller.signal.aborted) return;
+      setExpandedProcesses(result.entries); setExpandError(result.error); setRestoringExpansion(false);
+    });
+    return () => controller.abort();
+  }, [process.id]);
+  useEffect(() => {
+    if (restoringExpansion) return;
+    const location = readProcessLocation(window.location.hash);
+    if (location?.processId !== process.id) return;
+    const hash = processLocationHash({ ...location, expandedSteps: expandedProcesses.map(entry => entry.sourceElementId) });
+    window.history.replaceState(null, '', window.location.pathname + window.location.search + hash);
+  }, [expandedProcesses, restoringExpansion, process.id]);
   useEffect(() => { if (zoomCommand) setCamera(current => zoomAt(current, zoomCommand.factor, { x: current.x + current.width / 2, y: current.y + current.height / 2 }, world)); }, [zoomCommand, world]);
   useEffect(() => { if (fitCommand !== undefined) setCamera(world); }, [fitCommand, world]);
   useEffect(() => {
@@ -232,6 +251,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
   };
 
   const toggleDetails = async (processId: string, level: number, source: ProcessNode, sourceProcess: ProcessModel) => {
+    if (restoringExpansion) return;
     const existing = expandedProcesses[level];
     if (existing?.process.id === processId && existing.sourceElementId === source.id) {
       setExpandedProcesses(current => current.slice(0, Math.max(0, level)));

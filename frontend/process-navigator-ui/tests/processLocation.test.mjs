@@ -29,3 +29,12 @@ test('invalid optional fields do not prevent opening the model', () => {
   assert.equal(location.elementId, undefined);
   assert.equal(location.version, undefined);
 });
+
+test('expanded chain and return trail round trip with depth limits', () => {
+  const location = { processId: 'leaf', draft: false, expandedSteps: ['Шаг 1', 'Шаг&2'], trail: ['root', 'middle'] };
+  const restored = readProcessLocation(processLocationHash(location));
+  assert.deepEqual(restored.expandedSteps, location.expandedSteps);
+  assert.deepEqual(restored.trail, location.trail);
+  assert.equal(readProcessLocation('#process=leaf&parent=root&parent=root&parent=leaf').trail.length, 1);
+  assert.equal(readProcessLocation(processLocationHash({ ...location, expandedSteps: Array(30).fill('step') })).expandedSteps.length, 20);
+});
