@@ -28,4 +28,25 @@ Check(ProcessBoundaryCheck.Compare(Node(input with { Version = null }), Child(in
 Check(!ProcessBoundaryCheck.Compare(Node(output), Child(extra, extra with { Role = "Output" })).Any(issue => issue.Code.EndsWith("external-input")), "Produced intermediate objects do not impose an external source by this structural check");
 Check(ProcessBoundaryCheck.Compare(Node(output), Child(extra, extra)).Count(issue => issue.Code.EndsWith("external-input")) == 1, "Repeated use of the same boundary object does not duplicate missing-source warnings");
 Check(ProcessBoundaryCheck.Compare(Node(), Child(extra)).Any(issue => issue.Code.EndsWith("unmapped")) && ProcessBoundaryCheck.Compare(Node(), Child(extra)).Any(issue => issue.Code.EndsWith("external-input")), "Unmapped parent must not stop reverse diagnostics");
-Console.WriteLine($"Boundary checks passed: {count} scenarios.");
+static InformationObjectOccurrenceModel Occurrence(string direction, string? version, bool required = true) =>
+    new("process", "Процесс", "step", "Этап", "Step", direction, required, Version: version);
+static InformationObjectModel RegistryObject(InformationObjectOccurrenceModel[] producers, InformationObjectOccurrenceModel[] consumers, string state = "Active") =>
+    new("document", "Документ", "Document", [], "1", state, true, "Связан", producers, consumers, []);
+var producer = Occurrence("Producer", "1");
+var consumer = Occurrence("Consumer", "1");
+Check(InformationObjectPolicy.Check(RegistryObject([producer], [consumer])).Count == 0, "Matching producer/consumer versions pass");
+Check(InformationObjectPolicy.Check(RegistryObject([producer], [consumer with { Version = "2" }])).Any(issue => issue.Code == "version-source-missing"), "Required version absent from known producers is identified");
+var unknownVersion = InformationObjectPolicy.Check(RegistryObject([producer with { Version = null }], [consumer]));
+Check(unknownVersion.Any(issue => issue.Code == "version-unverified") && !unknownVersion.Any(issue => issue.Code == "version-source-missing"), "Unknown version is uncertainty, not proof of absence");
+Check(!InformationObjectPolicy.Check(RegistryObject([producer, producer with { Version = "2" }], [consumer])).Any(issue => issue.Code is "version-source-missing" or "version-unverified"), "One matching producer is sufficient for structural version availability, not proof of routing");
+Check(InformationObjectPolicy.Check(RegistryObject([producer], [consumer], "Archived")).Any(issue => issue.Code == "archived-in-use"), "Archived mandatory input requires review");
+Check(InformationObjectPolicy.Check(RegistryObject([producer], [consumer], "Draft")).Any(issue => issue.Code == "draft-in-use"), "Draft mandatory input requires review");
+Check(!InformationObjectPolicy.Check(RegistryObject([producer], [consumer with { Required = false, Version = "2" }], "Archived")).Any(issue => issue.Code is "archived-in-use" or "version-source-missing"), "Optional use is not treated as a mandatory demand");
+var referenced = RegistryObject([producer], [consumer]) with { References = [Occurrence("Reference", "old")] };
+Check(InformationObjectPolicy.Check(referenced).Count == 0, "Reference-only versions do not imply a transfer conflict");
+var grouped = InformationObjectPolicy.Check(RegistryObject([producer], [consumer with { Version = "2" }, consumer with { Version = "3" }]));
+Check(grouped.Count(issue => issue.Code == "version-source-missing") == 1 && grouped.Single(issue => issue.Code == "version-source-missing").Message.Contains("3"), "Distinct missing versions aggregate without duplicate issue keys");
+Check(!InformationObjectPolicy.Check(RegistryObject([], [consumer])).Any(issue => issue.Code == "version-source-missing"), "Missing producer is diagnosed by the existing registry rule, not duplicated as a version issue");
+var versionRecipients = RegistryObject([producer], [consumer, consumer with { ProcessId = "needs-v2", Version = "2" }]);
+Check(InformationObjectPolicy.AffectedConsumers(versionRecipients, "version-source-missing").Single().ProcessId == "needs-v2", "Version-specific uncertainty targets only consumers needing the unavailable version");
+Console.WriteLine($"Server checks passed: {count} scenarios.");

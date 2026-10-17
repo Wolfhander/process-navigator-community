@@ -66,12 +66,13 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
                 "missing-producer" => item.Consumers.Where(value => value.Required),
                 "missing-consumer" => item.Producers,
                 "multiple-producers" or "version-conflict" => item.Consumers,
+                "version-source-missing" or "version-unverified" or "archived-in-use" or "draft-in-use" => InformationObjectPolicy.AffectedConsumers(item, issue.Code),
                 _ => item.Producers.Concat(item.Consumers)
             }).Where(value => relevantIds.Contains(value.ProcessId)).DistinctBy(value => value.ProcessId, StringComparer.OrdinalIgnoreCase).ToArray();
             foreach (var occurrence in affected)
             {
                 issues.Add(new(issue.Code, issue.Severity, $"{item.Name}: {issue.Message}", occurrence.ProcessId, occurrence.ElementId, item.Id));
-                if (issue.Code is "missing-producer" or "multiple-producers" or "version-conflict")
+                if (issue.Code is "missing-producer" or "multiple-producers" or "version-conflict" or "version-source-missing" or "version-unverified")
                     uncertaintyReasons[occurrence.ProcessId].Add($"Ненадёжный вход «{item.Name}»: {issue.Message}");
             }
         }

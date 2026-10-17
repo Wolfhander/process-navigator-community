@@ -78,10 +78,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 issues.Add(new(item.Id, "missing-consumer", "Warning", "Объект создаётся, но его следующий получатель не найден."));
             if (item.Producers.Select(LocationKey).Distinct(StringComparer.OrdinalIgnoreCase).Skip(1).Any())
                 issues.Add(new(item.Id, "multiple-producers", "Warning", "Обнаружено несколько источников. Требуется проверить версии и условия возникновения."));
-            var usedVersions = item.Producers.Concat(item.Consumers).Concat(item.References).Select(value => value.Version)
-                .Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-            if (usedVersions.Length > 1 || item.Managed && usedVersions.Any(value => !value.Equals(item.Version, StringComparison.OrdinalIgnoreCase)))
-                issues.Add(new(item.Id, "version-conflict", "Warning", $"В процессах используются несовместимые версии: {string.Join(", ", usedVersions)}. Версия реестра: {item.Version}."));
+            issues.AddRange(InformationObjectPolicy.Check(item));
         }
         return new(DateTimeOffset.UtcNow, loadedProcesses, result.Length,
             result.Count(item => item.Kind == "Document"), result.Count(item => item.Kind == "Result"),
