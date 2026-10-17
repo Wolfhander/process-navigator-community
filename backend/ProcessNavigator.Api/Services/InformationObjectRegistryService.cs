@@ -59,7 +59,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
 
         foreach (var definition in definitions.Where(definition => !objects.ContainsKey(definition.Id)))
         {
-            var entry = new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components);
+            var entry = new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient);
             foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
             objects[definition.Id] = entry;
         }
@@ -105,6 +105,10 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 throw new InvalidDataException("Версия или состояние объекта изменены после открытия формы. Пересчитайте реестр и откройте форму заново; изменения не сохранены.");
             InformationObjectLifecycle.Validate(previous?.LifecycleState, previous?.Version, lifecycle, version);
             var history = (previous?.History ?? []).ToList();
+            var externalSource = update.ExternalSource is null ? previous?.ExternalSource : update.ExternalSource.Trim();
+            var externalRecipient = update.ExternalRecipient is null ? previous?.ExternalRecipient : update.ExternalRecipient.Trim();
+            if (externalSource?.Length > 300 || externalRecipient?.Length > 300) throw new InvalidDataException("Описание внешнего участника превышает 300 символов.");
+            var externalChanged = previous is not null && (previous.ExternalSource != externalSource || previous.ExternalRecipient != externalRecipient);
             var rawComponents = update.Components ?? previous?.Components ?? [];
             if (rawComponents.Any(item => item is null)) throw new InvalidDataException("Часть комплекта не может быть пустой.");
             var components = rawComponents.Select(item => item with { Version = string.IsNullOrWhiteSpace(item.Version) ? null : item.Version.Trim(), Condition = string.IsNullOrWhiteSpace(item.Condition) ? null : item.Condition.Trim() }).ToArray();
@@ -117,14 +121,14 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 throw new InvalidDataException("Для изменения состава действующего или архивного комплекта создайте новую версию в состоянии «Черновик».");
             if (previous is not null && !previous.Version.Equals(version, StringComparison.OrdinalIgnoreCase) && history.Any(item => item.Version.Equals(version, StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidDataException("Обозначение версии уже использовалось в истории этого объекта. Для новой редакции выберите новое обозначение.");
-            var changed = previous is not null && (previous.Name != name || previous.Kind != kind || previous.Version != version || previous.LifecycleState != lifecycle || !previous.Aliases.SequenceEqual(aliases) || compositionChanged);
-            if (changed) history.Add(new(previous!.Name, previous.Kind, previous.Version, previous.LifecycleState, previous.Aliases, DateTimeOffset.UtcNow, previous.Components));
+            var changed = previous is not null && (previous.Name != name || previous.Kind != kind || previous.Version != version || previous.LifecycleState != lifecycle || !previous.Aliases.SequenceEqual(aliases) || compositionChanged || externalChanged);
+            if (changed) history.Add(new(previous!.Name, previous.Kind, previous.Version, previous.LifecycleState, previous.Aliases, DateTimeOffset.UtcNow, previous.Components, previous.ExternalSource, previous.ExternalRecipient));
             var collisions = definitions.Where(item => !item.Id.Equals(id, StringComparison.OrdinalIgnoreCase))
                 .SelectMany(item => item.Aliases.Append(item.Name).Select(alias => (Id: item.Id, Alias: Normalize(alias))))
                 .FirstOrDefault(item => aliases.Any(alias => Normalize(alias) == item.Alias));
             if (!string.IsNullOrWhiteSpace(collisions.Id)) throw new InvalidDataException("Один из синонимов уже принадлежит другому объекту реестра.");
             definitions.RemoveAll(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
-            definitions.Add(new(id, name, kind, version, lifecycle, aliases, history, components));
+            definitions.Add(new(id, name, kind, version, lifecycle, aliases, history, components, externalSource, externalRecipient));
             Directory.CreateDirectory(Path.GetDirectoryName(RegistryPath)!);
             var temporary = $"{RegistryPath}.{Guid.NewGuid():N}.tmp";
             await File.WriteAllTextAsync(temporary, System.Text.Json.JsonSerializer.Serialize(definitions.OrderBy(item => item.Name).ToArray(), JsonOptions), new UTF8Encoding(false), cancellationToken);
@@ -145,7 +149,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         {
             entry = definition is null
                 ? new Entry(binding.ObjectId, binding.Name, DetectKind(binding.Name), binding.Version ?? "1.0", "Observed", false)
-                : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components);
+                : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient);
             if (definition is not null) foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
             objects[key] = entry;
         }
@@ -175,7 +179,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 {
                     entry = definition is null
                         ? new Entry(expectedId, name, forcedKind ?? DetectKind(name), "1.0", "Observed", false)
-                        : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components);
+                        : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient);
                     if (definition is not null) foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
                     objects[scopedKey] = entry;
                 }
@@ -200,7 +204,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
             entry.Version, entry.LifecycleState, entry.Managed, state,
             entry.Producers.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(),
             entry.Consumers.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(),
-            entry.References.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(), entry.History, entry.Components);
+            entry.References.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(), entry.History, entry.Components, entry.ExternalSource, entry.ExternalRecipient);
     }
 
     private static IEnumerable<string> Split(string value) => value.Split(['\r', '\n', ';', '•'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -226,7 +230,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         return result;
     }
 
-    private sealed class Entry(string id, string name, string kind, string version, string lifecycleState, bool managed, IReadOnlyList<InformationObjectRevisionModel>? history = null, IReadOnlyList<InformationObjectComponentModel>? components = null)
+    private sealed class Entry(string id, string name, string kind, string version, string lifecycleState, bool managed, IReadOnlyList<InformationObjectRevisionModel>? history = null, IReadOnlyList<InformationObjectComponentModel>? components = null, string? externalSource = null, string? externalRecipient = null)
     {
         public string Id { get; } = id;
         public string Name { get; } = name;
@@ -236,13 +240,15 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         public bool Managed { get; } = managed;
         public IReadOnlyList<InformationObjectRevisionModel> History { get; } = history ?? [];
         public IReadOnlyList<InformationObjectComponentModel> Components { get; } = components ?? [];
+        public string? ExternalSource { get; } = externalSource;
+        public string? ExternalRecipient { get; } = externalRecipient;
         public HashSet<string> Aliases { get; } = new(StringComparer.CurrentCultureIgnoreCase);
         public List<InformationObjectOccurrenceModel> Producers { get; } = [];
         public List<InformationObjectOccurrenceModel> Consumers { get; } = [];
         public List<InformationObjectOccurrenceModel> References { get; } = [];
     }
 
-    private sealed record Definition(string Id, string Name, string Kind, string Version, string LifecycleState, IReadOnlyList<string> Aliases, IReadOnlyList<InformationObjectRevisionModel>? History = null, IReadOnlyList<InformationObjectComponentModel>? Components = null);
+    private sealed record Definition(string Id, string Name, string Kind, string Version, string LifecycleState, IReadOnlyList<string> Aliases, IReadOnlyList<InformationObjectRevisionModel>? History = null, IReadOnlyList<InformationObjectComponentModel>? Components = null, string? ExternalSource = null, string? ExternalRecipient = null);
 
     [GeneratedRegex("[^a-zа-я0-9]+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)] private static partial Regex NonWord();
     [GeneratedRegex("\\s+", RegexOptions.CultureInvariant)] private static partial Regex Spaces();

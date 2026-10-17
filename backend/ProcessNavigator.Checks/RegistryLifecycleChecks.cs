@@ -60,7 +60,16 @@ internal static class RegistryLifecycleChecks
             var cleared = (await reloaded.SaveAsync("legacy", kitUpdate with { Components = [] }, false)).Objects.Single(item => item.Id == "legacy");
             Check(cleared.Components?.Count == 0 && cleared.History?.Last().Components?.Single().ObjectId == "part", "Clear snapshots previous composition");
             var loadedAgain = new InformationObjectRegistryService(catalog, environment);
-            Check((await loadedAgain.BuildAsync(false)).Objects.Single(item => item.Id == "legacy").History?.Last().Components?.Count == 1, "Composition history survives reload");
+            var externalUpdate = Update("2", "Draft", "2", "Draft") with { ExternalSource = "Поставщик: учебный контрагент", ExternalRecipient = "Клиент: учебный заказчик" };
+            var external = (await loadedAgain.SaveAsync("legacy", externalUpdate, false)).Objects.Single(item => item.Id == "legacy");
+            Check(external.ExternalSource == externalUpdate.ExternalSource && external.ExternalRecipient == externalUpdate.ExternalRecipient, "Explicit external endpoints persist");
+            var legacySave = (await loadedAgain.SaveAsync("legacy", Update("2", "Draft", "2", "Draft"), false)).Objects.Single(item => item.Id == "legacy");
+            Check(legacySave.ExternalSource == externalUpdate.ExternalSource, "Old clients preserve external endpoints");
+            await Reject(loadedAgain, externalUpdate with { ExternalSource = new string('x', 301) });
+            var noExternal = (await loadedAgain.SaveAsync("legacy", externalUpdate with { ExternalSource = "", ExternalRecipient = "" }, false)).Objects.Single(item => item.Id == "legacy");
+            Check(noExternal.ExternalSource == "" && noExternal.History?.Last().ExternalSource == externalUpdate.ExternalSource, "Explicit clear snapshots external participant");
+            var finalReload = new InformationObjectRegistryService(catalog, environment);
+            Check((await finalReload.BuildAsync(false)).Objects.Single(item => item.Id == "legacy").History?.Any(snapshot => snapshot.Components?.Count == 1) == true, "Composition history survives reload");
         }
         finally
         {
