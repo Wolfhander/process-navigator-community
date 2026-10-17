@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Download, FilePenLine, Layers3, ListTodo, RefreshCw, X } from 'lucide-react';
 import { auditProcessCatalog, exportProcessCatalogAudit } from './api';
 import type { CatalogAuditItem, CatalogAuditReport, ProcessValidationIssue } from './types';
-import { buildCatalogAuditWorkItems } from './catalog-audit-worklist';
+import { auditWorkItemsCsv, buildCatalogAuditWorkItems, matchesAuditIssue } from './catalog-audit-worklist';
 import './catalog-audit.css';
 
 type StatusFilter = 'problems' | 'errors' | 'ready' | 'all';
@@ -50,14 +50,19 @@ export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, pag
   const visible = useMemo(() => (report?.items ?? []).filter(item => {
     const matchesStatus = status === 'all' || (status === 'errors' ? item.errorCount > 0 : status === 'ready' ? item.qualityStatus === 'Ready' : item.qualityStatus !== 'Ready');
     const matchesEdition = !edition || item.edition === edition;
-    const matchesCategory = !category || item.issues.some(issue => issue.category === category);
+    const matchesCategory = (!category && status !== 'errors') || item.issues.some(issue => matchesAuditIssue(item, issue, category, status === 'errors', query));
     const haystack = [item.processName, item.processId, item.fileName, ...item.issues.flatMap(issue => [issue.code, issue.message, issue.elementName ?? ''])].join(' ').toLocaleLowerCase();
     return matchesStatus && matchesEdition && matchesCategory && haystack.includes(query.trim().toLocaleLowerCase());
   }), [report, status, edition, category, query]);
   const selected = visible.find(item => itemKey(item) === selectedKey) ?? visible[0];
-  const selectedIssues = selected?.issues.filter(issue => !category || issue.category === category) ?? [];
-  const workItems = useMemo(() => buildCatalogAuditWorkItems(visible, category), [visible, category]);
+  const selectedIssues = selected?.issues.filter(issue => matchesAuditIssue(selected, issue, category, status === 'errors', query)) ?? [];
+  const workItems = useMemo(() => buildCatalogAuditWorkItems(visible, category, status === 'errors', query), [visible, category, status, query]);
   const mayFix = selected?.openable && (selected.edition === 'Draft' || selected.hasDraft || canCreateDraft);
+  const exportVisibleIssues = () => {
+    const url = URL.createObjectURL(new Blob([auditWorkItemsCsv(workItems)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'process-correction-worklist.csv'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   const fix = async (item: CatalogAuditItem, issue?: ProcessValidationIssue) => {
     setFixing(true); setError('');
@@ -81,6 +86,7 @@ export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, pag
       {report.categories.length > 0 && <div className="catalog-audit-categories" aria-label="Категории замечаний"><button className={!category ? 'active' : ''} onClick={() => setCategory('')}>Все категории <b>{report.errorCount + report.warningCount}</b></button>{report.categories.map(item => <button key={item.id} className={category === item.id ? 'active' : ''} onClick={() => setCategory(current => current === item.id ? '' : item.id)}>{item.name} <b>{item.errorCount + item.warningCount}</b></button>)}</div>}
       <div className="catalog-audit-view-tabs"><button className={viewMode === 'issues' ? 'active' : ''} onClick={() => setViewMode('issues')}><ListTodo size={15}/>Рабочий список <b>{workItems.length}</b></button><button className={viewMode === 'processes' ? 'active' : ''} onClick={() => setViewMode('processes')}><Layers3 size={15}/>По процессам <b>{visible.length}</b></button></div>
       <div className="catalog-audit-filters">
+        <button onClick={exportVisibleIssues} disabled={!workItems.length}><Download size={15}/>Выгрузить выбранные замечания ({workItems.length})</button>
         <input aria-label="Поиск в проверке" placeholder="Процесс, файл, элемент или текст замечания" value={query} onChange={event => setQuery(event.target.value)}/>
         <select aria-label="Статус качества" value={status} onChange={event => setStatus(event.target.value as StatusFilter)}><option value="problems">Требуют внимания</option><option value="errors">Только ошибки</option><option value="ready">Готовы к работе</option><option value="all">Все редакции</option></select>
         <select aria-label="Тип редакции" value={edition} onChange={event => setEdition(event.target.value as EditionFilter)}><option value="">Все редакции</option><option value="Published">Действующие</option><option value="Draft">Черновики</option></select>
