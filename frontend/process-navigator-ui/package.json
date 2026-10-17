@@ -1,6 +1,7 @@
 {
   "name": "process-navigator-ui",
   "private": true,
+  "packageManager": "pnpm@11.25.0",
   "version": "0.2.0-preview.28-dev",
   "type": "module",
   "scripts": {

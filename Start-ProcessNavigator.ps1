@@ -5,7 +5,8 @@ param(
   [int]$Port = 5081,
   [switch]$SkipUpdate,
   [switch]$PrepareOnly,
-  [switch]$Stop
+  [switch]$Stop,
+  [switch]$NoBrowser
 )
 $ErrorActionPreference = 'Stop'
 $repositoryUrl = 'https://github.com/Wolfhander/process-navigator-community.git'
@@ -117,7 +118,7 @@ try {
   } while ((Get-Date) -lt $deadline)
   if ($ready) {
     Write-Host "Ready: $url"
-    try { Start-Process $url } catch { Write-Warning 'Browser was not opened. Open the local URL manually.' }
+    if (-not $NoBrowser) { try { Start-Process $url } catch { Write-Warning 'Browser was not opened. Open the local URL manually.' } }
     exit 0
   }
   # Only the process created by this invocation may be stopped here.
