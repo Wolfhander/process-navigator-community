@@ -17,6 +17,7 @@ builder.Services.AddSingleton<AccessControlService>();
 builder.Services.AddSingleton<ArtifactRepositoryService>();
 builder.Services.AddSingleton<InformationObjectRegistryService>();
 builder.Services.AddSingleton<ProcessScheduleService>();
+builder.Services.AddSingleton<InstanceSchedulePlanService>();
 builder.Services.AddSingleton<ProcessAssignmentService>();
 builder.Services.AddSingleton<ProcessExecutionService>();
 builder.Services.AddSingleton<PortfolioAnalyticsService>();
@@ -336,6 +337,26 @@ app.MapGet("/api/processes/{processId}/instances", async (string processId, Http
 {
     if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
     return Results.Ok(await executions.ListAsync(processId, cancellationToken));
+});
+
+app.MapGet("/api/processes/{processId}/instances/{instanceId}/schedule-plans", async (string processId, string instanceId,
+    HttpContext context, InstanceSchedulePlanService plans, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await plans.ListAsync(processId, instanceId, ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(new { message = "Выполнение не найдено." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+
+app.MapPost("/api/processes/{processId}/instances/{instanceId}/schedule-plans", async (string processId, string instanceId,
+    InstanceSchedulePlanUpdateModel request, HttpContext context, InstanceSchedulePlanService plans,
+    AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.Execute)) return Forbidden(ProcessPermissions.Execute);
+    try { return Results.Ok(await plans.AssignAsync(processId, instanceId, request, access.CurrentUser(context).Id, ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(new { message = "Выполнение не найдено." }); }
+    catch (FileNotFoundException) { return Results.NotFound(new { message = "Процесс расчёта не найден." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
 });
 
 app.MapGet("/api/processes/{processId}/instances/{instanceId}/timeline", async (string processId, string instanceId,

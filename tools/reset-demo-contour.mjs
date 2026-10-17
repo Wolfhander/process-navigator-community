@@ -130,7 +130,7 @@ export function resetDemoContour(repoRoot, apply = false) {
   const data = path.join(root, 'backend', 'ProcessNavigator.Api', 'Data');
   if (!fs.existsSync(path.join(root, 'backend', 'ProcessNavigator.Api', 'ProcessNavigator.Api.csproj'))) throw new Error('Process Navigator repository was not found.');
   if (fs.realpathSync(data) !== data) throw new Error('Data path must not be a symbolic link or junction.');
-  const removableDirectories = new Set(['Drafts', 'Versions', 'Passports', 'Assignments', 'Executions', 'Commands', 'Comments', 'Notifications', 'InformationObjects', 'ImportReports', 'ImportSelectionSets', 'Artifacts', 'Audit']);
+  const removableDirectories = new Set(['Drafts', 'Versions', 'Passports', 'Assignments', 'Executions', 'SchedulePlans', 'Commands', 'Comments', 'Notifications', 'InformationObjects', 'ImportReports', 'ImportSelectionSets', 'Artifacts', 'Audit']);
   const targets = fs.readdirSync(data, { withFileTypes: true }).filter(entry => entry.isDirectory() ? removableDirectories.has(entry.name) : entry.name === 'organization.json' || entry.name.endsWith('.bpmn') || entry.name.endsWith('.context.json')).map(entry => path.join(data, entry.name));
   for (const target of targets) {
     if (path.dirname(target) !== data || fs.lstatSync(target).isSymbolicLink()) throw new Error(`Unsafe reset target: ${target}`);

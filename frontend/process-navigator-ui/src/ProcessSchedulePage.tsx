@@ -5,18 +5,19 @@ import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
 import { scheduleCsv } from './schedule-export';
 import { ScheduleRouteEditor } from './ScheduleRouteEditor';
 import { ScheduleArchive } from './ScheduleArchive';
+import { ScheduleFactPanel } from './ScheduleFactPanel';
 import type { ScheduleSnapshot } from './schedule-snapshots';
 import type { ProcessSchedule, ProcessScheduleRequest, ProcessSummary, ScheduleCalendar, ScheduleRepetition } from './types';
 import './process-schedule.css';
 
-type Props = { userId: string; catalog: ProcessSummary[]; onBack: () => void; onOpen: (processId: string) => void };
+type Props = { userId: string; canAssign?: boolean; catalog: ProcessSummary[]; onBack: () => void; onOpen: (processId: string) => void };
 const week = [{ id: 1, short: 'Пн' }, { id: 2, short: 'Вт' }, { id: 3, short: 'Ср' }, { id: 4, short: 'Чт' }, { id: 5, short: 'Пт' }, { id: 6, short: 'Сб' }, { id: 0, short: 'Вс' }];
 
 function localInputValue(value: Date | string) { const date = value instanceof Date ? value : new Date(value); const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
 function displayDate(value: string) { return new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function displayHours(value: number) { return `${Math.round(value * 10) / 10} ч`; }
 
-export function ProcessSchedulePage({ userId, catalog, onBack, onOpen }: Props) {
+export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack, onOpen }: Props) {
   const [rootProcessId, setRootProcessId] = useState(catalog[0]?.id ?? '');
   const [direction, setDirection] = useState<'Forward' | 'Backward'>('Forward');
   const [anchorDate, setAnchorDate] = useState(localInputValue(new Date()));
@@ -106,6 +107,7 @@ export function ProcessSchedulePage({ userId, catalog, onBack, onOpen }: Props) 
     <ScheduleCalendarEditor processes={result?.processes ?? []} defaults={{ workdayStart, workdayEnd, workingDays, nonWorkingDates, utcOffsetMinutes }} value={processCalendars} disabled={busy} onChange={value => { setProcessCalendars(value); setScenarioDirty(true); }}/>
     <ScheduleRouteEditor models={result?.sources?.processes ?? []} branches={processBranches} repetitions={processRepetitions} disabled={busy} onChange={(branches, repetitions) => { setProcessBranches(branches); setProcessRepetitions(repetitions); setScenarioDirty(true); }}/>
     <ScheduleArchive userId={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
+    {result && <ScheduleFactPanel result={result} request={lastRequest} canAssign={canAssign} dirty={scenarioDirty || busy}/>}
     {error && <div className="schedule-error"><AlertTriangle size={18}/>{error}</div>}
     {!result && !busy && !error && <section className="schedule-intro"><Network size={32}/><h2>Как строится цепочка</h2><p>Программа находит документы и результаты, которые выходят из одного процесса и являются входами другого. Затем применяет нормы работы, ожидания, календарь и параметры сценария.</p></section>}
     {result && <>

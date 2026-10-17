@@ -46,6 +46,65 @@ internal static class ScheduleChecks
             var service = new ProcessScheduleService(catalog, new InformationObjectRegistryService(catalog, env));
             var request = new ProcessScheduleRequestModel("source", "Forward", DateTimeOffset.Parse("2026-10-19T06:00:00Z"), UtcOffsetMinutes: 180);
             var result = await service.CalculateAsync(request, false);
+            var executions = new ProcessExecutionService(env);
+            var process = await catalog.LoadAsync("source", false, default);
+            var instance = await executions.StartAsync(process, "tester", "Контрольный заказ", default);
+            var plans = new InstanceSchedulePlanService(env, executions, service);
+            var scheduledItem = result.Processes.Single(item => item.ProcessId == "source");
+            var update = new InstanceSchedulePlanUpdateModel(request, scheduledItem.StartAt, scheduledItem.EndAt,
+                process.Version, null, "Первоначальный план", result.Sources);
+            var apiJson = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
+            update = JsonSerializer.Deserialize<InstanceSchedulePlanUpdateModel>(JsonSerializer.Serialize(update, apiJson), apiJson)!;
+            async Task RejectPlan(InstanceSchedulePlanUpdateModel value, string label, string? target = null)
+            {
+                var rejected = false;
+                try { await plans.AssignAsync("source", target ?? instance.Id, value, "tester"); }
+                catch (InvalidDataException) { rejected = true; }
+                catch (KeyNotFoundException) { rejected = true; }
+                Check(rejected, label);
+            }
+            Check((await plans.ListAsync("source", instance.Id)).Count == 0, "Legacy execution needs no plan migration");
+            var assigned = await plans.AssignAsync("source", instance.Id, update, "tester");
+            Check(assigned.Item.EndAt == scheduledItem.EndAt && assigned.AssignedBy == "tester", "Plan is calculated and attributed on server");
+            Check(JsonSerializer.Serialize((await executions.ListAsync("source", default)).Single()) == JsonSerializer.Serialize(instance), "Baseline leaves all execution history and normative steps unchanged");
+            await RejectPlan(update, "Stale baseline revision rejected");
+            await RejectPlan(update with { PreviousPlanId = assigned.Id, Reason = " " }, "Empty reason rejected");
+            await RejectPlan(update with { PreviousPlanId = assigned.Id, ExpectedEndAt = scheduledItem.EndAt.AddHours(1) }, "Changed dates rejected");
+            await RejectPlan(update with { PreviousPlanId = assigned.Id, ExpectedSources = null }, "Missing source snapshot rejected");
+            await RejectPlan(update with { PreviousPlanId = assigned.Id, ExpectedSources = result.Sources! with { Algorithm = "old" } }, "Changed algorithm rejected");
+            await RejectPlan(update with { PreviousPlanId = assigned.Id, ExpectedSources = result.Sources! with {
+                Processes = result.Sources.Processes.Select(item => item.Id == "source" ? item with { Name = "Изменено без новой версии" } : item).ToArray()
+            } }, "Source content mismatch rejected even with same dates and version");
+            await RejectPlan(update, "Unknown instance rejected", Guid.NewGuid().ToString("N"));
+            await RejectPlan(update, "Unsafe identifier rejected", "../../other");
+            var replacement = update with { PreviousPlanId = assigned.Id, Reason = "Уточнение календарного плана" };
+            var results = await Task.WhenAll(Enumerable.Range(0, 2).Select(async _ => {
+                try { await plans.AssignAsync("source", instance.Id, replacement, "tester"); return true; }
+                catch (InvalidDataException) { return false; }
+            }));
+            Check(results.Count(item => item) == 1, "Only one concurrent replacement commits");
+            var history = await new InstanceSchedulePlanService(env, executions, service).ListAsync("source", instance.Id);
+            Check(history.Count == 2 && history[0].Id == assigned.Id && history[0].Reason == "Первоначальный план", "Baseline revisions survive service reload without overwriting first plan");
+            await executions.ChangeLifecycleAsync("source", instance.Id, "pause", "Пауза заказа", "tester", default);
+            var pausedPlan = await plans.AssignAsync("source", instance.Id, update with { PreviousPlanId = history[^1].Id, Reason = "План на период паузы" }, "tester");
+            Check(pausedPlan.Item.EndAt == assigned.Item.EndAt, "Pause never silently moves baseline deadline");
+            await executions.ChangeLifecycleAsync("source", instance.Id, "cancel", "Заказ отменён", "tester", default);
+            await RejectPlan(update with { PreviousPlanId = pausedPlan.Id }, "Cancelled execution cannot be replanned");
+            var completed = await executions.StartAsync(process, "tester", "Завершённый заказ", default);
+            await executions.UpdateStepAsync(process, completed.Id, "task", "InProgress", "tester", default);
+            await executions.SaveStepResultAsync(process, completed.Id, "task", "Результат готов", ["shared"], "tester", default);
+            await executions.UpdateStepAsync(process, completed.Id, "task", "Completed", "tester", default);
+            await RejectPlan(update, "Completed execution cannot be replanned", completed.Id);
+            var otherVersion = await executions.StartAsync(process with { Version = "other-version" }, "tester", "Другая версия", default);
+            await RejectPlan(update, "Mismatched execution version rejected", otherVersion.Id);
+            var damaged = await executions.StartAsync(process, "tester", "Повреждённая история", default);
+            var damagedPlan = await plans.AssignAsync("source", damaged.Id, update, "tester");
+            var damagedPath = Path.Combine(data, "SchedulePlans", "source_" + damaged.Id + ".json");
+            await File.WriteAllTextAsync(damagedPath, "broken-json");
+            await RejectPlan(update with { PreviousPlanId = damagedPlan.Id }, "Corrupt history cannot be overwritten", damaged.Id);
+            Check(await File.ReadAllTextAsync(damagedPath) == "broken-json", "Corrupt history retained for recovery");
+            await File.WriteAllTextAsync(damagedPath, "[null]");
+            await RejectPlan(update with { PreviousPlanId = damagedPlan.Id }, "Structurally corrupt JSON history rejected", damaged.Id);
             Check(result.Processes.Single(item => item.ProcessId == "source").EndAt == DateTimeOffset.Parse("2026-10-19T14:00:00Z"), "UTC input must use explicit local calendar hours");
             Check(result.EndAt == DateTimeOffset.Parse("2026-10-20T14:00:00Z"), "Sequential work rolls over to next workday");
             Check(result.Sources?.Processes.Count == 2 && result.Sources.Objects.Single().Id == "shared", "Snapshot captures actual models and dependency objects");

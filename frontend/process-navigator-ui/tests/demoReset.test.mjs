@@ -40,6 +40,8 @@ test('reset previews, backs up old data and removes process history without chan
   fs.mkdirSync(path.join(data, 'Drafts'), { recursive: true });
   fs.mkdirSync(path.join(data, 'Users'));
   fs.mkdirSync(path.join(data, 'Keys'));
+  fs.mkdirSync(path.join(data, 'SchedulePlans'));
+  fs.writeFileSync(path.join(data, 'SchedulePlans', 'example.json'), 'plan-history');
   fs.writeFileSync(path.join(data, '..', 'ProcessNavigator.Api.csproj'), '<Project/>');
   fs.writeFileSync(path.join(data, 'organization.json'), '{"name":"old"}');
   fs.writeFileSync(path.join(data, 'old.bpmn'), '<old/>');
@@ -53,6 +55,8 @@ test('reset previews, backs up old data and removes process history without chan
     assert.equal(fs.readFileSync(path.join(result.backup, 'old.bpmn'), 'utf8'), '<old/>');
     assert.ok(!fs.existsSync(path.join(data, 'old.bpmn')));
     assert.ok(!fs.existsSync(path.join(data, 'Drafts')));
+    assert.ok(!fs.existsSync(path.join(data, 'SchedulePlans')));
+    assert.equal(fs.readFileSync(path.join(result.backup, 'SchedulePlans', 'example.json'), 'utf8'), 'plan-history');
     assert.equal(fs.readFileSync(path.join(data, 'Users', 'users.json'), 'utf8'), 'users');
     assert.equal(fs.readFileSync(path.join(data, 'Keys', 'key.xml'), 'utf8'), 'key');
     assert.equal(fs.readdirSync(data).filter(file => file.endsWith('.bpmn')).length, 10);

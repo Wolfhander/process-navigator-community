@@ -193,6 +193,23 @@ export async function loadInstances(processId: string): Promise<ProcessInstance[
   return response.json() as Promise<ProcessInstance[]>;
 }
 
+export async function loadInstanceSchedulePlans(processId: string, instanceId: string): Promise<import('./instance-schedule-plan').InstanceSchedulePlan[]> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/schedule-plans`, { headers: roleHeaders() });
+  if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить планы выполнения.'));
+  return response.json();
+}
+
+export async function assignInstanceSchedulePlan(processId: string, instanceId: string, request: import('./types').ProcessScheduleRequest,
+  expectedStartAt: string, expectedEndAt: string, expectedVersion: string, previousPlanId: string | null, reason: string,
+  expectedSources: import('./types').ProcessSchedule['sources']): Promise<import('./instance-schedule-plan').InstanceSchedulePlan> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/schedule-plans`, {
+    method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request, expectedStartAt, expectedEndAt, expectedVersion, previousPlanId, reason, expectedSources })
+  });
+  if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось назначить план.'));
+  return response.json();
+}
+
 export async function loadInstanceTimeline(processId: string, instanceId: string): Promise<ExecutionTimeline> {
   const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/timeline`, { headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить историю выполнения.'));
