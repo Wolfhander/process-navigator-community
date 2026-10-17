@@ -1,0 +1,17 @@
+{
+  "id": "md-001",
+  "name": "Пакет исходных данных MD-001",
+  "kind": "Учебный образец",
+  "currentVersion": "1.0",
+  "versions": [
+    {
+      "version": "1.0",
+      "fileName": "MD-001.md",
+      "contentType": "text/markdown",
+      "size": 1452,
+      "uploadedAt": "2026-10-17T00:00:00Z",
+      "approved": false
+    }
+  ]
+}
+
