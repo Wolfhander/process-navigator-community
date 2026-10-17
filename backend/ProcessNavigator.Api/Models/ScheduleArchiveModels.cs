@@ -5,3 +5,5 @@ public sealed record ScheduleArchiveSnapshotModel(string Id, string Name, DateTi
     ProcessScheduleRequestModel Request, ProcessScheduleModel Result);
 public sealed record ScheduleArchiveSummaryModel(string Id, string Name, DateTimeOffset SavedAt,
     string RootProcessId, int ProcessCount, DateTimeOffset StartAt, DateTimeOffset EndAt, bool Complete);
+public sealed record ScheduleArchiveCheckModel(ScheduleArchiveSnapshotModel Baseline, DateTimeOffset CheckedAt,
+    string Status, IReadOnlyList<string> Changes, ProcessScheduleModel? CurrentResult = null);

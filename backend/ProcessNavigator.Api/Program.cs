@@ -329,6 +329,16 @@ app.MapGet("/api/processes/schedule/archive/{id}", async (string id, HttpContext
     catch (KeyNotFoundException) { return Results.NotFound(new { message = "Архивный расчёт не найден." }); }
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
 });
+app.MapGet("/api/processes/schedule/archive/{id}/check", async (string id, HttpContext context, ScheduleArchiveService archive,
+    AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await archive.CheckAsync(access.CurrentUser(context).Id, id,
+        access.Has(context, ProcessPermissions.EditContext) || access.Has(context, ProcessPermissions.EditDiagram), ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(new { message = "Архивный расчёт не найден." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+
 app.MapPost("/api/processes/schedule/archive", async (ScheduleArchiveSaveModel request, HttpContext context,
     ScheduleArchiveService archive, AccessControlService access, CancellationToken ct) =>
 {

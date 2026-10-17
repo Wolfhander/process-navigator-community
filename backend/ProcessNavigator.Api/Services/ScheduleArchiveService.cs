@@ -31,6 +31,33 @@ public sealed class ScheduleArchiveService(IWebHostEnvironment environment, Proc
             ?? throw new KeyNotFoundException();
     }
 
+    public async Task<ScheduleArchiveCheckModel> CheckAsync(string userId, string id, bool includeDrafts, CancellationToken ct = default)
+    {
+        var baseline = await LoadAsync(userId, id, includeDrafts, ct);
+        ProcessScheduleModel current;
+        try
+        {
+            // Preserve published-vs-draft source selection, not the current form or today's start date.
+            var usedDrafts = !Visible(baseline, false);
+            current = await schedule.CalculateAsync(baseline.Request, usedDrafts, ct);
+        }
+        catch (FileNotFoundException) { return new(baseline, DateTimeOffset.UtcNow, "Unavailable", ["Исходный процесс отсутствует. Пересчёт не выполнен."]); }
+        catch (InvalidDataException exception) { return new(baseline, DateTimeOffset.UtcNow, "Unavailable", [exception.Message]); }
+        try { await LoadAsync(userId, id, includeDrafts, ct); }
+        catch (KeyNotFoundException) { return new(baseline, DateTimeOffset.UtcNow, "Unavailable", ["Архивная запись удалена во время проверки. Обновите список."]); }
+        var changes = new List<string>();
+        var previous = baseline.Result;
+        if (previous.Sources!.Algorithm != current.Sources!.Algorithm) changes.Add("Изменился алгоритм расчёта.");
+        if (JsonSerializer.Serialize(previous.Sources.Processes, json) != JsonSerializer.Serialize(current.Sources.Processes, json))
+            changes.Add("Изменились исходные модели, их версии или состав. Изменения содержимого обнаруживаются и без смены версии.");
+        if (JsonSerializer.Serialize(previous.Sources.Objects, json) != JsonSerializer.Serialize(current.Sources.Objects, json))
+            changes.Add("Изменились документы, результаты, источники или получатели.");
+        var same = SameResult(previous, current);
+        if (!same) changes.Add("Сопоставьте даты, нормы, состав цепочки и достоверность в таблице ниже.");
+        if (!current.Complete) changes.Add("Новый расчёт предварительный; изучите замечания перед применением.");
+        return new(baseline, DateTimeOffset.UtcNow, same ? "Current" : "Changed", changes, current);
+    }
+
     public async Task<ScheduleArchiveSnapshotModel> SaveAsync(string userId, ScheduleArchiveSaveModel update,
         bool includeDrafts, CancellationToken ct = default)
     {

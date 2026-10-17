@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { deleteServerSchedule, listServerSchedules, loadServerSchedule, saveServerSchedule, type ServerScheduleSummary } from './api';
+import { checkServerSchedule, deleteServerSchedule, listServerSchedules, loadServerSchedule, saveServerSchedule, type ServerScheduleSummary, type ServerScheduleCheck } from './api';
+import { ScheduleArchiveComparison } from './ScheduleArchiveComparison';
 import type { ProcessSchedule, ProcessScheduleRequest } from './types';
 import type { ScheduleSnapshot } from './schedule-snapshots';
 import { exportScheduleTransfer } from './schedule-transfer';
@@ -12,6 +13,7 @@ export function ScheduleServerArchive({ result, request, dirty, busy, onRestore 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [check, setCheck] = useState<ServerScheduleCheck>();
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const run = async (action: () => Promise<void>) => {
@@ -36,7 +38,11 @@ export function ScheduleServerArchive({ result, request, dirty, busy, onRestore 
   });
   const remove = (id: string) => {
     if (!window.confirm('Удалить этот снимок из личного серверного архива? Процессы и базовые планы не изменятся.')) return;
-    void run(async () => { await deleteServerSchedule(id); if (alive.current) { setMessage('Архивный снимок удалён.'); await refresh(); } });
+    void run(async () => { await deleteServerSchedule(id); if (alive.current) { setCheck(undefined); setMessage('Архивный снимок удалён.'); await refresh(); } });
+  };
+  const inspect = (id: string) => {
+    setCheck(undefined);
+    void run(async () => { const report = await checkServerSchedule(id); if (alive.current) setCheck(report); });
   };
   const disabled = busy || pending;
   const date = (value: string) => new Date(value).toLocaleString('ru-RU');
@@ -52,9 +58,15 @@ export function ScheduleServerArchive({ result, request, dirty, busy, onRestore 
     {items?.length === 0 && <p>Доступных архивных расчётов нет.</p>}
     {items?.map(item => <section key={item.id}><strong>{item.name}</strong><p>{date(item.savedAt)} · {item.processCount} процессов · {item.complete ? 'полный расчёт' : 'предварительный расчёт'}</p><p>{date(item.startAt)} → {date(item.endAt)}</p>
       <button disabled={disabled} onClick={() => void open(item.id, false)}>Открыть без пересчёта</button>
+      <button disabled={disabled} onClick={() => inspect(item.id)}>Проверить и сравнить с пересчётом</button>
       <button disabled={disabled} onClick={() => void open(item.id, true)}>Скачать JSON</button>
       <button disabled={disabled} onClick={() => remove(item.id)}>Удалить серверный снимок</button>
     </section>)}
+    {check && (
+      <ScheduleArchiveComparison report={check} disabled={disabled} onApply={() => {
+        if (check.currentResult) onRestore(structuredClone({ ...check.baseline, id: 'recheck-' + check.baseline.id, savedAt: check.checkedAt, result: check.currentResult }));
+      }}/>
+    )}
     <p>Архив хранит прошлые исходники и даты, не запускает старую версию движка и не назначает план выполнению. Для применения параметров к текущим моделям откройте снимок и пересчитайте. Данные входят в резервные копии сервера и не отправляются в Git.</p>
   </details>;
 }

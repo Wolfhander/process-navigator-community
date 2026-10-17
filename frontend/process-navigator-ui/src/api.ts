@@ -31,6 +31,8 @@ export async function saveInformationObject(objectId: string, update: Informatio
 }
 
 export type ServerScheduleSummary = { id: string; name: string; savedAt: string; rootProcessId: string; processCount: number; startAt: string; endAt: string; complete: boolean };
+export type ServerScheduleCheck = { baseline: import('./schedule-snapshots').ScheduleSnapshot; checkedAt: string;
+  status: 'Current' | 'Changed' | 'Unavailable'; changes: string[]; currentResult?: ProcessSchedule | null };
 async function scheduleArchiveCall(path: string, method = 'GET', body?: unknown) {
   const response = await fetch('/api/processes/schedule/archive' + path, { method,
     headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -39,6 +41,7 @@ async function scheduleArchiveCall(path: string, method = 'GET', body?: unknown)
 }
 export const listServerSchedules = (): Promise<ServerScheduleSummary[]> => scheduleArchiveCall('');
 export const loadServerSchedule = (id: string): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('/' + encodeURIComponent(id));
+export const checkServerSchedule = (id: string): Promise<ServerScheduleCheck> => scheduleArchiveCall('/' + encodeURIComponent(id) + '/check');
 export const saveServerSchedule = (name: string, request: ProcessScheduleRequest, expectedResult: ProcessSchedule): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('', 'POST', { name, request, expectedResult });
 export const deleteServerSchedule = (id: string): Promise<void> => scheduleArchiveCall('/' + encodeURIComponent(id), 'DELETE');
 
