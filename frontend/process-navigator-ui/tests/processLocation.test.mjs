@@ -38,3 +38,24 @@ test('expanded chain and return trail round trip with depth limits', () => {
   assert.equal(readProcessLocation('#process=leaf&parent=root&parent=root&parent=leaf').trail.length, 1);
   assert.equal(readProcessLocation(processLocationHash({ ...location, expandedSteps: Array(30).fill('step') })).expandedSteps.length, 20);
 });
+
+test('all process representations preserve edition, selected step and composition on refresh', () => {
+  for (const view of ['overview','instruction','responsibility']) {
+    for (const edition of [{draft:true},{draft:false,version:'2.4'}]) {
+      const location = {processId:'p',elementId:'task',expandedSteps:['child'],trail:['parent'],view,...edition};
+      const result = readProcessLocation(processLocationHash(location));
+      assert.equal(result.view,view);
+      assert.equal(result.elementId,'task');
+      assert.equal(result.version,edition.version);
+      assert.equal(result.draft,edition.draft);
+      assert.deepEqual(result.expandedSteps,['child']);
+      assert.deepEqual(result.trail,['parent']);
+    }
+  }
+});
+
+test('unknown view falls back to the diagram and diagram keeps legacy addresses', () => {
+  assert.equal(readProcessLocation('#process=p&view=execute').view,undefined);
+  assert.equal(readProcessLocation('#process=p&view=%00instruction').view,undefined);
+  assert.equal(processLocationHash({processId:'p',draft:false,view:'diagram'}),'#process=p');
+});

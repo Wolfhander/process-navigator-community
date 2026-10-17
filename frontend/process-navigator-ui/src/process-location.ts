@@ -1,4 +1,5 @@
-export type ProcessLocation = { processId: string; elementId?: string; draft: boolean; version?: string; expandedSteps?: string[]; trail?: string[] };
+export type ProcessView = 'diagram' | 'overview' | 'instruction' | 'responsibility';
+export type ProcessLocation = { processId: string; elementId?: string; draft: boolean; version?: string; expandedSteps?: string[]; trail?: string[]; view?: ProcessView };
 
 export function readProcessLocation(hash: string): ProcessLocation | undefined {
   const values = new URLSearchParams(hash.replace(/^#/, ''));
@@ -7,18 +8,21 @@ export function readProcessLocation(hash: string): ProcessLocation | undefined {
   if (!valid(processId)) return undefined;
   const element = values.get('step');
   const version = values.get('version');
+  const view = values.get('view');
   const list = (key: string) => values.getAll(key).filter(valid).slice(0, 20);
   const expandedSteps = list('expand');
   const trail = [...new Set(list('parent'))].filter(id => id !== processId);
   return { processId: processId!, elementId: valid(element) ? element! : undefined,
     draft: !valid(version) && values.get('edition') === 'draft', version: valid(version) ? version! : undefined,
-    ...(expandedSteps.length ? { expandedSteps } : {}), ...(trail.length ? { trail } : {}) };
+    ...(expandedSteps.length ? { expandedSteps } : {}), ...(trail.length ? { trail } : {}),
+    ...(view === 'overview' || view === 'instruction' || view === 'responsibility' ? { view } : {}) };
 }
 
 export function processLocationHash(location?: ProcessLocation): string {
   if (!location) return '';
   const values = new URLSearchParams({ process: location.processId });
   if (location.elementId) values.set('step', location.elementId);
+  if (location.view && location.view !== 'diagram') values.set('view', location.view);
   if (location.version) values.set('version', location.version);
   else if (location.draft) values.set('edition', 'draft');
   for (const step of location.expandedSteps?.slice(0, 20) ?? []) values.append('expand', step);
