@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "name": "Эталонный заказ MD-001",
+  "version": "1.0",
+  "processIds": ["md-order", "md-engineering", "md-design", "md-documentation", "md-drawing"],
+  "processNames": ["Заказ на изделие", "Подготовка решения", "Разработка изделия", "Подготовка документации", "Выпуск чертежа"],
+  "organizations": [
+    {"id":"md-a","name":"Учебная организация А","units":[{"id":"md-a-plan","name":"Планирование"},{"id":"md-a-control","name":"Контроль"}]},
+    {"id":"md-b","name":"Учебная организация Б","units":[{"id":"md-b-design","name":"Разработка"},{"id":"md-b-quality","name":"Качество"}]},
+    {"id":"md-c","name":"Учебная организация В","units":[{"id":"md-c-doc","name":"Документация"},{"id":"md-c-support","name":"Сопровождение"}]}
+  ],
+  "document": {"id":"md-source-package","name":"Пакет исходных данных MD-001","version":"1.0","requiredState":"Подписан"},
+  "expected": {"processes":5,"tasks":7,"nodes":17,"edges":12,"organizations":3,"units":6,"maximumLevel":4,"compositionOccurrences":9,"rootTransfers":1,"rootWorkHours":6,"registryObjects":5,"registryBoundObjects":1,"registryTextMentions":4},
+  "registryNotes": "Одна передача связана явно по ID. Четыре записи извлечены из текстовых входов, результатов и материала: они не считаются подтверждёнными передачами. В частности, совпадение названия материала с привязанным документом не доказывает совпадение ID.",
+  "calendarCases":[
+    {"id":"forward","direction":"Forward","anchor":"2026-10-19T09:00:00+03:00","expectedStart":"2026-10-19T09:00:00+03:00","expectedEnd":"2026-10-19T15:00:00+03:00","nonWorkingDates":[]},
+    {"id":"backward","direction":"Backward","anchor":"2026-10-19T15:00:00+03:00","expectedStart":"2026-10-19T09:00:00+03:00","expectedEnd":"2026-10-19T15:00:00+03:00","nonWorkingDates":[]},
+    {"id":"weekend","direction":"Forward","anchor":"2026-10-23T16:00:00+03:00","expectedStart":"2026-10-23T16:00:00+03:00","expectedEnd":"2026-10-26T14:00:00+03:00","nonWorkingDates":[]},
+    {"id":"holiday","direction":"Forward","anchor":"2026-10-23T16:00:00+03:00","expectedStart":"2026-10-23T16:00:00+03:00","expectedEnd":"2026-10-27T14:00:00+03:00","nonWorkingDates":["2026-10-26"]}
+  ]
+}

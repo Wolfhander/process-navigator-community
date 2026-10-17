@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "checkedAt": "2026-10-17T21:07:13.050Z",
+  "status": "passed",
+  "inputsFingerprint": "a1191304224db65e648a475fc0034667b12a91206c1ce11f77c81144712835da",
+  "checks": [
+    {
+      "id": "xlsx-roundtrip",
+      "status": "passed"
+    },
+    {
+      "id": "large-book",
+      "status": "passed"
+    },
+    {
+      "id": "catalog",
+      "status": "passed"
+    },
+    {
+      "id": "broken-reference",
+      "status": "passed"
+    },
+    {
+      "id": "depth-and-reuse",
+      "status": "passed"
+    },
+    {
+      "id": "composition-cycle",
+      "status": "passed"
+    },
+    {
+      "id": "registry",
+      "status": "passed"
+    },
+    {
+      "id": "calendar",
+      "status": "passed"
+    },
+    {
+      "id": "analytics",
+      "status": "passed"
+    },
+    {
+      "id": "location",
+      "status": "passed"
+    },
+    {
+      "id": "composition",
+      "status": "passed"
+    },
+    {
+      "id": "responsibility",
+      "status": "passed"
+    },
+    {
+      "id": "instruction",
+      "status": "passed"
+    },
+    {
+      "id": "work-rules",
+      "status": "passed"
+    },
+    {
+      "id": "full-html",
+      "status": "passed"
+    },
+    {
+      "id": "readability",
+      "status": "passed"
+    }
+  ],
+  "coverage": [
+    {
+      "roadmap": "7",
+      "automated": "passed",
+      "remaining": "Реальные форматы сторонних книг и визуальная проверка Excel"
+    },
+    {
+      "roadmap": "20",
+      "automated": "passed",
+      "remaining": "Допустимые исключения предприятия"
+    },
+    {
+      "roadmap": "29",
+      "automated": "passed",
+      "remaining": "Предметные границы и раскрытие в браузере"
+    },
+    {
+      "roadmap": "40",
+      "automated": "passed",
+      "remaining": "Полнота реального контрольного перечня"
+    },
+    {
+      "roadmap": "64",
+      "automated": "passed",
+      "remaining": "Реальные нормы, смены и производственный календарь"
+    },
+    {
+      "roadmap": "74",
+      "automated": "passed",
+      "remaining": "Предметная интерпретация показателей"
+    },
+    {
+      "roadmap": "77.5",
+      "automated": "passed",
+      "remaining": "Браузерная история на рабочем сценарии"
+    },
+    {
+      "roadmap": "98.6",
+      "automated": "passed",
+      "remaining": "Визуальная читаемость обзора"
+    },
+    {
+      "roadmap": "99.8",
+      "automated": "passed",
+      "remaining": "Подтверждение предметных передач и исторических назначений"
+    },
+    {
+      "roadmap": "100",
+      "automated": "passed",
+      "remaining": "Визуальная и предметная приёмка"
+    },
+    {
+      "roadmap": "100.8",
+      "automated": "passed",
+      "remaining": "Проверка страниц печати в браузере"
+    },
+    {
+      "roadmap": "101.6",
+      "automated": "passed",
+      "remaining": "Проверка на разных экранах"
+    }
+  ],
+  "limitations": [
+    "Синтетические данные не заменяют предметную приёмку предприятия.",
+    "Браузерная визуальная проверка и проверка страниц печати этим запуском не выполнялись.",
+    "Сформированные XLSX проверены импортом программы; отображение и пересчёт в Microsoft Excel не проверялись."
+  ]
+}

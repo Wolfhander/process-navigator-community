@@ -1,0 +1,190 @@
+{
+  "id": "md-group",
+  "name": "Учебная группа MD",
+  "description": "Синтетические мастер-данные",
+  "legalEntities": [
+    {
+      "id": "md-a",
+      "name": "Учебная организация А",
+      "units": [
+        {
+          "id": "md-a-plan",
+          "name": "Планирование",
+          "shortName": "Планирование",
+          "managerPosition": "Учебный руководитель"
+        },
+        {
+          "id": "md-a-control",
+          "name": "Контроль",
+          "shortName": "Контроль",
+          "managerPosition": "Учебный руководитель"
+        }
+      ],
+      "description": "Вымышленная организация",
+      "directions": [
+        {
+          "id": "md-a-main",
+          "name": "Учебные процессы",
+          "description": "",
+          "icon": "factory",
+          "processIds": [
+            "md-order",
+            "md-documentation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-b",
+      "name": "Учебная организация Б",
+      "units": [
+        {
+          "id": "md-b-design",
+          "name": "Разработка",
+          "shortName": "Разработка",
+          "managerPosition": "Учебный руководитель"
+        },
+        {
+          "id": "md-b-quality",
+          "name": "Качество",
+          "shortName": "Качество",
+          "managerPosition": "Учебный руководитель"
+        }
+      ],
+      "description": "Вымышленная организация",
+      "directions": [
+        {
+          "id": "md-b-main",
+          "name": "Учебные процессы",
+          "description": "",
+          "icon": "factory",
+          "processIds": [
+            "md-engineering",
+            "md-drawing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-c",
+      "name": "Учебная организация В",
+      "units": [
+        {
+          "id": "md-c-doc",
+          "name": "Документация",
+          "shortName": "Документация",
+          "managerPosition": "Учебный руководитель"
+        },
+        {
+          "id": "md-c-support",
+          "name": "Сопровождение",
+          "shortName": "Сопровождение",
+          "managerPosition": "Учебный руководитель"
+        }
+      ],
+      "description": "Вымышленная организация",
+      "directions": [
+        {
+          "id": "md-c-main",
+          "name": "Учебные процессы",
+          "description": "",
+          "icon": "factory",
+          "processIds": [
+            "md-design"
+          ]
+        }
+      ]
+    }
+  ],
+  "crossCompanyProcesses": [
+    {
+      "processId": "md-order",
+      "description": "Учебная оргпривязка",
+      "legalEntityIds": [
+        "md-a",
+        "md-b"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "lane-0",
+          "legalEntityId": "md-a",
+          "unitId": "md-a-plan",
+          "department": "Планирование",
+          "displayNameMode": "full"
+        },
+        {
+          "laneId": "lane-1",
+          "legalEntityId": "md-b",
+          "unitId": "md-b-design",
+          "department": "Разработка",
+          "displayNameMode": "full"
+        }
+      ]
+    },
+    {
+      "processId": "md-engineering",
+      "description": "Учебная оргпривязка",
+      "legalEntityIds": [
+        "md-b"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "lane-0",
+          "legalEntityId": "md-b",
+          "unitId": "md-b-design",
+          "department": "Разработка",
+          "displayNameMode": "full"
+        }
+      ]
+    },
+    {
+      "processId": "md-design",
+      "description": "Учебная оргпривязка",
+      "legalEntityIds": [
+        "md-c"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "lane-0",
+          "legalEntityId": "md-c",
+          "unitId": "md-c-doc",
+          "department": "Документация",
+          "displayNameMode": "full"
+        }
+      ]
+    },
+    {
+      "processId": "md-documentation",
+      "description": "Учебная оргпривязка",
+      "legalEntityIds": [
+        "md-a"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "lane-0",
+          "legalEntityId": "md-a",
+          "unitId": "md-a-plan",
+          "department": "Планирование",
+          "displayNameMode": "full"
+        }
+      ]
+    },
+    {
+      "processId": "md-drawing",
+      "description": "Учебная оргпривязка",
+      "legalEntityIds": [
+        "md-b"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "lane-0",
+          "legalEntityId": "md-b",
+          "unitId": "md-b-design",
+          "department": "Разработка",
+          "displayNameMode": "full"
+        }
+      ]
+    }
+  ]
+}
+

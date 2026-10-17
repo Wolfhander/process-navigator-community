@@ -1,0 +1,115 @@
+{
+  "version": "1.0",
+  "owner": "Планирование",
+  "ownerLegalEntityId": "md-a",
+  "ownerUnitId": "md-a-plan",
+  "status": "Published",
+  "passport": {
+    "level": 0,
+    "classification": "Основной",
+    "purpose": "Учебный эталон MD-001",
+    "scope": "Только синтетические данные",
+    "trigger": "Получено задание MD-001",
+    "result": "Результат MD-001 доступен получателю"
+  },
+  "elements": {
+    "start": {},
+    "task-1": {
+      "executorKind": "human",
+      "duration": "2 часа",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "description": "Синтетический шаг эталона MD-001.",
+      "instruction": "Проверить входные данные и зарегистрировать результат.",
+      "inputs": [
+        "Задание MD-001"
+      ],
+      "expectedResult": "Результат шага MD-001",
+      "completionCriteria": "Результат доступен получателю",
+      "linkedProcessId": "md-engineering",
+      "informationObjects": [
+        {
+          "objectId": "md-source-package",
+          "name": "Пакет исходных данных MD-001",
+          "role": "Output",
+          "required": true,
+          "version": "1.0"
+        }
+      ],
+      "artifacts": [
+        {
+          "name": "Пакет исходных данных MD-001",
+          "kind": "Инструкция",
+          "version": "1.0",
+          "reference": "artifact:md-001"
+        }
+      ],
+      "channels": [
+        {
+          "id": "channel-0",
+          "kind": "system",
+          "label": "Учебная система",
+          "systemName": "Учебная PLM",
+          "direction": "work",
+          "flow": "primary"
+        }
+      ]
+    },
+    "task-2": {
+      "executorKind": "human",
+      "duration": "4 часа",
+      "workDuration": "4 часа",
+      "waitDuration": "0 часов",
+      "description": "Синтетический шаг эталона MD-001.",
+      "instruction": "Проверить входные данные и зарегистрировать результат.",
+      "inputs": [
+        "Задание MD-001"
+      ],
+      "expectedResult": "Результат шага MD-001",
+      "completionCriteria": "Результат доступен получателю",
+      "linkedProcessId": "md-engineering",
+      "informationObjects": [
+        {
+          "objectId": "md-source-package",
+          "name": "Пакет исходных данных MD-001",
+          "role": "Input",
+          "required": true,
+          "version": "1.0"
+        }
+      ],
+      "workRules": [
+        {
+          "kind": "document",
+          "objectId": "md-source-package",
+          "requiredState": "Подписан"
+        },
+        {
+          "kind": "exception",
+          "condition": "Нет подтверждения подписи",
+          "response": "Вернуть автору",
+          "responsible": "Координатор заказа"
+        }
+      ],
+      "artifacts": [
+        {
+          "name": "Пакет исходных данных MD-001",
+          "kind": "Инструкция",
+          "version": "1.0",
+          "reference": "artifact:md-001"
+        }
+      ],
+      "channels": [
+        {
+          "id": "channel-1",
+          "kind": "system",
+          "label": "Учебная система",
+          "systemName": "Учебная PLM",
+          "direction": "work",
+          "flow": "primary"
+        }
+      ]
+    },
+    "end": {}
+  }
+}
+

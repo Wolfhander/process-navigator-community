@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "owner": "Разработка",
+  "ownerLegalEntityId": "md-b",
+  "ownerUnitId": "md-b-design",
+  "status": "Published",
+  "passport": {
+    "level": 1,
+    "classification": "Основной",
+    "parentProcessId": "md-order",
+    "purpose": "Учебный эталон MD-001",
+    "scope": "Только синтетические данные",
+    "trigger": "Получено задание MD-001",
+    "result": "Результат MD-001 доступен получателю"
+  },
+  "elements": {
+    "start": {},
+    "task-1": {
+      "executorKind": "human",
+      "duration": "2 часа",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "description": "Синтетический шаг эталона MD-001.",
+      "instruction": "Проверить входные данные и зарегистрировать результат.",
+      "inputs": [
+        "Задание MD-001"
+      ],
+      "expectedResult": "Результат шага MD-001",
+      "completionCriteria": "Результат доступен получателю",
+      "linkedProcessId": "md-design",
+      "informationObjects": [],
+      "artifacts": [],
+      "channels": [
+        {
+          "id": "channel-0",
+          "kind": "system",
+          "label": "Учебная система",
+          "systemName": "Учебная PLM",
+          "direction": "work",
+          "flow": "primary"
+        }
+      ]
+    },
+    "end": {}
+  }
+}
+
