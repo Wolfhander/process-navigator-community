@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ContextErrorBoundary } from './ContextErrorBoundary';
 import { AlertTriangle, ArrowRight, BookOpen, Box, CheckCircle2, ClipboardCheck, Clock3, ExternalLink, FileText, GitBranch, Link2, MonitorCog, PanelRight, Pencil, Play, RotateCcw, UserRound, X } from 'lucide-react';
 import { resolveCapabilities } from './capabilities';
 import { artifactDownloadUrl, assignInstanceStep, executeProcessAction, loadCommandHistory, loadInformationObjects, loadOrganization, loadProcessCatalog } from './api';
@@ -34,7 +35,11 @@ type ContextPanelProps = {
   onOpenOccurrence: (occurrence: InformationObjectOccurrence) => void;
 };
 
-export function ContextPanel({ processId, node, onClose, onAction, onUpdated, canExecute: permittedToExecute, canEdit, assignableUsers = [], activeInstance, onStepStatus, stepReadiness, nextSteps = [], onOpenStep, returnOptions = [], onReturnStep, onInstanceUpdated, onOpenOccurrence }: ContextPanelProps) {
+export function ContextPanel(props: ContextPanelProps) {
+  return <ContextErrorBoundary key={`${props.processId}:${props.node?.id ?? ''}`} onClose={props.onClose}><ContextPanelContent {...props}/></ContextErrorBoundary>;
+}
+
+function ContextPanelContent({ processId, node, onClose, onAction, onUpdated, canExecute: permittedToExecute, canEdit, assignableUsers = [], activeInstance, onStepStatus, stepReadiness, nextSteps = [], onOpenStep, returnOptions = [], onReturnStep, onInstanceUpdated, onOpenOccurrence }: ContextPanelProps) {
   const canExecute = permittedToExecute && (!activeInstance || activeInstance.status === 'Active');
   const [editingId, setEditingId] = useState<string>();
   const [busyAction, setBusyAction] = useState<string>();
