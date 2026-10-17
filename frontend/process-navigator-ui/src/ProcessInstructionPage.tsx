@@ -3,6 +3,7 @@ import type { ProcessInstance, ProcessModel, ProcessNode } from './types';
 import { buildProcessInstruction } from './process-instruction';
 import { inspectReadability } from './process-readability';
 import { ProcessRouteOverview } from './ProcessRouteOverview';
+import { StepWorkRulesView } from './StepWorkRules';
 import './process-instruction.css';
 const InstructionPackagePanel = lazy(() => import('./InstructionPackagePanel').then(module => ({default:module.InstructionPackagePanel})));
 const InstructionSupportPanel = lazy(() => import('./InstructionSupportPanel').then(module => ({default:module.InstructionSupportPanel})));
@@ -53,7 +54,7 @@ export function ProcessInstructionPage({ process, instance, edition, mode = 'ins
     </details>
     {data && mode === 'instruction' && <>
       <section className="instruction-notice"><p>Карточки сгруппированы по минимальному расстоянию от начала для обзора. Это не обязательная последовательность: выбирайте ветви и параллельную работу по переходам схемы.</p>
-        <p>Требуемые статусы документов и правила действий при исключении показываются только если они описаны в инструкции или условиях; отдельные структурированные поля пока не реализованы.</p>
+        <p>Требования к состояниям документов и правила исключений показаны из редакции. Это инструкции, не автоматическая проверка фактических состояний или выбор маршрута.</p>
         {!data.hasStart && <p>Начальное событие отсутствует. Группировка начинается от элементов без входящих стрелок и не подтверждает корректность запуска.</p>}
         {data.hasCycle && <p>В маршруте есть цикл: повторный проход нельзя представить одноразовым линейным списком.</p>}
         {!!data.unreachable.length && <p>Не достижимы от найденных начал: {data.unreachable.length} действий. Они сохранены в инструкции с предупреждением.</p>}
@@ -71,6 +72,7 @@ export function ProcessInstructionPage({ process, instance, edition, mode = 'ins
         {!!node.actions?.length && <section><h3>Предусмотренные действия</h3><ul>{node.actions.map(action => <li key={action.id}>{action.label} · {action.kind}</li>)}</ul><p>Для выполнения откройте исходный шаг: здесь команды не запускаются.</p></section>}
         {!!node.artifacts?.length && <section><h3>Материалы редакции</h3><ul>{node.artifacts.map((artifact, index) => <li key={index}>{artifact.name} · {artifact.kind} · {artifact.version}</li>)}</ul><p>Открывайте материалы из карточки шага; их доступность здесь не подтверждается.</p></section>}
         {node.linkedProcessId && <p>Есть детализация: {node.linkedProcessId}. Раскройте её на исходной схеме; инструкция не смешивает редакции дочерних процессов.</p>}
+        <StepWorkRulesView rules={node.workRules}/>
         <section><h3>Отклонения и уточнения</h3>{node.evidence?.filter(item => item && item.status !== 'fact').map((item, index) => <p key={index}>{item.status === 'question' ? 'Вопрос' : 'Допущение'}: {item.statement}</p>)}<p>Автоматической инструкции при исключении нет. Если правила не описаны, уточните у владельца процесса; условия переходов ниже не подменяются предположениями.</p></section>
         {transitions(node)}
       </article>)}

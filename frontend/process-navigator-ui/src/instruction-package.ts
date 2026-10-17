@@ -79,6 +79,7 @@ export function instructionPackageHtml(bundle: InstructionPackage) {
       for (const action of node.actions ?? []) append(paragraph('Действие (не выполняется)',[action.label,action.kind,action.target].filter(Boolean).join(' · ')));
       for (const evidence of node.evidence ?? []) if (evidence) append(paragraph('Основание / вопрос', [evidence.status,evidence.statement,evidence.source,evidence.locator,evidence.author].filter(Boolean).join(' · ')));
       if (node.linkedProcessId) append(paragraph('Детализация',node.linkedProcessId));
+      for(const rule of node.workRules??[]) append(paragraph(rule.kind==='document'?'Требование документа (инструкция, не проверка факта)':'Правило исключения (не меняет маршрут)',[rule.objectId,rule.requiredState,rule.condition,rule.response,rule.responsible].filter(Boolean).join(' · ')));
       if (node.type === 'parallelGateway') append('<p>Параллельный шлюз — не выбор одной альтернативы.</p>');
       append('</article>');
     }

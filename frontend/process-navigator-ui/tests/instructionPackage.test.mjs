@@ -54,3 +54,8 @@ test('oversized report is rejected rather than truncated',()=>{
   const process={...model('p'),nodes:[{id:'a',name:'a',type:'task',instruction:'x'.repeat(8000001)}]};
   assert.throws(()=>instructionPackageHtml({entries:[{model:process,path:['p'],edition:'root'}],issues:[],capturedAt:'now'}),/8 млн/);
 });
+test('complete HTML retains structured document requirements and exception guidance',()=>{
+  const process={...model('p'),nodes:[{id:'a',type:'task',name:'a',workRules:[{kind:'document',objectId:'d',requiredState:'Подписан'},{kind:'exception',condition:'Нет подписи',response:'Вернуть',responsible:'Автор'}]}]};
+  const html=instructionPackageHtml({entries:[{model:process,path:['p'],edition:'root'}],issues:[],capturedAt:'now'});
+  for(const text of ['Подписан','Нет подписи','Вернуть','Автор','не меняет маршрут'])assert.ok(html.includes(text));
+});

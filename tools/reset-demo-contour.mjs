@@ -112,6 +112,10 @@ export function createDemoContour() {
     if (model.id === 'demo-showcase-l2-procurement') bind(context.elements.Task_ReceiveStock, 'demo-materials-available', 'Материалы и ПКИ доступны производству', 'Output');
     if (model.id === production.id) {
       bind(context.elements.Task_ProductionOrder, 'demo-approved-documentation', 'Утверждённый комплект КД и ТД', 'Input');
+      context.elements.Task_ProductionOrder.workRules = [
+        {kind:'document',objectId:'demo-approved-documentation',requiredState:'Утверждён и зарегистрирован',condition:'До запуска производственного заказа'},
+        {kind:'exception',condition:'Комплект КД и ТД не утверждён или недоступен',response:'Приостановить подготовку запуска и запросить утверждённую версию у разработчика; не считать проверку HEAD подтверждением утверждения.',responsible:'Конструкторский отдел'}
+      ];
       bind(context.elements.Task_ProductionOrder, 'demo-materials-available', 'Материалы и ПКИ доступны производству', 'Input');
     }
     files.set(`${model.id}.bpmn`, buildBpmn(model));

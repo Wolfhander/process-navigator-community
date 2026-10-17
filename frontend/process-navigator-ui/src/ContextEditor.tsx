@@ -6,7 +6,8 @@ import type { Artifact, ExecutionMode, InformationObject, InformationObjectBindi
 import { actionTargetHint } from './process-actions';
 import { bpmnTypeLabels } from './types';
 import { StepEvidenceEditor } from './StepEvidence';
-import type { StepEvidence, ExecutorKind } from './types';
+import { StepWorkRulesEditor } from './StepWorkRules';
+import type { StepEvidence, StepWorkRule, ExecutorKind } from './types';
 
 const toLines = (values?: string[]) => values?.join('\n') ?? '';
 const fromLines = (value: string) => [...new Set(value.split(/\r?\n/).map(item => item.trim()).filter(Boolean))];
@@ -18,6 +19,7 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
   onSaved: (node: ProcessNode) => void;
 }) {
   const [evidence, setEvidence] = useState<StepEvidence[]>(node.evidence ?? []);
+  const [workRules, setWorkRules] = useState<StepWorkRule[]>(node.workRules ?? []);
   const [description, setDescription] = useState(node.description ?? '');
   const [responsible, setResponsible] = useState(node.responsible ?? '');
   const [duration, setDuration] = useState(node.duration ?? '');
@@ -80,7 +82,7 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
     if (event.target !== event.currentTarget) return;
     setBusy(true); setError(''); setArtifactNotice('');
     try {
-      onSaved(await saveElementContext(processId, node.id, { evidence, executorKind: executorKind || undefined, description, responsible, duration, artifacts, actions, channels, informationObjects, inputs: fromLines(inputs), expectedResult, completionCriteria, instruction, executionMode: executionMode || undefined, systemName, workDuration, waitDuration, participantUnits: fromLines(participantUnits), participantUnitRefs, linkedProcessId: linkedProcessId || undefined }));
+      onSaved(await saveElementContext(processId, node.id, { workRules, evidence, executorKind: executorKind || undefined, description, responsible, duration, artifacts, actions, channels, informationObjects, inputs: fromLines(inputs), expectedResult, completionCriteria, instruction, executionMode: executionMode || undefined, systemName, workDuration, waitDuration, participantUnits: fromLines(participantUnits), participantUnitRefs, linkedProcessId: linkedProcessId || undefined }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить контекст элемента.');
     } finally { setBusy(false); }
@@ -108,6 +110,7 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
         <label>Кто выполняет действие<select value={executorKind} onChange={event => setExecutorKind(event.target.value as ExecutorKind | '')}><option value="">По типу BPMN, если определён</option><option value="human">Сотрудник</option><option value="system">Информационная система</option></select></label>
         <p>Подразделение дорожки отвечает за действие. Название системы задаётся ниже; участие ERP в передаче документа само по себе не делает действие автоматическим.</p>
         <label>Инструкция исполнителю<textarea value={instruction} maxLength={6000} rows={5} onChange={event => setInstruction(event.target.value)} placeholder="Последовательность работы, правила и важные исключения"/></label>
+        <StepWorkRulesEditor rules={workRules} objects={informationObjects} onChange={setWorkRules}/>
         <div className="context-form-grid"><label>Способ выполнения<select value={executionMode} onChange={event => setExecutionMode(event.target.value as ExecutionMode | '')}><option value="">Не указан</option><option value="manual">Вручную</option><option value="external">Вне информационной системы</option><option value="system">В информационной системе</option></select></label><label>Информационная система<input value={systemName} maxLength={200} onChange={event => setSystemName(event.target.value)} placeholder="При наличии, например 1С:ERP"/></label></div>
         <div className="context-form-grid"><label>Время работы<input value={workDuration} maxLength={100} onChange={event => setWorkDuration(event.target.value)} placeholder="Например, 30 минут"/></label><label>Время ожидания<input value={waitDuration} maxLength={100} onChange={event => setWaitDuration(event.target.value)} placeholder="Например, до 1 дня"/></label></div>
         <div className="collection-heading"><div><h3>Участвующие подразделения</h3><small>Ответственное подразделение задаётся дорожкой; здесь указываются дополнительные участники.</small></div></div>

@@ -119,6 +119,9 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                     throw new InvalidDataException($"BPMN element '{id}' is not assigned to a lane.");
                 var bounds = RequiredBounds(shapes, id);
                 elementContexts.TryGetValue(id, out var elementContext);
+                var workRules = StepWorkRuleValidation.Normalize(elementContext?.WorkRules);
+                if ((workRules ?? []).Any(rule => rule.Kind == "document" && !(elementContext?.InformationObjects ?? []).Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
+                    throw new InvalidDataException($"Правило документа элемента '{id}' ссылается на непривязанный объект.");
                 return new NodeModel(
                     id,
                     SupportedNodeTypes[element.Name.LocalName],
@@ -147,7 +150,7 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                     elementContext?.Channels ?? [],
                     elementContext?.InformationObjects ?? [],
                     element.Name.LocalName,
-                    elementContext?.ExecutorKind ?? (element.Name.LocalName is "manualTask" or "userTask" ? "human" : element.Name.LocalName == "serviceTask" ? "system" : null), elementContext?.Evidence);
+                    elementContext?.ExecutorKind ?? (element.Name.LocalName is "manualTask" or "userTask" ? "human" : element.Name.LocalName == "serviceTask" ? "system" : null), elementContext?.Evidence, workRules);
             }).ToArray();
 
         if (nodes.Length == 0) throw new InvalidDataException("The BPMN process contains no supported flow nodes.");
@@ -239,5 +242,6 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
         IReadOnlyList<ProcessChannelModel>? Channels = null,
         IReadOnlyList<InformationObjectBindingModel>? InformationObjects = null,
         string? ExecutorKind = null,
-        IReadOnlyList<StepEvidenceModel>? Evidence = null);
+        IReadOnlyList<StepEvidenceModel>? Evidence = null,
+        IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
 }

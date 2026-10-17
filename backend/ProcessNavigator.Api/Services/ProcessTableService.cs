@@ -35,7 +35,7 @@ public sealed partial class ProcessTableService(
         "Дорожка ID", "Организация ID", "Подразделение ID", "Сотрудники ID", "Ответственный", "Описание", "Входы",
         "Ожидаемый результат", "Критерий завершения", "Работа", "Ожидание", "Связанный процесс ID", "Следующие шаги",
         "Условия переходов", "Объекты реестра ID", "Объекты реестра — названия", "Роли объектов", "Обязательность объектов",
-        "Версии объектов", "Условия объектов", "Тип BPMN", "Способ выполнения", "Система выполнения", "Инструкция", "Исполнитель действия"];
+        "Версии объектов", "Условия объектов", "Тип BPMN", "Способ выполнения", "Система выполнения", "Инструкция", "Исполнитель действия", "Правила работы JSON"];
 
     public async Task<ProcessTablePreviewModel> PreviewAsync(IFormFile file, CancellationToken cancellationToken = default)
     {
@@ -113,6 +113,17 @@ public sealed partial class ProcessTableService(
                 Add("Warning", row, "Исполнитель действия", "Исполнитель не соответствует типу BPMN. Проверьте тип блока или исполнителя.", processId, stepId);
             if (row.Get("Система выполнения").Length > 200) Add("Error", row, "Система выполнения", "Название системы не должно превышать 200 символов.", processId, stepId);
             if (row.Get("Инструкция").Length > 6000) Add("Error", row, "Инструкция", "Инструкция не должна превышать 6000 символов.", processId, stepId);
+            if (row.Has("Правила работы JSON"))
+            {
+                try
+                {
+                    var rules = ParseWorkRules(row.Get("Правила работы JSON"));
+                    if (row.Has("Объекты реестра ID") && rules.Any(rule => rule.Kind == "document" && !Split(row.Get("Объекты реестра ID")).Contains(rule.ObjectId, StringComparer.OrdinalIgnoreCase)))
+                        Add("Error", row, "Правила работы JSON", "Требование ссылается на объект, не привязанный к шагу.", processId, stepId);
+                }
+                catch (Exception error) when (error is JsonException or InvalidDataException)
+                { Add("Error", row, "Правила работы JSON", error.Message, processId, stepId); }
+            }
             if (string.IsNullOrWhiteSpace(row.Get("Название"))) Add("Error", row, "Название", "Укажите название шага.", processId, stepId);
             if (string.IsNullOrWhiteSpace(row.Get("Дорожка ID"))) Add("Error", row, "Дорожка ID", "Укажите ID дорожки.", processId, stepId);
             var order = ParseInteger(row.Get("Порядок"));
@@ -291,6 +302,9 @@ public sealed partial class ProcessTableService(
             var incomingById = incoming.Where(row => !string.IsNullOrWhiteSpace(row.Get("ID шага")))
                 .ToDictionary(row => row.Get("ID шага"), StringComparer.OrdinalIgnoreCase);
             var existingById = existing.Nodes.ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+            foreach (var row in incoming.Where(row => !row.Has("Правила работы JSON") && row.Has("Объекты реестра ID")))
+                if (existingById.TryGetValue(row.Get("ID шага"), out var original) && (original.WorkRules ?? []).Any(rule => rule.Kind == "document" && !Split(row.Get("Объекты реестра ID")).Contains(rule.ObjectId, StringComparer.OrdinalIgnoreCase)))
+                    issues.Add(new("Error", row.Sheet, row.Number, "Объекты реестра ID", "Старая книга удаляет привязку объекта, на который ссылается сохранённое правило. Добавьте колонку правил и исправьте их явно.", processId, row.Get("ID шага")));
             var added = incomingById.Keys.Except(existingById.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
             var removed = existingById.Keys.Except(incomingById.Keys, StringComparer.OrdinalIgnoreCase).ToArray();
             var processFieldChanges = ProcessFieldChanges(processRow, existing);
@@ -358,6 +372,7 @@ public sealed partial class ProcessTableService(
         if (row.Has("Система выполнения")) AddChange(changes, "Step", node.Id, node.Name, "Система выполнения", node.SystemName, row.Get("Система выполнения"));
         if (row.Has("Инструкция")) AddChange(changes, "Step", node.Id, node.Name, "Инструкция", node.Instruction, row.Get("Инструкция"));
         if (row.Has("Исполнитель действия")) AddChange(changes, "Step", node.Id, node.Name, "Исполнитель действия", node.ExecutorKind, ResolveExecutorKind(row, node));
+        if (row.Has("Правила работы JSON")) AddChange(changes, "Step", node.Id, node.Name, "Правила работы", JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web)), WorkRulesPreview(row.Get("Правила работы JSON")));
         if (row.Has("_Evidence")) AddChange(changes, "Step", node.Id, node.Name, "Источники и вопросы", DisplayEvidence(node.Evidence), DisplayEvidence(JsonSerializer.Deserialize<StepEvidenceModel[]>(row.Get("_Evidence"))));
         AddChange(changes, "Step", node.Id, node.Name, "Название", node.Name, row.Get("Название"));
         AddChange(changes, "Step", node.Id, node.Name, "Дорожка", node.LaneId, row.Get("Дорожка ID"));
@@ -713,7 +728,7 @@ public sealed partial class ProcessTableService(
                     Join(bindings.Select(item => item.ObjectId), preserveEmpty: true), Join(bindings.Select(item => item.Name), preserveEmpty: true),
                     Join(bindings.Select(item => item.Role), preserveEmpty: true), Join(bindings.Select(item => item.Required ? "Да" : "Нет"), preserveEmpty: true),
                     Join(bindings.Select(item => item.Version), preserveEmpty: true), Join(bindings.Select(item => item.Condition), preserveEmpty: true),
-                    node.BpmnType ?? node.Type, node.ExecutionMode, node.SystemName, node.Instruction, node.ExecutorKind]);
+                    node.BpmnType ?? node.Type, node.ExecutionMode, node.SystemName, node.Instruction, node.ExecutorKind, JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web))]);
                 foreach (var channel in node.Channels ?? [])
                     channelRows.Add([null, process.Id, node.Id, channel.Id, channel.Kind, channel.Flow, channel.Direction,
                         channel.Label, channel.SystemName, channel.DocumentName]);
@@ -778,6 +793,9 @@ public sealed partial class ProcessTableService(
                 id, objectNames.ElementAtOrDefault(index) ?? id, objectRoles.ElementAtOrDefault(index) ?? "Reference",
                 ParseRequired(objectRequired.ElementAtOrDefault(index) ?? "") ?? true, EmptyToNull(objectConditions.ElementAtOrDefault(index) ?? ""),
                 EmptyToNull(objectVersions.ElementAtOrDefault(index) ?? ""))).ToArray();
+            var workRules = row.Has("Правила работы JSON") ? ParseWorkRules(row.Get("Правила работы JSON")) : existingNode?.WorkRules;
+            if ((workRules ?? []).Any(rule => rule.Kind == "document" && !objectBindings.Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
+                throw new InvalidDataException("Правило документа ссылается на объект, не привязанный к шагу.");
             return new ElementContextUpdateModel(EmptyToNull(row.Get("Описание")), EmptyToNull(row.Get("Ответственный")),
                 EmptyToNull(row.Get("Работа")), existingNode?.Artifacts ?? [], existingNode?.Actions ?? [], Split(row.Get("Входы")), EmptyToNull(row.Get("Ожидаемый результат")),
                 EmptyToNull(row.Get("Критерий завершения")), row.Has("Инструкция") ? EmptyToNull(row.Get("Инструкция")) : existingNode?.Instruction,
@@ -785,7 +803,8 @@ public sealed partial class ProcessTableService(
                 row.Has("Система выполнения") ? EmptyToNull(row.Get("Система выполнения")) : existingNode is not null ? existingNode.SystemName : channels.FirstOrDefault(item => item.Kind == "system")?.SystemName, EmptyToNull(row.Get("Работа")), EmptyToNull(row.Get("Ожидание")),
                 [lane.Department], EmptyToNull(row.Get("Связанный процесс ID")), [new ParticipantUnitRefModel(lane.LegalEntityId, lane.UnitId)], channels,
                 objectBindings,
-                ResolveExecutorKind(row, existingNode), row.Has("_Evidence") ? JsonSerializer.Deserialize<StepEvidenceModel[]>(row.Get("_Evidence")) : existingNode?.Evidence);
+                ResolveExecutorKind(row, existingNode), row.Has("_Evidence") ? JsonSerializer.Deserialize<StepEvidenceModel[]>(row.Get("_Evidence")) : existingNode?.Evidence,
+                workRules);
         }, StringComparer.OrdinalIgnoreCase);
 
         var ownerEntityId = process.Get("Организация-владелец ID");
@@ -1139,7 +1158,7 @@ public sealed partial class ProcessTableService(
         {
             cell.SetAttributeValue("t", "str");
             cell.RemoveNodes();
-            cell.Add(new XElement(main + "v", "Книгу можно проверить и загрузить обратно. Устойчивые ID обновляют соответствующие черновики без создания дублей."));
+            cell.Add(new XElement(main + "v", "Книгу можно проверить и загрузить обратно. Устойчивые ID обновляют черновики без дублей. AF «Правила работы JSON»: массив document/exception; пустая ячейка очищает правила, отсутствие колонки сохраняет прежние. Удобнее редактировать правила в карточке шага."));
         }
         ReplaceXml(archive, path, document);
     }
@@ -1180,6 +1199,21 @@ public sealed partial class ProcessTableService(
         var result = string.Empty;
         while (value > 0) { value--; result = (char)('A' + value % 26) + result; value /= 26; }
         return result;
+    }
+
+    internal static IReadOnlyList<StepWorkRuleModel> ParseWorkRules(string text)
+    {
+        if (text.Length > 30000) throw new InvalidDataException("Правила работы превышают 30000 символов JSON.");
+        if (string.IsNullOrWhiteSpace(text)) return [];
+        var parsed = JsonSerializer.Deserialize<StepWorkRuleModel[]>(text, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+            ?? throw new InvalidDataException("Правила должны быть массивом, не null.");
+        return StepWorkRuleValidation.Normalize(parsed) ?? [];
+    }
+
+    private static string WorkRulesPreview(string text)
+    {
+        try { return JsonSerializer.Serialize(ParseWorkRules(text), new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
+        catch (Exception error) when (error is JsonException or InvalidDataException) { return text; }
     }
 
     private static string? ResolveExecutorKind(SheetRow row, NodeModel? existing)

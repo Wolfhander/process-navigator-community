@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 namespace ProcessNavigator.Api.Models;
 
 public sealed record ProcessModel(
@@ -51,6 +52,8 @@ public sealed record InformationObjectBindingModel(
     string? Version = null);
 
 public sealed record StepEvidenceModel(string Status, string Statement, string? Source = null, string? Locator = null, string? Author = null);
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record StepWorkRuleModel(string Kind, string? ObjectId = null, string? RequiredState = null, string? Condition = null, string? Response = null, string? Responsible = null);
 
 public sealed record NodeModel(
     string Id,
@@ -81,7 +84,8 @@ public sealed record NodeModel(
     IReadOnlyList<InformationObjectBindingModel>? InformationObjects = null,
     string? BpmnType = null,
     string? ExecutorKind = null,
-    IReadOnlyList<StepEvidenceModel>? Evidence = null);
+    IReadOnlyList<StepEvidenceModel>? Evidence = null,
+    IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
 
 public sealed record EdgeModel(
     string Id,
@@ -114,7 +118,8 @@ public sealed record ElementContextUpdateModel(
     IReadOnlyList<ProcessChannelModel>? Channels = null,
     IReadOnlyList<InformationObjectBindingModel>? InformationObjects = null,
     string? ExecutorKind = null,
-    IReadOnlyList<StepEvidenceModel>? Evidence = null);
+    IReadOnlyList<StepEvidenceModel>? Evidence = null,
+    IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
 
 public sealed record ProcessSummaryModel(
     string Id,

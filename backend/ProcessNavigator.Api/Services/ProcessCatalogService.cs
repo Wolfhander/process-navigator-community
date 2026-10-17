@@ -519,6 +519,9 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             var current = await loader.LoadFilesAsync(paths.Bpmn, paths.Context, processId, cancellationToken);
             if (current.Nodes.All(node => !string.Equals(node.Id, elementId, StringComparison.Ordinal)))
                 throw new KeyNotFoundException(elementId);
+            normalized = normalized with { WorkRules = normalized.WorkRules ?? current.Nodes.Single(node => node.Id == elementId).WorkRules };
+            if ((normalized.WorkRules ?? []).Any(rule => rule.Kind == "document" && !(normalized.InformationObjects ?? []).Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
+                throw new InvalidDataException("Требование состояния должно ссылаться на объект, привязанный к этому шагу.");
 
             var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject()
                 ?? throw new InvalidDataException("Process context JSON is empty.");
@@ -1065,7 +1068,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             channels,
             informationObjects,
             executorKind,
-            NormalizeEvidence(update.Evidence));
+            NormalizeEvidence(update.Evidence),
+            StepWorkRuleValidation.Normalize(update.WorkRules));
     }
 
     internal static IReadOnlyList<SourceRequirementModel> NormalizeSourceRequirements(IReadOnlyList<SourceRequirementModel>? entries)
