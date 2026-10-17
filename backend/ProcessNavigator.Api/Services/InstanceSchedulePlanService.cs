@@ -62,6 +62,65 @@ public sealed class InstanceSchedulePlanService(IWebHostEnvironment environment,
         finally { gate.Release(); }
     }
 
+    public async Task<SchedulePlanFreshnessModel> CheckAsync(string processId, string instanceId, CancellationToken ct = default)
+    {
+        var baseline = (await ListAsync(processId, instanceId, ct)).LastOrDefault();
+        if (baseline is null) return new(null, DateTimeOffset.UtcNow, "NoPlan", [], 0);
+        ProcessScheduleModel current;
+        try { current = await schedule.CalculateAsync(baseline.Request, false, ct); }
+        catch (FileNotFoundException) { return Unavailable("Опубликованный процесс расчёта отсутствует."); }
+        catch (InvalidDataException exception) { return Unavailable(exception.Message); }
+        // A concurrent replacement must never be reported as checked by this request.
+        if ((await ListAsync(processId, instanceId, ct)).LastOrDefault()?.Id != baseline.Id)
+            return new(baseline.Id, DateTimeOffset.UtcNow, "Superseded",
+                [new("Plan", baseline.Id, "Базовый план", "План заменён во время проверки. Обновите историю.")], 1);
+        return Compare(baseline, current);
+
+        SchedulePlanFreshnessModel Unavailable(string message) => new(baseline.Id, DateTimeOffset.UtcNow, "Unavailable",
+            [new("Calculation", processId, "Пересчёт", message)], 1);
+    }
+
+    public static SchedulePlanFreshnessModel Compare(InstanceSchedulePlanModel baseline, ProcessScheduleModel current)
+    {
+        var changes = new List<SchedulePlanChangeModel>();
+        if (current.Sources is null)
+            return new(baseline.Id, DateTimeOffset.UtcNow, "Unavailable",
+                [new("Source", baseline.ProcessId, "Исходники", "Пересчёт не вернул снимок исходных данных.")], 1);
+        if (baseline.Sources.Algorithm != current.Sources.Algorithm)
+            changes.Add(new("Algorithm", "algorithm", "Алгоритм", $"{baseline.Sources.Algorithm} → {current.Sources.Algorithm}"));
+        var oldModels = baseline.Sources.Processes.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var newModels = current.Sources.Processes.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var id in oldModels.Keys.Union(newModels.Keys).Order(StringComparer.Ordinal))
+        {
+            oldModels.TryGetValue(id, out var before); newModels.TryGetValue(id, out var after);
+            if (before is null) changes.Add(new("ProcessAdded", id, after!.Name, "Процесс добавлен в исходную цепочку."));
+            else if (after is null) changes.Add(new("ProcessRemoved", id, before.Name, "Процесс больше не входит в исходную цепочку."));
+            else if (JsonSerializer.Serialize(before, json) != JsonSerializer.Serialize(after, json))
+                changes.Add(new("ProcessChanged", id, after.Name, before.Version == after.Version
+                    ? $"Изменилось содержимое модели при прежней версии {after.Version}: схема, описание, нормативы или привязки."
+                    : $"Версия модели: {before.Version} → {after.Version}."));
+        }
+        var oldObjects = baseline.Sources.Objects.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        var newObjects = current.Sources.Objects.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        foreach (var id in oldObjects.Keys.Union(newObjects.Keys).Order(StringComparer.Ordinal))
+        {
+            oldObjects.TryGetValue(id, out var before); newObjects.TryGetValue(id, out var after);
+            if (before is null) changes.Add(new("ObjectAdded", id, after!.Name, "Документ или результат добавлен в исходники."));
+            else if (after is null) changes.Add(new("ObjectRemoved", id, before.Name, "Документ или результат отсутствует в новых исходниках."));
+            else if (JsonSerializer.Serialize(before, json) != JsonSerializer.Serialize(after, json))
+                changes.Add(new("ObjectChanged", id, after.Name, "Изменились свойства документа, источники или получатели."));
+        }
+        var item = current.Processes.SingleOrDefault(item => item.ProcessId == baseline.ProcessId);
+        if (item is null) changes.Add(new("Schedule", baseline.ProcessId, baseline.Item.ProcessName, "Процесс отсутствует в новой расчётной последовательности."));
+        else if (JsonSerializer.Serialize(baseline.Item, json) != JsonSerializer.Serialize(item, json))
+            changes.Add(new("Schedule", item.ProcessId, item.ProcessName, "Изменились расчётные даты, длительность, резерв или достоверность."));
+        if (!current.Complete || item?.IsDateReliable == false)
+            changes.Add(new("Reliability", baseline.ProcessId, "Полнота расчёта", "Новый расчёт предварительный: проверьте замечания и недостающие данные."));
+        return new(baseline.Id, DateTimeOffset.UtcNow, changes.Count == 0 ? "Current" : "Changed",
+            changes.Take(50).ToArray(), changes.Count, item,
+            item is null ? null : Math.Round((item.EndAt - baseline.Item.EndAt).TotalHours, 2));
+    }
+
     private static async Task<IReadOnlyList<InstanceSchedulePlanModel>> ReadAsync(string path, CancellationToken ct)
     {
         if (!File.Exists(path)) return [];

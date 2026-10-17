@@ -10,8 +10,8 @@ const compiled = await transformWithOxc(source, 'InstanceScheduleSummary.tsx', {
 const code = compiled.code.replace(/import[^;]+from "[^"]+";/g, '').replace('export function ', 'function ');
 function render(instance, plans, error = '') {
   const values = [plans, error, false, '2026-10-19T17:00Z'];
-  const Component = new Function('React', 'useState', 'loadInstanceSchedulePlans', 'compareScheduleFact', code + '\nreturn InstanceScheduleSummary;')(
-    { createElement, Fragment }, () => [values.shift(), () => {}], () => { throw new Error('Unexpected request during render'); }, compareScheduleFact);
+  const Component = new Function('React', 'useState', 'loadInstanceSchedulePlans', 'compareScheduleFact', 'SchedulePlanFreshnessPanel', code + '\nreturn InstanceScheduleSummary;')(
+    { createElement, Fragment }, () => [values.shift(), () => {}], () => { throw new Error('Unexpected request during render'); }, compareScheduleFact, () => null);
   return renderToStaticMarkup(Component({ instance }));
 }
 const instance = { processId: 'p', id: 'i', status: 'Active', startedAt: '2026-10-17T09:00Z' };

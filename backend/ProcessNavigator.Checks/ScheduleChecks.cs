@@ -64,7 +64,25 @@ internal static class ScheduleChecks
                 Check(rejected, label);
             }
             Check((await plans.ListAsync("source", instance.Id)).Count == 0, "Legacy execution needs no plan migration");
+            Check((await plans.CheckAsync("source", instance.Id)).Status == "NoPlan", "Freshness does not invent a missing baseline");
             var assigned = await plans.AssignAsync("source", instance.Id, update, "tester");
+            var baselinePath = Path.Combine(data, "SchedulePlans", "source_" + instance.Id + ".json");
+            var baselineBytes = await File.ReadAllBytesAsync(baselinePath);
+            var freshness = await plans.CheckAsync("source", instance.Id);
+            Check(freshness.Status == "Current" && freshness.TotalChanges == 0 && freshness.PlanId == assigned.Id && freshness.FinishShiftHours == 0,
+                "Unchanged sources remain current despite a new capture timestamp");
+            Check((await File.ReadAllBytesAsync(baselinePath)).SequenceEqual(baselineBytes), "Freshness check never modifies the saved baseline");
+            var algorithmCheck = InstanceSchedulePlanService.Compare(assigned, result with { Sources = result.Sources! with { Algorithm = "different" } });
+            Check(algorithmCheck.Status == "Changed" && algorithmCheck.Changes.Any(item => item.Kind == "Algorithm"), "Algorithm drift explained");
+            Check(InstanceSchedulePlanService.Compare(assigned, result with { Sources = null }).Status == "Unavailable", "Missing source snapshot is not current");
+            var objectCheck = InstanceSchedulePlanService.Compare(assigned, result with { Sources = result.Sources! with {
+                Objects = result.Sources.Objects.Select(item => item with { Name = "Изменённый документ" }).ToArray() } });
+            Check(objectCheck.Changes.Any(item => item.Kind == "ObjectChanged"), "Document property drift explained");
+            Check(InstanceSchedulePlanService.Compare(assigned, result with { Sources = result.Sources! with { Objects = [] } }).Changes.Any(item => item.Kind == "ObjectRemoved"), "Removed source object explained");
+            Check(InstanceSchedulePlanService.Compare(assigned, result with { Complete = false }).Changes.Any(item => item.Kind == "Reliability"), "Preliminary recalculation cannot confirm a baseline");
+            var manyChanges = InstanceSchedulePlanService.Compare(assigned, result with { Sources = result.Sources! with {
+                Processes = Enumerable.Range(0, 60).Select(index => process with { Id = "added-" + index }).ToArray() } });
+            Check(manyChanges.Changes.Count == 50 && manyChanges.TotalChanges > 50 && manyChanges.Status == "Changed", "Large drift report has explicit bounded output");
             Check(assigned.Item.EndAt == scheduledItem.EndAt && assigned.AssignedBy == "tester", "Plan is calculated and attributed on server");
             Check(JsonSerializer.Serialize((await executions.ListAsync("source", default)).Single()) == JsonSerializer.Serialize(instance), "Baseline leaves all execution history and normative steps unchanged");
             await RejectPlan(update, "Stale baseline revision rejected");
@@ -149,6 +167,13 @@ internal static class ScheduleChecks
             var recalculated = await service.CalculateAsync(request, false);
             Check(recalculated.Sources!.Processes.Single(item => item.Id == "source").Nodes.Single().WorkDuration == "4 часа", "Recalculation uses current model even with unchanged version");
             Check(different.Sources!.Processes.Single(item => item.Id == "source").Nodes.Single().WorkDuration == "8 часов", "Previous source snapshot stays unchanged");
+            var latestBeforeCheck = await File.ReadAllBytesAsync(baselinePath);
+            var drift = await plans.CheckAsync("source", instance.Id);
+            Check(drift.Status == "Changed" && drift.Changes.Any(item => item.Kind == "ProcessChanged" && item.Message.Contains("прежней версии")), "Same-version normative edits mark baseline as changed");
+            Check(drift.FinishShiftHours == -4 && drift.CurrentItem!.EndAt == assigned.Item.EndAt.AddHours(-4), "Calendar finish delta compares new calculation with original baseline");
+            Check((await File.ReadAllBytesAsync(baselinePath)).SequenceEqual(latestBeforeCheck), "Drift check preserves all plan revisions and dates");
+            File.Move(Path.Combine(data, "source.bpmn"), Path.Combine(data, "source.bpmn.hold"));
+            Check((await plans.CheckAsync("source", instance.Id)).Status == "Unavailable", "Deleted published root gives unknown freshness, not current");
         }
         finally
         {

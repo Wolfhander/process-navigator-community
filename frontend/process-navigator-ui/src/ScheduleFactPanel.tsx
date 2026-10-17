@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { assignInstanceSchedulePlan, loadInstanceSchedulePlans, loadInstances } from './api';
 import type { InstanceSchedulePlan } from './instance-schedule-plan';
 import { compareScheduleFact } from './schedule-fact';
+import { SchedulePlanFreshnessPanel } from './SchedulePlanFreshnessPanel';
 import type { ProcessInstance, ProcessSchedule, ProcessScheduleRequest } from './types';
 
 export function ScheduleFactPanel({ result, request, canAssign, dirty }: { result: ProcessSchedule; request?: ProcessScheduleRequest; canAssign: boolean; dirty: boolean }) {
@@ -66,6 +67,7 @@ export function ScheduleFactPanel({ result, request, canAssign, dirty }: { resul
     {processId && <><button disabled={loading || saving} onClick={() => setRefresh(value => value + 1)}>Обновить факт и планы</button><label>Экземпляр<select value={instanceId} disabled={loading || saving} onChange={event => setInstanceId(event.target.value)}><option value="">{loading ? 'Загрузка…' : 'Выберите выполнение'}</option>{instances.map(item => <option key={item.id} value={item.id}>{item.name} · {date(item.startedAt)} · {item.id.slice(0, 8)}</option>)}</select></label>{!loading && !error && !instances.length && <p>У процесса пока нет выполнений.</p>}</>}
     {(error || comparisonError || planError) && <p role="alert">{error || comparisonError || planError}</p>}
     {baseline && <label><input type="checkbox" checked={useBaseline} onChange={event => setUseBaseline(event.target.checked)}/>Сравнивать с назначенным базовым планом, а не показанным расчётом</label>}
+    {baseline && <SchedulePlanFreshnessPanel key={baseline.id} plan={baseline}/>}
     {instance && canAssign && (instance.status === 'Active' || instance.status === 'Paused') && <div><label>Причина назначения / перепланирования<textarea maxLength={500} value={reason} disabled={saving} onChange={event => setReason(event.target.value)}/></label><button disabled={saving || dirty || plansKey !== key || !request || reason.trim().length < 3 || !result.complete || !calculatedPlan?.isDateReliable} onClick={assign}>{saving ? 'Сохраняем…' : baseline ? 'Заменить базовый план показанным расчётом' : 'Назначить показанный расчёт базовым планом'}</button><p>Только полный расчёт с достоверными датами и совпадающей версией. Пауза не переносит срок; для переноса нужен новый расчёт и причина.</p></div>}
     {!!history.length && <details><summary>История базового плана ({history.length})</summary>{history.slice().reverse().map(item => <article key={item.id}><strong>{date(item.assignedAt)} · {item.assignedBy}</strong><p>{date(item.item.startAt)} → {date(item.item.endAt)} · версия {item.processVersion}</p><p>{item.reason}</p></article>)}</details>}
     {comparison && plan && instance && <section aria-label="План и факт"><p>План: {date(plan.startAt)} → {date(plan.endAt)}. Факт запуска: {date(instance.startedAt)}. Отклонение запуска: {hours(comparison.startDeltaHours)}.</p>

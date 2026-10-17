@@ -199,6 +199,12 @@ export async function loadInstanceSchedulePlans(processId: string, instanceId: s
   return response.json();
 }
 
+export async function checkInstanceSchedulePlan(processId: string, instanceId: string): Promise<import('./instance-schedule-plan').SchedulePlanFreshness> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/schedule-plans/check`, { headers: roleHeaders() });
+  if (!response.ok) throw new Error(await errorMessage(response, 'Актуальность плана не установлена. Не удалось выполнить проверку.'));
+  return response.json();
+}
+
 export async function assignInstanceSchedulePlan(processId: string, instanceId: string, request: import('./types').ProcessScheduleRequest,
   expectedStartAt: string, expectedEndAt: string, expectedVersion: string, previousPlanId: string | null, reason: string,
   expectedSources: import('./types').ProcessSchedule['sources']): Promise<import('./instance-schedule-plan').InstanceSchedulePlan> {

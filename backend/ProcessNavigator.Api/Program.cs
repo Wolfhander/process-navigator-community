@@ -348,6 +348,15 @@ app.MapGet("/api/processes/{processId}/instances/{instanceId}/schedule-plans", a
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
 });
 
+app.MapGet("/api/processes/{processId}/instances/{instanceId}/schedule-plans/check", async (string processId, string instanceId,
+    HttpContext context, InstanceSchedulePlanService plans, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await plans.CheckAsync(processId, instanceId, ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(new { message = "Выполнение не найдено." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+
 app.MapPost("/api/processes/{processId}/instances/{instanceId}/schedule-plans", async (string processId, string instanceId,
     InstanceSchedulePlanUpdateModel request, HttpContext context, InstanceSchedulePlanService plans,
     AccessControlService access, CancellationToken ct) =>

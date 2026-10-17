@@ -3,6 +3,7 @@ import { loadInstanceSchedulePlans } from './api';
 import type { InstanceSchedulePlan } from './instance-schedule-plan';
 import type { ProcessInstance } from './types';
 import { compareScheduleFact } from './schedule-fact';
+import { SchedulePlanFreshnessPanel } from './SchedulePlanFreshnessPanel';
 
 export function InstanceScheduleSummary({ instance }: { instance: ProcessInstance }) {
   const [plans, setPlans] = useState<InstanceSchedulePlan[]>();
@@ -32,6 +33,7 @@ export function InstanceScheduleSummary({ instance }: { instance: ProcessInstanc
     {!busy && <button onClick={load}>Обновить план</button>}
     {plans && !plans.length && <p>Базовый план не назначен. Назначить его можно на странице «Расчёт сроков».</p>}
     {baseline && <><p>Базовое окончание: {date(baseline.item.endAt)}. {fact}</p><p>По состоянию на {date(now)}. Пауза не переносит календарный срок. Отрицательное отклонение — раньше плана.</p>
+      <SchedulePlanFreshnessPanel key={baseline.id} plan={baseline}/>
       {plans!.slice().reverse().map(plan => <div key={plan.id}><strong>{date(plan.assignedAt)} · {plan.assignedBy}</strong><span>{date(plan.item.startAt)} → {date(plan.item.endAt)} · {plan.reason}</span></div>)}
     </>}
   </details>;
