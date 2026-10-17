@@ -24,6 +24,10 @@
 .schedule-archive input:not([type=checkbox]), .schedule-archive select { border: 1px solid #d7e0da; border-radius: 8px; background: white; padding: 9px; font: inherit; min-width: 0; }
 .schedule-archive button { padding: 9px 12px; border: 1px solid #d7e0da; background: #f5f8f5; border-radius: 8px; font: inherit; color: #294f3e; margin: 4px; cursor: pointer; white-space: normal; }
 .schedule-archive button:disabled { opacity: .5; cursor: default; }
+.schedule-archive section { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; overflow-wrap: anywhere; }
+.schedule-archive label { max-width: 100%; min-width: 0; }
+.schedule-archive input[type=file] { width: 100%; box-sizing: border-box; }
+.schedule-archive li { overflow-wrap: anywhere; }
 .schedule-page .transfer-table { overflow-x: auto; margin-top: 16px; }
 .schedule-page .transfer-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .schedule-page .transfer-table td, .schedule-page .transfer-table th { border: 1px solid #d7e0da; text-align: left; padding: 12px; overflow-wrap: anywhere; vertical-align: top; }
