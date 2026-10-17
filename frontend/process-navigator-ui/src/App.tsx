@@ -28,7 +28,6 @@ import { AppVersionPage } from './AppVersionPage';
 import { DraftLaneSyncDialog } from './DraftLaneSyncDialog';
 import { ProcessDirectionMatrixDialog } from './ProcessDirectionMatrixDialog';
 import { CatalogAuditDialog } from './CatalogAuditDialog';
-import { InformationObjectRegistryPage } from './InformationObjectRegistryPage';
 import { PersonalProcesses } from './PersonalProcesses';
 import { usePersonalWorkspace } from './usePersonalWorkspace';
 import { buildExecutionGuidance, buildReturnStepOptions } from './process-execution-flow';
@@ -47,6 +46,7 @@ const PortfolioAnalyticsDialog = lazy(() => import('./PortfolioAnalyticsDialog')
 const DevelopmentRoadmapPage = lazy(() => import('./DevelopmentRoadmapPage').then(module => ({ default: module.DevelopmentRoadmapPage })));
 const ProcessTableImportHistoryPage = lazy(() => import('./ProcessTableImportHistoryPage').then(module => ({ default: module.ProcessTableImportHistoryPage })));
 const ProcessSchedulePage = lazy(() => import('./ProcessSchedulePage').then(module => ({ default: module.ProcessSchedulePage })));
+const InformationObjectRegistryPage = lazy(() => import('./InformationObjectRegistryPage').then(module => ({ default: module.InformationObjectRegistryPage })));
 
 export default function App() {
   const [initialLocation] = useState(() => readProcessLocation(window.location.hash));

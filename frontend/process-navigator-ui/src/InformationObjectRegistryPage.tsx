@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, ArrowRight, Download, FileText, Pencil, Refre
 import { loadInformationObjects, saveInformationObject } from './api';
 import type { InformationObject, InformationObjectOccurrence, InformationObjectRegistry, InformationObjectUpdate } from './types';
 import { buildProcessDependencies } from './information-object-dependencies';
+import { InformationObjectDetailPage } from './InformationObjectDetailPage';
 import './information-object-registry.css';
 
 type Props = { canManage: boolean; onBack: () => void; onOpen: (occurrence: InformationObjectOccurrence) => void };
@@ -41,6 +42,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<'objects' | 'dependencies'>('objects');
   const [expanded, setExpanded] = useState<string>();
+  const [detailId, setDetailId] = useState<string>();
   const [editing, setEditing] = useState<string>();
   const [form, setForm] = useState<InformationObjectUpdate>();
   const [saving, setSaving] = useState(false);
@@ -90,6 +92,8 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
     link.click();
     URL.revokeObjectURL(url);
   };
+  const detail = registry?.objects.find(item => item.id === detailId);
+  if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Документы и результаты</strong></nav>
     <header className="registry-heading"><div><span className="eyebrow">Сквозные зависимости</span><h1>Документы и результаты</h1><p>Автоматический реестр входов и выходов всех доступных процессов. Он показывает, где объект создаётся, кто его получает и где цепочка обрывается.</p></div><div className="registry-heading-actions"><button disabled={!registry} onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button><button onClick={refresh}><RefreshCw size={16}/>Пересчитать</button></div></header>
@@ -103,6 +107,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
       <section className="registry-list">{objects.map(item => { const issues = issuesByObject.get(item.id) ?? []; const open = expanded === item.id; const upstream = open ? upstreamFor(item, registry.objects) : []; return <article key={item.id} className={issues.some(issue => issue.severity === 'Error') ? 'has-error' : issues.length ? 'has-warning' : ''}>
         <button className="registry-row" onClick={() => setExpanded(open ? undefined : item.id)} aria-expanded={open}><span className="registry-kind">{item.kind === 'Document' ? <FileText size={18}/> : <Waypoints size={18}/>}<small>{item.kind === 'Document' ? 'Документ' : 'Результат'}</small></span><span className="registry-name"><strong>{item.name}</strong><small>{item.id}{item.aliases.length > 1 ? ` · вариантов названия: ${item.aliases.length}` : ''}</small></span><span><strong>{item.producers.length}</strong><small>источников</small></span><span><strong>{item.consumers.length}</strong><small>получателей</small></span><span className="registry-state">{issues.length > 0 && <AlertTriangle size={15}/>} {item.state}</span></button>
         {open && <div className="registry-details">
+          <div className="registry-manage"><button onClick={() => setDetailId(item.id)}>Открыть полную карточку <ArrowRight size={14}/></button></div>
           {issues.length > 0 && <div className="registry-issues">{issues.map(issue => <p key={issue.code} className={issue.severity === 'Error' ? 'is-error' : ''}><AlertTriangle size={14}/>{issue.message}</p>)}</div>}
           {editing === item.id && form ? <div className="registry-editor">
             <div><label>Каноническое наименование<input value={form.name} onChange={event => setForm({ ...form, name: event.target.value })}/></label><label>Тип<select value={form.kind} onChange={event => setForm({ ...form, kind: event.target.value as InformationObjectUpdate['kind'] })}><option value="Document">Документ</option><option value="Result">Результат</option></select></label><label>Версия<input value={form.version} onChange={event => setForm({ ...form, version: event.target.value })}/></label><label>Состояние<select value={form.lifecycleState} onChange={event => setForm({ ...form, lifecycleState: event.target.value as InformationObjectUpdate['lifecycleState'] })}><option value="Draft">Черновик</option><option value="Active">Действующий</option><option value="Archived">Архивный</option></select></label></div>
