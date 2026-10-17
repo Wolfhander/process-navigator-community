@@ -8,6 +8,12 @@ public sealed class PortfolioAnalyticsService(
     ProcessExecutionService executions,
     InformationObjectRegistryService informationObjects)
 {
+    // Count each system once per task, including modern channels and legacy fields.
+    private static string[] SystemsFor(NodeModel node) => (node.Channels ?? [])
+        .Where(channel => channel.Kind == "system").Select(channel => channel.SystemName ?? "")
+        .Append(node.SystemName ?? "").Where(name => !string.IsNullOrWhiteSpace(name))
+        .Select(name => name.Trim()).Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
+
     public async Task<PortfolioAnalyticsModel> BuildAsync(CancellationToken cancellationToken = default)
     {
         var summaries = await catalog.ListAsync(cancellationToken);
@@ -44,16 +50,16 @@ public sealed class PortfolioAnalyticsService(
                 && (node.Inputs?.Count ?? 0) > 0
                 && !string.IsNullOrWhiteSpace(node.ExpectedResult)
                 && !string.IsNullOrWhiteSpace(node.CompletionCriteria)
-                && !string.IsNullOrWhiteSpace(node.ExecutionMode)
-                && (node.ExecutionMode != "system" || !string.IsNullOrWhiteSpace(node.SystemName)));
+                && (!string.IsNullOrWhiteSpace(node.ExecutionMode) || (node.Channels ?? []).Any(channel => channel.Direction == "work" && (channel.Kind != "system" || !string.IsNullOrWhiteSpace(channel.SystemName))))
+                && (node.ExecutionMode != "system" || SystemsFor(node).Length > 0));
             var timedTasks = tasks.Count(node => !string.IsNullOrWhiteSpace(node.Duration));
-            var systemTasks = tasks.Where(node => node.ExecutionMode == "system" || !string.IsNullOrWhiteSpace(node.SystemName)).ToArray();
-            var systems = (process.Passport?.Systems ?? []).Concat(systemTasks.Select(node => node.SystemName ?? string.Empty))
+            var systemTasks = tasks.Where(node => node.ExecutionMode == "system" || SystemsFor(node).Length > 0).ToArray();
+            var systems = (process.Passport?.Systems ?? []).Concat(systemTasks.SelectMany(SystemsFor))
                 .Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(value => value).ToArray();
-            var systemTaskCounts = systemTasks.Where(node => !string.IsNullOrWhiteSpace(node.SystemName))
-                .GroupBy(node => node.SystemName!, StringComparer.CurrentCultureIgnoreCase)
+            var systemTaskCounts = systemTasks.SelectMany(node => SystemsFor(node))
+                .GroupBy(name => name, StringComparer.CurrentCultureIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.CurrentCultureIgnoreCase);
-            var manualTasks = tasks.Count(node => node.ExecutionMode == "manual" || string.IsNullOrWhiteSpace(node.ExecutionMode));
+            var manualTasks = tasks.Count(node => node.ExecutionMode == "manual" || (string.IsNullOrWhiteSpace(node.ExecutionMode) && !systemTasks.Contains(node)));
             var externalTasks = tasks.Count(node => node.ExecutionMode == "external");
             var nodesById = process.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
             var crossLaneTransferCount = process.Edges.Count(edge => nodesById.TryGetValue(edge.SourceId, out var source)

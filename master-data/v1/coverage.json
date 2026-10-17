@@ -1,18 +1,109 @@
 {
-  "schemaVersion":1,
-  "synthetic":true,
-  "cases":[
-    {"roadmap":"7","input":"spec.json","checks":["xlsx-roundtrip","large-book"],"remaining":"Реальные форматы сторонних книг и визуальная проверка Excel"},
-    {"roadmap":"20","input":"reference/Data","checks":["catalog","broken-reference"],"remaining":"Допустимые исключения предприятия"},
-    {"roadmap":"29","input":"reference/Data","checks":["depth-and-reuse","composition-cycle"],"remaining":"Предметные границы и раскрытие в браузере"},
-    {"roadmap":"40","input":"spec.json","checks":["registry"],"remaining":"Полнота реального контрольного перечня"},
-    {"roadmap":"64","input":"spec.json#calendarCases","checks":["calendar"],"remaining":"Реальные нормы, смены и производственный календарь"},
-    {"roadmap":"74","input":"spec.json#expected","checks":["analytics"],"remaining":"Предметная интерпретация показателей"},
-    {"roadmap":"77.5","input":"reference/Data","checks":["location"],"remaining":"Браузерная история на рабочем сценарии"},
-    {"roadmap":"98.6","input":"reference/Data","checks":["composition"],"remaining":"Визуальная читаемость обзора"},
-    {"roadmap":"99.8","input":"reference/Data","checks":["responsibility"],"remaining":"Подтверждение предметных передач и исторических назначений"},
-    {"roadmap":"100","input":"documents/MD-001.md","checks":["instruction","work-rules"],"remaining":"Визуальная и предметная приёмка"},
-    {"roadmap":"100.8","input":"reference/instruction.html","checks":["full-html"],"remaining":"Проверка страниц печати в браузере"},
-    {"roadmap":"101.6","input":"reference/Data","checks":["readability"],"remaining":"Проверка на разных экранах"}
-  ]
+  "schemaVersion": 1,
+  "synthetic": true,
+  "cases": [
+    {
+      "roadmap": "7",
+      "input": "spec.json",
+      "checks": [
+        "xlsx-roundtrip",
+        "large-book"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "20",
+      "input": "reference/Data",
+      "checks": [
+        "catalog",
+        "broken-reference"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "29",
+      "input": "reference/Data",
+      "checks": [
+        "depth-and-reuse",
+        "composition-cycle"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "40",
+      "input": "registry-control.json",
+      "checks": [
+        "registry",
+        "registry-reconciliation"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "64",
+      "input": "spec.json#calendarCases",
+      "checks": [
+        "calendar"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "74",
+      "input": "spec.json#expected",
+      "checks": [
+        "analytics"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "77.5",
+      "input": "reference/Data",
+      "checks": [
+        "location"
+      ],
+      "remaining": "Браузерная история на рабочем сценарии"
+    },
+    {
+      "roadmap": "98.6",
+      "input": "reference/Data",
+      "checks": [
+        "composition"
+      ],
+      "remaining": "Визуальная читаемость обзора"
+    },
+    {
+      "roadmap": "99.8",
+      "input": "reference/Data",
+      "checks": [
+        "responsibility"
+      ],
+      "remaining": "Подтверждение предметных передач и исторических назначений"
+    },
+    {
+      "roadmap": "100",
+      "input": "documents/MD-001.md",
+      "checks": [
+        "instruction",
+        "work-rules"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "100.8",
+      "input": "reference/instruction.html",
+      "checks": [
+        "full-html"
+      ],
+      "remaining": ""
+    },
+    {
+      "roadmap": "101.6",
+      "input": "reference/Data",
+      "checks": [
+        "readability"
+      ],
+      "remaining": "Проверка на разных экранах"
+    }
+  ],
+  "acceptanceBasis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
+  "manualEvidence": "master-data/acceptance-2026-10-18.md"
 }

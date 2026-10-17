@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {parseReferenceObjects,reconcileInformationObjects} from '../frontend/process-navigator-ui/src/information-reconciliation.ts';
+const control=JSON.parse(fs.readFileSync(new URL('../master-data/v1/registry-control.json',import.meta.url),'utf8'));
+const actual=JSON.parse(fs.readFileSync(process.argv[2],'utf8')).objects;
+const expected=parseReferenceObjects(JSON.stringify(control));
+const result=reconcileInformationObjects(expected,actual);
+assert.equal(result.rows.length,5);
+assert.ok(result.rows.every(row=>row.status==='matched'&&row.issues.length===0));
+assert.equal(result.unlisted.length,0);
+const unknown=reconcileInformationObjects([{...expected[0],id:'unknown-control-id'}],actual);
+assert.equal(unknown.rows[0].status,'missing');
+const wrong=reconcileInformationObjects([{...expected[0],kind:'Document'}],actual);
+assert.ok(wrong.rows[0].issues.includes('Тип отличается от контрольного перечня'));
+assert.throws(()=>parseReferenceObjects(JSON.stringify([expected[0],expected[0]])),/повтор/);
+console.log('[master-data:registry-reconciliation] PASS');

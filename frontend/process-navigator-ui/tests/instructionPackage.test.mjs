@@ -49,6 +49,9 @@ test('HTML includes every element and edge, escapes hostile text, and never crea
   assert.match(html,/НЕПОЛНЫЙ ДОКУМЕНТ/);assert.match(html,/Content-Security-Policy/);
   assert.doesNotMatch(html,/<script>|<img|href=|onclick=/);
   assert.match(html,/&lt;script&gt;/);
+  assert.match(html,/@page\{size:A4/);
+  assert.match(html,/\.transitions\{break-inside:avoid\}/);
+  assert.match(html,/<div class="transitions"><h3>Все исходные переходы/);
 });
 test('oversized report is rejected rather than truncated',()=>{
   const process={...model('p'),nodes:[{id:'a',name:'a',type:'task',instruction:'x'.repeat(8000001)}]};

@@ -18,13 +18,13 @@ function render(query='') {
 }
 test('page shows child status and its limited coverage separately from parent totals',()=>{
   const html=render();
-  assert.match(html,/39 из 103/);
-  assert.match(html,/16 из 16 проверок пройдено/);
+  assert.match(html,/46 из 103/);
+  assert.match(html,/17 из 17 проверок пройдено/);
   assert.match(html,/не проверка вашего компьютера/);
   assert.match(html,/Детализировано пунктов: 5 из 103/);
   assert.match(html,/Подзадачи пункта 100/);
   assert.match(html,/100.8/);
-  assert.match(html,/Визуальная приёмка длинных/);
+  assert.match(html,/Визуальная приёмка согласованного контура/);
   assert.match(html,/не дополнительный процент готовности/);
 });
 test('search finds a parent through its child wording',()=>{

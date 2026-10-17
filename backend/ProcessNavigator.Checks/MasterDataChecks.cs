@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Hosting;
@@ -40,12 +41,36 @@ internal static class MasterDataChecks
             Passed("catalog");Passed("depth-and-reuse");
             var registry=new InformationObjectRegistryService(catalog,environment);
             var objects=await registry.BuildAsync(false);Check(objects.Objects.Count==expected.GetProperty("registryObjects").GetInt32(),"Master registry count: "+string.Join("; ",objects.Objects.Select(item=>item.Id+"="+item.Name+"("+item.State+")")));
+            using var control=JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(source,"registry-control.json")));
+            Check(objects.Objects.Count==control.RootElement.GetArrayLength(),"Registry control covers the entire catalog");
+            foreach(var row in control.RootElement.EnumerateArray())
+            {
+                var actual=objects.Objects.Single(item=>item.Id==row.GetProperty("id").GetString());
+                Check(actual.Name==row.GetProperty("name").GetString()&&actual.Kind==row.GetProperty("kind").GetString()&&actual.State==row.GetProperty("expectedState").GetString(),"Registry control: "+actual.Id+" / "+actual.Name+" / "+actual.Kind+" / "+actual.State);
+            }
             var document=objects.Objects.Single(item=>item.Id==spec.RootElement.GetProperty("document").GetProperty("id").GetString());
             Check(document.Id==spec.RootElement.GetProperty("document").GetProperty("id").GetString()&&document.Producers.Count==1&&document.Consumers.Count==1,"Master registry has exact source and recipient");Passed("registry");
             var locks=new ProcessEditLockService();var organization=new OrganizationMapService(environment,catalog,locks);
             var analytics=await new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry).BuildAsync();
             Check(analytics.TotalProcesses==5&&analytics.PublishedProcesses==5&&analytics.DraftProcesses==0,"Master analytics populations");
             Check(analytics.TotalDepartments==expected.GetProperty("units").GetInt32()&&analytics.TotalInstances==0,"Master analytics units and execution baseline");Passed("analytics");
+            Check(analytics.ProcessesWithOwner==5&&analytics.ProcessesWithOrganization==5&&analytics.ParticipatingDepartments==3,"Analytics owner/organization/participation coverage");
+            Check(analytics.ProcessesWithAllDurations==5&&analytics.ProcessesWithSystems==5&&analytics.ProcessesWithDecomposition==4,$"Analytics durations, systems and parents: {analytics.ProcessesWithAllDurations}/{analytics.ProcessesWithSystems}/{analytics.ProcessesWithDecomposition}");
+            Check(analytics.InformationObjectCount==5&&analytics.CrossLaneTransferCount==1&&analytics.AverageReadinessPercent==100,"Analytics object/transfer/readiness formulas");
+            Check(analytics.Levels.Count==5&&analytics.Levels.All(item=>item.ProcessCount==1)&&analytics.Systems.Single().TaskCount==7,"Analytics level and task distributions");
+            var contextPath=Path.Combine(root,"Data","md-order.context.json");
+            var originalContext=await File.ReadAllTextAsync(contextPath);
+            try
+            {
+                var context=JsonNode.Parse(originalContext)!;var task=context["elements"]!["task-1"]!;
+                task["systemName"]="Учебная PLM";
+                var duplicate=task["channels"]![0]!.DeepClone();duplicate["id"]="duplicate-channel";duplicate["systemName"]="учебная plm";
+                task["channels"]!.AsArray().Add(duplicate);
+                await File.WriteAllTextAsync(contextPath,context.ToJsonString());
+                var duplicateAnalytics=await new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry).BuildAsync();
+                Check(duplicateAnalytics.Systems.Single().TaskCount==7,"Legacy and repeated channels count a system once per task");
+            }
+            finally { await File.WriteAllTextAsync(contextPath,originalContext); }
             var schedule=new ProcessScheduleService(catalog,registry);
             foreach(var item in spec.RootElement.GetProperty("calendarCases").EnumerateArray())
             {
@@ -71,6 +96,7 @@ internal static class MasterDataChecks
                 Directory.CreateDirectory(reportDirectory);
                 await File.WriteAllBytesAsync(Path.Combine(reportDirectory,"master-processes.xlsx"),exported.Content);
                 await File.WriteAllBytesAsync(Path.Combine(reportDirectory,"master-large-3000.xlsx"),large);
+                await File.WriteAllTextAsync(Path.Combine(reportDirectory,"registry-actual.json"),JsonSerializer.Serialize(objects,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
             }
         }
         finally

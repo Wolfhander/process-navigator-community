@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "synthetic": true,
-  "checkedAt": "2026-10-17T21:07:13.050Z",
+  "checkedAt": "2026-10-17T21:23:27.924Z",
   "status": "passed",
-  "inputsFingerprint": "a1191304224db65e648a475fc0034667b12a91206c1ce11f77c81144712835da",
+  "inputsFingerprint": "ee4e55183270ebaa5d2abfe13c25c73029600c08b358bf853f3c16df565a7a8d",
   "checks": [
     {
       "id": "xlsx-roundtrip",
@@ -31,6 +31,10 @@
     },
     {
       "id": "registry",
+      "status": "passed"
+    },
+    {
+      "id": "registry-reconciliation",
       "status": "passed"
     },
     {
@@ -70,36 +74,41 @@
       "status": "passed"
     }
   ],
+  "manualAcceptance": {
+    "basis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
+    "evidence": "master-data/acceptance-2026-10-18.md",
+    "repeatedByThisRun": false
+  },
   "coverage": [
     {
       "roadmap": "7",
       "automated": "passed",
-      "remaining": "Реальные форматы сторонних книг и визуальная проверка Excel"
+      "remaining": ""
     },
     {
       "roadmap": "20",
       "automated": "passed",
-      "remaining": "Допустимые исключения предприятия"
+      "remaining": ""
     },
     {
       "roadmap": "29",
       "automated": "passed",
-      "remaining": "Предметные границы и раскрытие в браузере"
+      "remaining": ""
     },
     {
       "roadmap": "40",
       "automated": "passed",
-      "remaining": "Полнота реального контрольного перечня"
+      "remaining": ""
     },
     {
       "roadmap": "64",
       "automated": "passed",
-      "remaining": "Реальные нормы, смены и производственный календарь"
+      "remaining": ""
     },
     {
       "roadmap": "74",
       "automated": "passed",
-      "remaining": "Предметная интерпретация показателей"
+      "remaining": ""
     },
     {
       "roadmap": "77.5",
@@ -119,12 +128,12 @@
     {
       "roadmap": "100",
       "automated": "passed",
-      "remaining": "Визуальная и предметная приёмка"
+      "remaining": ""
     },
     {
       "roadmap": "100.8",
       "automated": "passed",
-      "remaining": "Проверка страниц печати в браузере"
+      "remaining": ""
     },
     {
       "roadmap": "101.6",

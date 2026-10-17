@@ -57,7 +57,7 @@ export function instructionPackageHtml(bundle: InstructionPackage) {
   const parts: string[] = [];
   let size = 0;
   const append = (part: string) => { size += part.length; if (size > 8000000) throw new Error('Документ превышает предел 8 млн символов. Разделите инструкцию на ветви.'); parts.push(part); };
-  append('<!doctype html><html lang="ru"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; base-uri \'none\'; form-action \'none\'"><title>Сквозная инструкция</title><style>body{font:15px system-ui;max-width:1100px;margin:24px auto;padding:16px;line-height:1.5;color:#182c23}p,li,h1,h2,h3{overflow-wrap:anywhere;white-space:pre-wrap}article{border:1px solid #ccd7cf;border-radius:8px;padding:16px;margin:16px 0}h2{border-bottom:2px solid #285b44;padding-bottom:8px}h1,h2,h3{break-after:avoid}.warning{color:#9b3d20}@media print{@page{margin:15mm}body{margin:0;max-width:none;padding:0}}</style><body><h1>Сквозная инструкция</h1>');
+  append('<!doctype html><html lang="ru"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; base-uri \'none\'; form-action \'none\'"><title>Сквозная инструкция</title><style>body{font:15px system-ui;max-width:1100px;margin:24px auto;padding:16px;line-height:1.5;color:#182c23}p,li,h1,h2,h3{overflow-wrap:anywhere;white-space:pre-wrap}article{border:1px solid #ccd7cf;border-radius:8px;padding:16px;margin:16px 0}h2{border-bottom:2px solid #285b44;padding-bottom:8px}h1,h2,h3{break-after:avoid}.warning{color:#9b3d20}@media print{@page{size:A4;margin:15mm}body{font-size:10.5pt;line-height:1.35;margin:0;max-width:none;padding:0}p{margin:6px 0}h3{margin:4px 0 8px}article{break-inside:avoid;padding:10px;margin:10px 0}p,li{orphans:3;widows:3}.transitions{break-inside:avoid}}</style><body><h1>Сквозная инструкция</h1>');
   append(paragraph('Сбор исходников', bundle.capturedAt) + '<p>Это справочный документ, не исполняемый линейный план. Порядок разделов не выбирает ветви. Дочерние уровни не заменяют стрелки родительской модели; команды и ссылки не запускаются. Материалы и назначения сотрудников здесь не проверены.</p>');
   append('<h2>Полнота загрузки</h2><p>' + (bundle.issues.length ? 'НЕПОЛНЫЙ ДОКУМЕНТ: замечаний ' + bundle.issues.length : 'Все найденные ссылки загружены в пределах выбранного обхода. Это не подтверждение корректности процессов.') + '</p><ul>' + bundle.issues.map(issue => '<li class="warning">' + escape(issue) + '</li>').join('') + '</ul>');
   append('<h2>Использованные модели</h2><ul>' + bundle.entries.map(entry => '<li>' + escape(entry.path.join(' → ')) + ' · ' + escape(entry.model.id) + ' · версия ' + escape(entry.model.version) + ' · ' + escape(entry.edition) + '</li>').join('') + '</ul>');
@@ -83,10 +83,10 @@ export function instructionPackageHtml(bundle: InstructionPackage) {
       if (node.type === 'parallelGateway') append('<p>Параллельный шлюз — не выбор одной альтернативы.</p>');
       append('</article>');
     }
-    append('<h3>Все исходные переходы</h3>');
+    append('<div class="transitions"><h3>Все исходные переходы</h3>');
     const ids = new Set(model.nodes.map(node => node.id));
     for (const edge of model.edges) append(paragraph(edge.id,edge.sourceId + ' → ' + edge.targetId + ' · ' + (edge.label || 'без подписи') + (!ids.has(edge.sourceId) || !ids.has(edge.targetId) ? ' · ОБРЫВ ССЫЛКИ' : '')));
-    append('</section>');
+    append('</div></section>');
   }
   append('</body></html>');
   return parts.join('');

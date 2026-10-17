@@ -10,7 +10,8 @@ fs.mkdirSync(directory,{recursive:true});
 const coverage=JSON.parse(fs.readFileSync(path.join(root,'master-data','v1','coverage.json'),'utf8'));
 const phases=[
   ['frontend',process.execPath,['--test','--test-reporter=spec','tests/masterData.test.mjs'],path.join(root,'frontend','process-navigator-ui')],
-  ['server','dotnet',['run','--no-restore','--project','backend/ProcessNavigator.Checks','--configuration','Release'],root]
+  ['server','dotnet',['run','--no-restore','--project','backend/ProcessNavigator.Checks','--configuration','Release'],root],
+  ['registry',process.execPath,['tools/verify-registry-control.mjs',path.join(directory,'registry-actual.json')],root]
 ];
 const outcomes=[];
 const passed=new Set();
@@ -34,6 +35,7 @@ function visit(directory){
 visit(path.join(root,'master-data','v1'));
 const inputsFingerprint=crypto.createHash('sha256').update(JSON.stringify(inputFiles.sort((a,b)=>a.path.localeCompare(b.path)))).digest('hex');
 const report={schemaVersion:1,synthetic:true,checkedAt:new Date().toISOString(),status:checks.every(check=>check.status==='passed')&&outcomes.every(item=>item.status==='passed')?'passed':'failed',inputsFingerprint,inputFiles,outcomes,checks,
+  manualAcceptance:{basis:coverage.acceptanceBasis,evidence:coverage.manualEvidence,repeatedByThisRun:false},
   coverage:coverage.cases.map(item=>({roadmap:item.roadmap,automated:item.checks.every(id=>passed.has(id))?'passed':'not-passed',remaining:item.remaining})),
   limitations:['Синтетические данные не заменяют предметную приёмку предприятия.','Браузерная визуальная проверка и проверка страниц печати этим запуском не выполнялись.','Сформированные XLSX проверены импортом программы; отображение и пересчёт в Microsoft Excel не проверялись.']};
 fs.writeFileSync(path.join(directory,'verification.json'),JSON.stringify(report,null,2)+'\n');

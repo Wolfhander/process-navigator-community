@@ -33,9 +33,10 @@ test('wrong-parent, orphan and duplicate task identifiers fail rather than vanis
   ]) assert.throws(()=>parseDevelopmentRoadmap(text));
 });
 
-test('current roadmap retains 39 complete parent points while exposing tracked recent work',()=>{
+test('agreed master-data acceptance completes seven parent points without closing unrelated work',()=>{
   const steps=parseDevelopmentRoadmap(readFileSync(new URL('../../../docs/development-decomposition.md', import.meta.url),'utf8')).flatMap(s=>s.steps);
-  assert.equal(roadmapProgress(steps).done,39);
+  assert.equal(roadmapProgress(steps).done,46);
+  for(const id of [7,20,29,40,64,74,100])assert.equal(steps.find(step=>step.id===id).status,'done');
   assert.deepEqual(steps.filter(s=>s.subtasks.length).map(s=>s.id),[77,98,99,100,101]);
-  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:20,verify:5,planned:8});
+  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:21,verify:4,planned:8});
 });

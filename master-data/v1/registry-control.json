@@ -1,0 +1,7 @@
+[
+  {"id":"md-source-package","name":"Пакет исходных данных MD-001","kind":"Result","expectedState":"Связан","producers":1,"consumers":1},
+  {"id":"io-a815d57289c13000","name":"Задание MD-001","kind":"Result","expectedState":"Нет источника"},
+  {"id":"io-7938ce46ba0658d8","name":"Пакет исходных данных MD-001","kind":"Document","expectedState":"Только упоминание"},
+  {"id":"io-ac88dc3ee43526cc","name":"Результат шага MD-001","kind":"Result","expectedState":"Нет получателя"},
+  {"id":"io-001229d59ff5a821","name":"Результат MD-001 доступен получателю","kind":"Result","expectedState":"Нет получателя"}
+]
