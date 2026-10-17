@@ -28,6 +28,7 @@ import { PublicationValidationDialog } from './PublicationValidationDialog';
 import { AuditLogDialog } from './AuditLogDialog';
 import { WorkspaceHome, type HomeAction } from './WorkspaceHome';
 import { AppVersionPage } from './AppVersionPage';
+import { DevelopmentRoadmapPage } from './DevelopmentRoadmapPage';
 import { ProcessTableImportHistoryPage } from './ProcessTableImportHistoryPage';
 import { DraftLaneSyncDialog } from './DraftLaneSyncDialog';
 import { ProcessDirectionMatrixDialog } from './ProcessDirectionMatrixDialog';
@@ -76,7 +77,7 @@ export default function App() {
   const [oneCOpen, setOneCOpen] = useState(false);
   const [deploymentOpen, setDeploymentOpen] = useState(false);
   const [enterpriseOpen, setEnterpriseOpen] = useState(!initialLocation);
-  const [homeSection, setHomeSection] = useState<'home' | 'map' | 'settings' | 'version' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog'>('home');
+  const [homeSection, setHomeSection] = useState<'home' | 'map' | 'settings' | 'version' | 'roadmap' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog'>('home');
   const [organizationIdentity, setOrganizationIdentity] = useState<OrganizationMap>();
   const [organizationEditor, setOrganizationEditor] = useState<OrganizationMap>();
   const [laneOrganizationEditor, setLaneOrganizationEditor] = useState<{ organization: OrganizationMap; process: ProcessModel }>();
@@ -246,7 +247,7 @@ export default function App() {
     notify(`Текущий пользователь: ${nextSession.currentUser.displayName}`);
   };
 
-  const navigateSection = (section: 'home' | 'map' | 'settings' | 'version' | 'analytics' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog') => {
+  const navigateSection = (section: 'home' | 'map' | 'settings' | 'version' | 'roadmap' | 'analytics' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog') => {
     if (editorOpen && !window.confirm('Переход закроет редактор. Сохраните изменения перед выходом. Продолжить?')) return;
     setEditorOpen(false); setError(''); setEnterpriseOpen(true);
     setAnalyticsOpen(false);
@@ -492,7 +493,8 @@ export default function App() {
     {oneCOpen && <OneCIntegrationDialog onClose={() => setOneCOpen(false)}/>}
     {deploymentOpen && <DeploymentDialog onClose={() => setDeploymentOpen(false)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && (homeSection === 'home' || homeSection === 'settings') && <WorkspaceHome settings={homeSection === 'settings'} groupName={organizationIdentity?.name ?? 'Группа компаний'} catalog={catalog} can={can} onAction={homeAction}><PersonalProcesses key={session.currentUser.id} catalog={catalog} preferences={personalWorkspace.data} storageFailed={personalWorkspace.storageFailed} canOpenDraft={can('process.diagram.edit') || can('process.context.edit') || can('process.publish')} onOpen={openProcess} onFavorite={personalWorkspace.favorite} onFilter={personalWorkspace.filter} onClearRecent={personalWorkspace.clearRecent}/></WorkspaceHome>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'version' && <AppVersionPage onBack={() => navigateSection('settings')}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'version' && <AppVersionPage onBack={() => navigateSection('settings')} onRoadmap={() => navigateSection('roadmap')}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'roadmap' && <DevelopmentRoadmapPage onBack={() => navigateSection('version')}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'importHistory' && <ProcessTableImportHistoryPage canManage={can('system.manage')} onBack={() => navigateSection('settings')}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'import' && <ImportDialog page catalog={catalog} initialExportProcessId={processId} onClose={() => navigateSection('home')}
       onImported={async result => { await refreshCatalog(result.process.id); openProcess(result.process.id); setDraftView(true); notify(`Импортирован процесс «${result.process.name}»`); }}

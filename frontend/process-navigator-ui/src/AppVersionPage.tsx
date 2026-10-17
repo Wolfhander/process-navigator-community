@@ -21,10 +21,11 @@ const sections = [
   { key: 'removed', label: 'Убрано', icon: MinusCircle },
 ] as const;
 
-export function AppVersionPage({ onBack }: { onBack: () => void }) {
+export function AppVersionPage({ onBack, onRoadmap }: { onBack: () => void; onRoadmap: () => void }) {
   const current = releases.find(release => release.version === packageInfo.version);
   return <main className="app-version-page"><div className="app-version-content">
     <button className="app-version-back" onClick={onBack}><ArrowLeft size={16}/>К настройкам</button>
+    <button className="app-version-back" onClick={onRoadmap}><GitBranch size={16}/>Дорожная карта разработки</button>
     <div className="app-version-heading"><span className="eyebrow"><History size={14}/>История программы</span><h1>Версии Process Navigator</h1><p>Здесь описаны изменения самой программы. История редакций конкретного бизнес-процесса открывается кнопкой «История» на его схеме.</p></div>
     <section className="app-version-current" aria-label="Текущая версия программы"><div><span className="app-version-kicker"><GitBranch size={16}/>Текущая сборка</span><strong>{packageInfo.version}</strong><p>{current?.stage ?? 'Сведения об этой сборке не внесены в журнал изменений.'}</p></div><span className="app-version-status">{current?.date ? <CheckCircle2 size={17}/> : <Clock3 size={17}/>} {current?.date ? 'Опубликована' : 'В разработке'}</span></section>
     <div className="app-version-history"><h2>Что менялось</h2>{releases.map(release => <article className="app-version-release" key={release.version}>
