@@ -1,0 +1,213 @@
+{
+  "version": "1.0",
+  "owner": "ОПиКЗ",
+  "ownerLegalEntityId": "plant",
+  "ownerUnitId": "1.2.4",
+  "status": "Published",
+  "passport": {
+    "level": 2,
+    "classification": "Обеспечивающий",
+    "parentProcessId": "demo-showcase-l1",
+    "purpose": "Показать ветвь, детализация которой заканчивается на уровне 2.",
+    "scope": "Демонстрационный контур: вымышленные данные. Исходник сценария: tools/reset-demo-contour.mjs. Операции внешних систем подтверждаются вручную.",
+    "trigger": "Получена подтверждённая потребность",
+    "triggerOptions": [],
+    "result": "Материалы и ПКИ приняты и доступны производству",
+    "inputs": [
+      "обеспечение заказа материалами и ПКИ: исходное задание"
+    ],
+    "outputs": [
+      "Материалы и ПКИ приняты и доступны производству"
+    ],
+    "systems": [
+      "1С:ERP",
+      "1С:ERP. Управление холдингом"
+    ],
+    "documents": [
+      "Ведомость дефицита",
+      "Заказ поставщику",
+      "Письмо поставщику",
+      "Заявка на оплату",
+      "Договор",
+      "Приобретение товаров и услуг",
+      "УПД и сертификаты"
+    ],
+    "relatedProcessIds": []
+  },
+  "elements": {
+    "StartEvent": {
+      "description": "Получена подтверждённая потребность. Внешняя граница демо: получены обеспечение заказа материалами и ПКИ: исходное задание, Договор.",
+      "responsible": "ОПиКЗ",
+      "artifacts": [],
+      "actions": [],
+      "expectedResult": "обеспечение заказа материалами и ПКИ: исходное задание; Договор"
+    },
+    "Task_CalculateNeeds": {
+      "description": "Сопоставить потребность, остатки и ожидаемые поступления.",
+      "responsible": "ОПиКЗ",
+      "duration": "2 часа",
+      "inputs": [
+        "обеспечение заказа материалами и ПКИ: исходное задание"
+      ],
+      "expectedResult": "обеспечение заказа материалами и ПКИ — рассчитать дефицит",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Сопоставить потребность, остатки и ожидаемые поступления. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_CalculateNeeds-channel-1",
+          "kind": "system",
+          "label": "Расчёт потребности",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Ведомость дефицита"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l3-request",
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_OrderSupplier": {
+      "description": "Выбрать поставщика и оформить заказ.",
+      "responsible": "ОЗМ",
+      "duration": "2 часа",
+      "inputs": [
+        "обеспечение заказа материалами и ПКИ — рассчитать дефицит"
+      ],
+      "expectedResult": "обеспечение заказа материалами и ПКИ — разместить заказ поставщику",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Выбрать поставщика и оформить заказ. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_OrderSupplier-channel-1",
+          "kind": "system",
+          "label": "Заказ поставщику",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Заказ поставщику"
+        },
+        {
+          "id": "Task_OrderSupplier-channel-2",
+          "kind": "email",
+          "label": "Отправка заказа",
+          "flow": "parallel",
+          "direction": "output",
+          "systemName": null,
+          "documentName": "Письмо поставщику"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_PaymentControl": {
+      "description": "Проверить лимит и включить платёж в план.",
+      "responsible": "ФЭУ",
+      "duration": "2 часа",
+      "inputs": [
+        "обеспечение заказа материалами и ПКИ — разместить заказ поставщику"
+      ],
+      "expectedResult": "обеспечение заказа материалами и ПКИ — подтвердить финансирование",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить лимит и включить платёж в план. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_PaymentControl-channel-1",
+          "kind": "system",
+          "label": "Платёжный календарь",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP. Управление холдингом",
+          "documentName": "Заявка на оплату"
+        },
+        {
+          "id": "Task_PaymentControl-channel-2",
+          "kind": "paper",
+          "label": "Оригинал договора",
+          "flow": "parallel",
+          "direction": "input",
+          "systemName": null,
+          "documentName": "Договор"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP. Управление холдингом",
+      "informationObjects": []
+    },
+    "Task_ReceiveStock": {
+      "description": "Проверить поставку и оформить складское поступление.",
+      "responsible": "СХ",
+      "duration": "2 часа",
+      "inputs": [
+        "обеспечение заказа материалами и ПКИ — подтвердить финансирование"
+      ],
+      "expectedResult": "обеспечение заказа материалами и ПКИ — принять материалы",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить поставку и оформить складское поступление. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_ReceiveStock-channel-1",
+          "kind": "system",
+          "label": "Приёмка на склад",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Приобретение товаров и услуг"
+        },
+        {
+          "id": "Task_ReceiveStock-channel-2",
+          "kind": "paper",
+          "label": "Комплект поставщика",
+          "flow": "parallel",
+          "direction": "work",
+          "systemName": null,
+          "documentName": "УПД и сертификаты"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l3-warehouse",
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": [
+        {
+          "objectId": "demo-materials-available",
+          "name": "Материалы и ПКИ доступны производству",
+          "role": "Output",
+          "required": true,
+          "version": "1.0"
+        }
+      ]
+    },
+    "EndEvent": {
+      "description": "Материалы и ПКИ приняты и доступны производству",
+      "responsible": "СХ",
+      "artifacts": [],
+      "actions": [],
+      "inputs": [
+        "Материалы и ПКИ приняты и доступны производству",
+        "обеспечение заказа материалами и ПКИ — рассчитать дефицит",
+        "обеспечение заказа материалами и ПКИ — разместить заказ поставщику",
+        "Письмо поставщику",
+        "обеспечение заказа материалами и ПКИ — подтвердить финансирование",
+        "обеспечение заказа материалами и ПКИ — принять материалы"
+      ]
+    }
+  }
+}

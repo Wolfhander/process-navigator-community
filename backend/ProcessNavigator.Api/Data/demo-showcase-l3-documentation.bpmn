@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l3-documentation" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l3-documentation" name="Демо: разработка комплекта конструкторской документации" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l3-documentation">
+      <bpmn:lane id="Lane_Designer" name="КО"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Drawing</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_DesignSupport" name="ОКСП"><bpmn:flowNodeRef>Task_Specification</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_ReleaseDocs</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Standard" name="ОСиСМК"><bpmn:flowNodeRef>Task_NormControl</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Создана структура изделия"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:task id="Task_Drawing" name="Разработать и согласовать чертёж"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_Specification" name="Сформировать спецификацию"><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_NormControl" name="Провести нормоконтроль"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_ReleaseDocs" name="Выпустить комплект КД"><bpmn:incoming>Flow_4</bpmn:incoming><bpmn:outgoing>Flow_5</bpmn:outgoing></bpmn:task>
+    <bpmn:endEvent id="EndEvent" name="Комплект КД имеет статус «Выпущен»"><bpmn:incoming>Flow_5</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_Drawing"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Drawing" targetRef="Task_Specification"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_Specification" targetRef="Task_NormControl"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_NormControl" targetRef="Task_ReleaseDocs"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_ReleaseDocs" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l3-documentation"><bpmndi:BPMNPlane id="Plane_demo-showcase-l3-documentation" bpmnElement="demo-showcase-l3-documentation">
+    <bpmndi:BPMNShape id="Lane_Designer_di" bpmnElement="Lane_Designer" isHorizontal="true"><dc:Bounds x="45" y="40" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_DesignSupport_di" bpmnElement="Lane_DesignSupport" isHorizontal="true"><dc:Bounds x="45" y="240" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Standard_di" bpmnElement="Lane_Standard" isHorizontal="true"><dc:Bounds x="45" y="440" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Drawing_di" bpmnElement="Task_Drawing"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Specification_di" bpmnElement="Task_Specification"><dc:Bounds x="510" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_NormControl_di" bpmnElement="Task_NormControl"><dc:Bounds x="810" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_ReleaseDocs_di" bpmnElement="Task_ReleaseDocs"><dc:Bounds x="1110" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="1410" y="510" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="335"/><di:waypoint x="510" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="730" y="335"/><di:waypoint x="770" y="335"/><di:waypoint x="770" y="535"/><di:waypoint x="810" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="1030" y="535"/><di:waypoint x="1070" y="535"/><di:waypoint x="1070" y="335"/><di:waypoint x="1110" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="1330" y="335"/><di:waypoint x="1370" y="335"/><di:waypoint x="1370" y="533"/><di:waypoint x="1410" y="533"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

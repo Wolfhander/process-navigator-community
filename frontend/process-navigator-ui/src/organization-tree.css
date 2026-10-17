@@ -1,0 +1,11 @@
+.organization-tree { display:flex; flex-direction:column; gap:12px; }
+.organization-tree>label { display:flex; align-items:center; gap:8px; max-width:520px; padding:9px 12px; border:1px solid #d3dad3; border-radius:9px; background:#fff; color:#6f7e73; }
+.organization-tree input { width:100%; border:0; outline:0; background:transparent; color:var(--ink); font:inherit; }
+.organization-tree-branch { position:relative; }
+.organization-tree-unit { display:grid; grid-template-columns:24px minmax(220px,1fr) minmax(210px,.72fr); align-items:center; gap:10px; margin:0 0 7px calc(var(--tree-depth) * 28px); padding:10px 13px; border:1px solid #d4dcd4; border-radius:10px; background:rgba(255,255,255,.88); box-shadow:0 4px 12px rgba(35,69,48,.035); }
+.organization-tree-unit::before { position:absolute; left:calc(var(--tree-depth) * 28px - 14px); width:14px; border-top:1px solid #b9c6bc; content:''; }
+.tree-toggle { display:grid; place-items:center; width:24px; height:24px; padding:0; border:0; border-radius:6px; background:#edf2ed; color:var(--green); cursor:pointer; }.tree-toggle:disabled { background:transparent; cursor:default; }
+.tree-unit-copy { display:flex; min-width:0; flex-direction:column; gap:3px; }.tree-unit-copy strong { overflow:hidden; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }.tree-unit-copy small { color:#718076; font-size:8px; }
+.tree-manager { display:flex; align-items:center; gap:7px; min-width:0; color:#5d7264; }.tree-manager>span { display:flex; min-width:0; flex-direction:column; gap:2px; }.tree-manager small { color:#879087; font-size:7px; text-transform:uppercase; }.tree-manager strong { overflow:hidden; font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+.organization-tree-empty { padding:25px; border:1px dashed #cbd5cc; border-radius:10px; color:var(--muted); text-align:center; font-size:10px; }
+@media (max-width:760px) { .organization-tree-unit { grid-template-columns:24px 1fr; }.tree-manager { grid-column:2; }.organization-tree-unit { margin-left:calc(var(--tree-depth) * 14px); } }

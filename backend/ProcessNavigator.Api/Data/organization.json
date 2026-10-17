@@ -1,0 +1,516 @@
+{
+  "id": "demo-vector-group",
+  "name": "Демонстрационная группа «Вектор»",
+  "description": "Синтетический учебный контур Process Navigator. Все организации и данные вымышлены.",
+  "legalEntities": [
+    {
+      "id": "corporation",
+      "name": "Демо — Управляющая компания «Вектор»",
+      "description": "Вымышленная организация для демонстрации и испытаний; не данные предприятия.",
+      "units": [
+        {
+          "id": "0.1",
+          "name": "Дирекция группы",
+          "shortName": "ДГ",
+          "managerPosition": "Руководитель подразделения"
+        }
+      ],
+      "directions": [
+        {
+          "id": "demo-showcase",
+          "name": "Демонстрационный контур",
+          "description": "Измерительный модуль: от запроса до поставки и учёта.",
+          "icon": "planning",
+          "processIds": [
+            "demo-showcase-l0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "plant",
+      "name": "Демо — Завод «Орион»",
+      "description": "Вымышленная организация для демонстрации и испытаний; не данные предприятия.",
+      "units": [
+        {
+          "id": "1",
+          "name": "Дирекция завода",
+          "shortName": "ДЗ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.6",
+          "name": "Управление сопровождения заказов",
+          "shortName": "УСЗ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.4",
+          "name": "Конструкторский отдел",
+          "shortName": "КО",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.2.4",
+          "name": "Отдел планирования и контроля закупок",
+          "shortName": "ОПиКЗ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.7",
+          "name": "Производственная дирекция",
+          "shortName": "ИспДир",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.7.1",
+          "name": "Отдел конструкторского сопровождения производства",
+          "shortName": "ОКСП",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.7.2",
+          "name": "Технологический отдел",
+          "shortName": "ТО",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.3",
+          "name": "Управление качества",
+          "shortName": "УК",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.3.3",
+          "name": "Отдел стандартизации и системы менеджмента качества",
+          "shortName": "ОСиСМК",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.2.1",
+          "name": "Отдел закупки материалов",
+          "shortName": "ОЗМ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.2.5",
+          "name": "Складское хозяйство",
+          "shortName": "СХ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.7.5.1",
+          "name": "Сборочный цех",
+          "shortName": "Цех №10",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.3.2",
+          "name": "Отдел технического контроля",
+          "shortName": "ОТК",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "1.3.5",
+          "name": "Испытательная лаборатория",
+          "shortName": "ЗЛ",
+          "managerPosition": "Руководитель подразделения"
+        }
+      ],
+      "directions": [
+        {
+          "id": "demo-showcase",
+          "name": "Демонстрационный контур",
+          "description": "Измерительный модуль: от запроса до поставки и учёта.",
+          "icon": "planning",
+          "processIds": [
+            "demo-showcase-l0",
+            "demo-showcase-l1",
+            "demo-showcase-l2-engineering",
+            "demo-showcase-l3-documentation",
+            "demo-showcase-l4-drawing",
+            "demo-showcase-l2-procurement",
+            "demo-showcase-l2-production",
+            "demo-showcase-l3-quality",
+            "demo-showcase-l3-request",
+            "demo-showcase-l3-warehouse"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "communications",
+      "name": "Демо — Сервисный центр «Контур»",
+      "description": "Вымышленная организация для демонстрации и испытаний; не данные предприятия.",
+      "units": [
+        {
+          "id": "2.2",
+          "name": "Финансово-экономическое управление",
+          "shortName": "ФЭУ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "2.3",
+          "name": "Управление информационных технологий",
+          "shortName": "ИТ",
+          "managerPosition": "Руководитель подразделения"
+        },
+        {
+          "id": "2.4",
+          "name": "Бухгалтерия",
+          "shortName": "БУ",
+          "managerPosition": "Руководитель подразделения"
+        }
+      ],
+      "directions": [
+        {
+          "id": "demo-showcase",
+          "name": "Демонстрационный контур",
+          "description": "Измерительный модуль: от запроса до поставки и учёта.",
+          "icon": "planning",
+          "processIds": [
+            "demo-showcase-l0",
+            "demo-showcase-l2-procurement",
+            "demo-showcase-l3-request",
+            "demo-showcase-l3-warehouse"
+          ]
+        }
+      ]
+    }
+  ],
+  "crossCompanyProcesses": [
+    {
+      "processId": "demo-showcase-l0",
+      "legalEntityIds": [
+        "corporation",
+        "plant",
+        "communications"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Corp",
+          "legalEntityId": "corporation",
+          "department": "ДГ",
+          "unitId": "0.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Plant",
+          "legalEntityId": "plant",
+          "department": "ДЗ",
+          "unitId": "1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Cku",
+          "legalEntityId": "communications",
+          "department": "ФЭУ",
+          "unitId": "2.2",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 0; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l1",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Sales",
+          "legalEntityId": "plant",
+          "department": "УСЗ",
+          "unitId": "1.6",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Engineering",
+          "legalEntityId": "plant",
+          "department": "КО",
+          "unitId": "1.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Procurement",
+          "legalEntityId": "plant",
+          "department": "ОПиКЗ",
+          "unitId": "1.2.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Production",
+          "legalEntityId": "plant",
+          "department": "ИспДир",
+          "unitId": "1.7",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 1; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l2-engineering",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Design",
+          "legalEntityId": "plant",
+          "department": "КО",
+          "unitId": "1.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Support",
+          "legalEntityId": "plant",
+          "department": "ОКСП",
+          "unitId": "1.7.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Technology",
+          "legalEntityId": "plant",
+          "department": "ТО",
+          "unitId": "1.7.2",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Quality",
+          "legalEntityId": "plant",
+          "department": "УК",
+          "unitId": "1.3",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 2; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l3-documentation",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Designer",
+          "legalEntityId": "plant",
+          "department": "КО",
+          "unitId": "1.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_DesignSupport",
+          "legalEntityId": "plant",
+          "department": "ОКСП",
+          "unitId": "1.7.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Standard",
+          "legalEntityId": "plant",
+          "department": "ОСиСМК",
+          "unitId": "1.3.3",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 3; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l4-drawing",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Author",
+          "legalEntityId": "plant",
+          "department": "КО",
+          "unitId": "1.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Reviewer",
+          "legalEntityId": "plant",
+          "department": "ОКСП",
+          "unitId": "1.7.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Controller",
+          "legalEntityId": "plant",
+          "department": "ОСиСМК",
+          "unitId": "1.3.3",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 4; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l2-procurement",
+      "legalEntityIds": [
+        "plant",
+        "communications"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_PlanBuy",
+          "legalEntityId": "plant",
+          "department": "ОПиКЗ",
+          "unitId": "1.2.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Buy",
+          "legalEntityId": "plant",
+          "department": "ОЗМ",
+          "unitId": "1.2.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_FinanceBuy",
+          "legalEntityId": "communications",
+          "department": "ФЭУ",
+          "unitId": "2.2",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Stock",
+          "legalEntityId": "plant",
+          "department": "СХ",
+          "unitId": "1.2.5",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 2; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l2-production",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Dispatch",
+          "legalEntityId": "plant",
+          "department": "ИспДир",
+          "unitId": "1.7",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Workshop",
+          "legalEntityId": "plant",
+          "department": "Цех №10",
+          "unitId": "1.7.5.1",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Qc",
+          "legalEntityId": "plant",
+          "department": "ОТК",
+          "unitId": "1.3.2",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_StockProd",
+          "legalEntityId": "plant",
+          "department": "СХ",
+          "unitId": "1.2.5",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 2; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l3-quality",
+      "legalEntityIds": [
+        "plant"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Inspector",
+          "legalEntityId": "plant",
+          "department": "ОТК",
+          "unitId": "1.3.2",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Lab",
+          "legalEntityId": "plant",
+          "department": "ЗЛ",
+          "unitId": "1.3.5",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_WorkshopFix",
+          "legalEntityId": "plant",
+          "department": "Цех №10",
+          "unitId": "1.7.5.1",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 3; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l3-request",
+      "legalEntityIds": [
+        "plant",
+        "communications"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Request",
+          "legalEntityId": "plant",
+          "department": "УСЗ",
+          "unitId": "1.6",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Check",
+          "legalEntityId": "plant",
+          "department": "ОПиКЗ",
+          "unitId": "1.2.4",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Limit",
+          "legalEntityId": "communications",
+          "department": "ФЭУ",
+          "unitId": "2.2",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 3; модель создана для испытаний."
+    },
+    {
+      "processId": "demo-showcase-l3-warehouse",
+      "legalEntityIds": [
+        "plant",
+        "communications"
+      ],
+      "laneOrganizations": [
+        {
+          "laneId": "Lane_Receive",
+          "legalEntityId": "plant",
+          "department": "СХ",
+          "unitId": "1.2.5",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Operator",
+          "legalEntityId": "communications",
+          "department": "ИТ",
+          "unitId": "2.3",
+          "displayNameMode": "short"
+        },
+        {
+          "laneId": "Lane_Accounting",
+          "legalEntityId": "communications",
+          "department": "БУ",
+          "unitId": "2.4",
+          "displayNameMode": "short"
+        }
+      ],
+      "description": "Демонстрационный уровень 3; модель создана для испытаний."
+    }
+  ]
+}

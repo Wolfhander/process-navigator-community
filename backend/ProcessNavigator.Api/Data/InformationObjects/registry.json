@@ -1,0 +1,22 @@
+[
+  {
+    "id": "demo-approved-documentation",
+    "name": "Утверждённый комплект КД и ТД",
+    "kind": "Result",
+    "version": "1.0",
+    "lifecycleState": "Active",
+    "aliases": [
+      "Утверждённый комплект КД и ТД"
+    ]
+  },
+  {
+    "id": "demo-materials-available",
+    "name": "Материалы и ПКИ доступны производству",
+    "kind": "Result",
+    "version": "1.0",
+    "lifecycleState": "Active",
+    "aliases": [
+      "Материалы и ПКИ доступны производству"
+    ]
+  }
+]

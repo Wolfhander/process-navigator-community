@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l0" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l0" name="Демо-контур: заказ и поставка измерительного модуля" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l0">
+      <bpmn:lane id="Lane_Corp" name="ДГ"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Portfolio</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Plant" name="ДЗ"><bpmn:flowNodeRef>Task_ApproveProgram</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Cku" name="ФЭУ"><bpmn:flowNodeRef>Task_FinanceResult</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Получена стратегическая потребность в новом изделии"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:task id="Task_Portfolio" name="Определить потребность и рамки заказа"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_ApproveProgram" name="Утвердить запуск выполнения заказа"><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_FinanceResult" name="Отразить финансовый результат"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:task>
+    <bpmn:endEvent id="EndEvent" name="Изделие поставлено, финансовый результат отражён"><bpmn:incoming>Flow_4</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_Portfolio"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Portfolio" targetRef="Task_ApproveProgram"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_ApproveProgram" targetRef="Task_FinanceResult"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_FinanceResult" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l0"><bpmndi:BPMNPlane id="Plane_demo-showcase-l0" bpmnElement="demo-showcase-l0">
+    <bpmndi:BPMNShape id="Lane_Corp_di" bpmnElement="Lane_Corp" isHorizontal="true"><dc:Bounds x="45" y="40" width="1500" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Plant_di" bpmnElement="Lane_Plant" isHorizontal="true"><dc:Bounds x="45" y="240" width="1500" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Cku_di" bpmnElement="Lane_Cku" isHorizontal="true"><dc:Bounds x="45" y="440" width="1500" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Portfolio_di" bpmnElement="Task_Portfolio"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_ApproveProgram_di" bpmnElement="Task_ApproveProgram"><dc:Bounds x="510" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_FinanceResult_di" bpmnElement="Task_FinanceResult"><dc:Bounds x="810" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="1110" y="510" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="335"/><di:waypoint x="510" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="730" y="335"/><di:waypoint x="770" y="335"/><di:waypoint x="770" y="535"/><di:waypoint x="810" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="1030" y="535"/><di:waypoint x="1070" y="535"/><di:waypoint x="1070" y="533"/><di:waypoint x="1110" y="533"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

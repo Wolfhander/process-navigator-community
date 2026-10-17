@@ -1,0 +1,20 @@
+.lane-mapping-list label > small {
+  color: #a55736;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.process-properties-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: #fbfcf9; border-radius: 18px; box-shadow: 0 28px 80px rgba(24,39,31,.28); }
+.process-properties-dialog > header { display: flex; justify-content: space-between; gap: 20px; padding: 24px 26px 18px; border-bottom: 1px solid #dfe5df; }
+.process-properties-dialog h2 { margin: 4px 0 6px; font: 700 28px/1.1 Georgia, serif; color: #243029; }
+.process-properties-dialog header p { margin: 0; color: #6d7871; font-size: 13px; }
+.process-properties-fields { display: grid; gap: 16px; padding: 22px 26px; }
+.process-properties-fields label { display: grid; gap: 7px; color: #4f5d54; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.process-properties-fields label > span { display: flex; align-items: center; gap: 6px; }
+.process-properties-fields select { min-height: 42px; padding: 0 12px; border: 1px solid #d5ddd6; border-radius: 9px; background: white; color: #26342c; }
+.process-owner-preview { display: grid; gap: 3px; padding: 13px 15px; border: 1px solid #cfe0d2; border-radius: 10px; background: #f1f7f1; }
+.process-owner-preview small, .process-owner-preview span { color: #708078; }
+.process-properties-dialog > footer { display: flex; justify-content: flex-end; gap: 9px; padding: 16px 26px 22px; border-top: 1px solid #dfe5df; }
+.process-bar .owner--editable { cursor: pointer; border-radius: 8px; padding: 6px 9px; transition: background .15s ease, box-shadow .15s ease; }
+.process-bar .owner--editable:hover, .process-bar .owner--editable:focus-visible { background: #eef5ef; box-shadow: 0 0 0 1px #cfddd1; outline: none; }
+.process-bar .owner--editable::after { content: 'Изменить'; margin-left: 7px; color: #397052; font-size: 9px; font-weight: 700; }

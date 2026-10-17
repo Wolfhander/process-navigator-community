@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l1" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l1" name="Демо: выполнение заказа на изделие" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l1">
+      <bpmn:lane id="Lane_Sales" name="УСЗ"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_RegisterOrder</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Deliver</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Engineering" name="КО"><bpmn:flowNodeRef>Task_Engineering</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Procurement" name="ОПиКЗ"><bpmn:flowNodeRef>Task_Procurement</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Production" name="ИспДир"><bpmn:flowNodeRef>Task_Production</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Заказ включён в портфель"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:task id="Task_RegisterOrder" name="Зарегистрировать и уточнить заказ"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_Engineering" name="Выполнить подготовку изделия"><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_Procurement" name="Обеспечить материалами и ПКИ"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_Production" name="Изготовить и принять изделие"><bpmn:incoming>Flow_4</bpmn:incoming><bpmn:outgoing>Flow_5</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_Deliver" name="Передать изделие заказчику"><bpmn:incoming>Flow_5</bpmn:incoming><bpmn:outgoing>Flow_6</bpmn:outgoing></bpmn:task>
+    <bpmn:endEvent id="EndEvent" name="Готовое изделие передано заказчику"><bpmn:incoming>Flow_6</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_RegisterOrder"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_RegisterOrder" targetRef="Task_Engineering"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_Engineering" targetRef="Task_Procurement"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_Procurement" targetRef="Task_Production"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Production" targetRef="Task_Deliver"/>
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_Deliver" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l1"><bpmndi:BPMNPlane id="Plane_demo-showcase-l1" bpmnElement="demo-showcase-l1">
+    <bpmndi:BPMNShape id="Lane_Sales_di" bpmnElement="Lane_Sales" isHorizontal="true"><dc:Bounds x="45" y="40" width="2000" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Engineering_di" bpmnElement="Lane_Engineering" isHorizontal="true"><dc:Bounds x="45" y="240" width="2000" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Procurement_di" bpmnElement="Lane_Procurement" isHorizontal="true"><dc:Bounds x="45" y="440" width="2000" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Production_di" bpmnElement="Lane_Production" isHorizontal="true"><dc:Bounds x="45" y="640" width="2000" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_RegisterOrder_di" bpmnElement="Task_RegisterOrder"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Engineering_di" bpmnElement="Task_Engineering"><dc:Bounds x="510" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Procurement_di" bpmnElement="Task_Procurement"><dc:Bounds x="810" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Production_di" bpmnElement="Task_Production"><dc:Bounds x="1110" y="680" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Deliver_di" bpmnElement="Task_Deliver"><dc:Bounds x="1410" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="1710" y="710" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="335"/><di:waypoint x="510" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="730" y="335"/><di:waypoint x="770" y="335"/><di:waypoint x="770" y="535"/><di:waypoint x="810" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="1030" y="535"/><di:waypoint x="1070" y="535"/><di:waypoint x="1070" y="735"/><di:waypoint x="1110" y="735"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="1330" y="735"/><di:waypoint x="1370" y="735"/><di:waypoint x="1370" y="135"/><di:waypoint x="1410" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6"><di:waypoint x="1630" y="135"/><di:waypoint x="1670" y="135"/><di:waypoint x="1670" y="733"/><di:waypoint x="1710" y="733"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

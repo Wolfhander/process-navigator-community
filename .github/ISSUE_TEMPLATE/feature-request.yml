@@ -1,0 +1,17 @@
+name: Предложение
+description: Задача пользователя и проверяемый результат
+title: "[Предложение] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу нужно решить?
+      description: Без внутренних названий и конфиденциальных материалов
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Как проверить результат?
+    validations:
+      required: true

@@ -1,0 +1,204 @@
+{
+  "version": "1.0",
+  "owner": "ОТК",
+  "ownerLegalEntityId": "plant",
+  "ownerUnitId": "1.3.2",
+  "status": "Published",
+  "passport": {
+    "level": 3,
+    "classification": "Основной",
+    "parentProcessId": "demo-showcase-l2-production",
+    "purpose": "Показать детальную ветвь качества до уровня 3.",
+    "scope": "Демонстрационный контур: вымышленные данные. Исходник сценария: tools/reset-demo-contour.mjs. Операции внешних систем подтверждаются вручную.",
+    "trigger": "Изделие предъявлено на контроль",
+    "triggerOptions": [],
+    "result": "Заключение о соответствии зарегистрировано",
+    "inputs": [
+      "контроль и испытания изделия: исходное задание"
+    ],
+    "outputs": [
+      "Заключение о соответствии зарегистрировано"
+    ],
+    "systems": [
+      "1С:ERP"
+    ],
+    "documents": [
+      "Карта контроля",
+      "Протокол испытаний",
+      "Оригинал протокола",
+      "Извещение",
+      "Корректирующее действие",
+      "Заключение о соответствии",
+      "Паспорт изделия"
+    ],
+    "relatedProcessIds": []
+  },
+  "elements": {
+    "StartEvent": {
+      "description": "Изделие предъявлено на контроль. Внешняя граница демо: получены контроль и испытания изделия: исходное задание, Извещение.",
+      "responsible": "ОТК",
+      "artifacts": [],
+      "actions": [],
+      "expectedResult": "контроль и испытания изделия: исходное задание; Извещение"
+    },
+    "Task_VisualCheck": {
+      "description": "Проверить комплектность и основные параметры.",
+      "responsible": "ОТК",
+      "duration": "2 часа",
+      "inputs": [
+        "контроль и испытания изделия: исходное задание"
+      ],
+      "expectedResult": "контроль и испытания изделия — выполнить приёмочный контроль",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить комплектность и основные параметры. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_VisualCheck-channel-1",
+          "kind": "system",
+          "label": "Контрольная операция",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Карта контроля"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_LabTest": {
+      "description": "Провести измерения и приложить протокол.",
+      "responsible": "ЗЛ",
+      "duration": "2 часа",
+      "inputs": [
+        "контроль и испытания изделия — выполнить приёмочный контроль"
+      ],
+      "expectedResult": "контроль и испытания изделия — провести лабораторные испытания",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Провести измерения и приложить протокол. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_LabTest-channel-1",
+          "kind": "system",
+          "label": "Лабораторные результаты",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Протокол испытаний"
+        },
+        {
+          "id": "Task_LabTest-channel-2",
+          "kind": "paper",
+          "label": "Подписанный протокол",
+          "flow": "parallel",
+          "direction": "output",
+          "systemName": null,
+          "documentName": "Оригинал протокола"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_FixDefects": {
+      "description": "Устранить выявленные несоответствия при их наличии.",
+      "responsible": "Цех №10",
+      "duration": "2 часа",
+      "inputs": [
+        "контроль и испытания изделия — провести лабораторные испытания"
+      ],
+      "expectedResult": "контроль и испытания изделия — устранить замечания",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Устранить выявленные несоответствия при их наличии. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_FixDefects-channel-1",
+          "kind": "memo",
+          "label": "Извещение о несоответствии",
+          "flow": "alternative",
+          "direction": "input",
+          "systemName": null,
+          "documentName": "Извещение"
+        },
+        {
+          "id": "Task_FixDefects-channel-2",
+          "kind": "system",
+          "label": "Регистрация устранения",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Корректирующее действие"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_QualityResult": {
+      "description": "Зарегистрировать итог и передать паспорт изделия.",
+      "responsible": "ОТК",
+      "duration": "2 часа",
+      "inputs": [
+        "контроль и испытания изделия — устранить замечания"
+      ],
+      "expectedResult": "контроль и испытания изделия — оформить заключение",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Зарегистрировать итог и передать паспорт изделия. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_QualityResult-channel-1",
+          "kind": "system",
+          "label": "Заключение ОТК",
+          "flow": "primary",
+          "direction": "output",
+          "systemName": "1С:ERP",
+          "documentName": "Заключение о соответствии"
+        },
+        {
+          "id": "Task_QualityResult-channel-2",
+          "kind": "paper",
+          "label": "Штамп и подпись ОТК",
+          "flow": "parallel",
+          "direction": "output",
+          "systemName": null,
+          "documentName": "Паспорт изделия"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "EndEvent": {
+      "description": "Заключение о соответствии зарегистрировано",
+      "responsible": "Цех №10",
+      "artifacts": [],
+      "actions": [],
+      "inputs": [
+        "Заключение о соответствии зарегистрировано",
+        "контроль и испытания изделия — выполнить приёмочный контроль",
+        "контроль и испытания изделия — провести лабораторные испытания",
+        "Оригинал протокола",
+        "контроль и испытания изделия — устранить замечания",
+        "контроль и испытания изделия — оформить заключение",
+        "Заключение о соответствии",
+        "Паспорт изделия"
+      ]
+    }
+  }
+}

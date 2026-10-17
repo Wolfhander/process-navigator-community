@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l2-production" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l2-production" name="Демо: изготовление и приёмка изделия" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l2-production">
+      <bpmn:lane id="Lane_Dispatch" name="ИспДир"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_ProductionOrder</bpmn:flowNodeRef><bpmn:flowNodeRef>Gateway_ParallelSplit</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Workshop" name="Цех №10"><bpmn:flowNodeRef>Task_Manufacture</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Qc" name="ОТК"><bpmn:flowNodeRef>Gateway_ParallelJoin</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Quality</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_StockProd" name="СХ"><bpmn:flowNodeRef>Task_PrepareWarehouse</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_TransferStock</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Комплект документации выпущен, ресурсы доступны"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:task id="Task_ProductionOrder" name="Запустить производственный заказ"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:task>
+    <bpmn:parallelGateway id="Gateway_ParallelSplit" name=""><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:parallelGateway>
+    <bpmn:task id="Task_Manufacture" name="Изготовить изделие"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_5</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_PrepareWarehouse" name="Подготовить склад к приёмке"><bpmn:incoming>Flow_4</bpmn:incoming><bpmn:outgoing>Flow_6</bpmn:outgoing></bpmn:task>
+    <bpmn:parallelGateway id="Gateway_ParallelJoin" name=""><bpmn:incoming>Flow_5</bpmn:incoming><bpmn:incoming>Flow_6</bpmn:incoming><bpmn:outgoing>Flow_7</bpmn:outgoing></bpmn:parallelGateway>
+    <bpmn:task id="Task_Quality" name="Провести контроль качества"><bpmn:incoming>Flow_7</bpmn:incoming><bpmn:outgoing>Flow_8</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_TransferStock" name="Передать готовое изделие"><bpmn:incoming>Flow_8</bpmn:incoming><bpmn:outgoing>Flow_9</bpmn:outgoing></bpmn:task>
+    <bpmn:endEvent id="EndEvent" name="Изделие принято ОТК и передано на склад"><bpmn:incoming>Flow_9</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_ProductionOrder"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_ProductionOrder" targetRef="Gateway_ParallelSplit"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_ParallelSplit" targetRef="Task_Manufacture"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Gateway_ParallelSplit" targetRef="Task_PrepareWarehouse"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Manufacture" targetRef="Gateway_ParallelJoin"/>
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_PrepareWarehouse" targetRef="Gateway_ParallelJoin"/>
+    <bpmn:sequenceFlow id="Flow_7" sourceRef="Gateway_ParallelJoin" targetRef="Task_Quality"/>
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="Task_Quality" targetRef="Task_TransferStock"/>
+    <bpmn:sequenceFlow id="Flow_9" sourceRef="Task_TransferStock" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l2-production"><bpmndi:BPMNPlane id="Plane_demo-showcase-l2-production" bpmnElement="demo-showcase-l2-production">
+    <bpmndi:BPMNShape id="Lane_Dispatch_di" bpmnElement="Lane_Dispatch" isHorizontal="true"><dc:Bounds x="45" y="40" width="2600" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Workshop_di" bpmnElement="Lane_Workshop" isHorizontal="true"><dc:Bounds x="45" y="240" width="2600" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Qc_di" bpmnElement="Lane_Qc" isHorizontal="true"><dc:Bounds x="45" y="440" width="2600" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_StockProd_di" bpmnElement="Lane_StockProd" isHorizontal="true"><dc:Bounds x="45" y="640" width="2600" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_ProductionOrder_di" bpmnElement="Task_ProductionOrder"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Gateway_ParallelSplit_di" bpmnElement="Gateway_ParallelSplit"><dc:Bounds x="510" y="80" width="48" height="48"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Manufacture_di" bpmnElement="Task_Manufacture"><dc:Bounds x="810" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_PrepareWarehouse_di" bpmnElement="Task_PrepareWarehouse"><dc:Bounds x="810" y="680" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Gateway_ParallelJoin_di" bpmnElement="Gateway_ParallelJoin"><dc:Bounds x="1110" y="480" width="48" height="48"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Quality_di" bpmnElement="Task_Quality"><dc:Bounds x="1710" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_TransferStock_di" bpmnElement="Task_TransferStock"><dc:Bounds x="2010" y="680" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="2310" y="710" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="104"/><di:waypoint x="510" y="104"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="558" y="104"/><di:waypoint x="684" y="104"/><di:waypoint x="684" y="335"/><di:waypoint x="810" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="558" y="104"/><di:waypoint x="684" y="104"/><di:waypoint x="684" y="735"/><di:waypoint x="810" y="735"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="1030" y="335"/><di:waypoint x="1070" y="335"/><di:waypoint x="1070" y="504"/><di:waypoint x="1110" y="504"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6"><di:waypoint x="1030" y="735"/><di:waypoint x="1070" y="735"/><di:waypoint x="1070" y="504"/><di:waypoint x="1110" y="504"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7"><di:waypoint x="1158" y="504"/><di:waypoint x="1434" y="504"/><di:waypoint x="1434" y="535"/><di:waypoint x="1710" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8"><di:waypoint x="1930" y="535"/><di:waypoint x="1970" y="535"/><di:waypoint x="1970" y="735"/><di:waypoint x="2010" y="735"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_9_di" bpmnElement="Flow_9"><di:waypoint x="2230" y="735"/><di:waypoint x="2270" y="735"/><di:waypoint x="2270" y="733"/><di:waypoint x="2310" y="733"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

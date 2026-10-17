@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l3-warehouse" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l3-warehouse" name="Демо: приёмка и отражение поступления" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l3-warehouse">
+      <bpmn:lane id="Lane_Receive" name="СХ"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_PhysicalReceipt</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_ReceiptOrder</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Operator" name="ИТ"><bpmn:flowNodeRef>Task_SystemNotice</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Accounting" name="БУ"><bpmn:flowNodeRef>Task_Accounting</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Груз и сопроводительные документы поступили"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:manualTask id="Task_PhysicalReceipt" name="Проверить груз и документы"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:manualTask>
+    <bpmn:userTask id="Task_ReceiptOrder" name="Оформить приходный ордер"><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing></bpmn:userTask>
+    <bpmn:serviceTask id="Task_SystemNotice" name="Зарегистрировать ордер и подготовить извещение"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:serviceTask>
+    <bpmn:userTask id="Task_Accounting" name="Отразить финансовое поступление"><bpmn:incoming>Flow_4</bpmn:incoming><bpmn:outgoing>Flow_5</bpmn:outgoing></bpmn:userTask>
+    <bpmn:endEvent id="EndEvent" name="Приёмка и финансовый учёт сверены"><bpmn:incoming>Flow_5</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_PhysicalReceipt"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_PhysicalReceipt" targetRef="Task_ReceiptOrder"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_ReceiptOrder" targetRef="Task_SystemNotice"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_SystemNotice" targetRef="Task_Accounting"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_Accounting" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l3-warehouse"><bpmndi:BPMNPlane id="Plane_demo-showcase-l3-warehouse" bpmnElement="demo-showcase-l3-warehouse">
+    <bpmndi:BPMNShape id="Lane_Receive_di" bpmnElement="Lane_Receive" isHorizontal="true"><dc:Bounds x="45" y="40" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Operator_di" bpmnElement="Lane_Operator" isHorizontal="true"><dc:Bounds x="45" y="240" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Accounting_di" bpmnElement="Lane_Accounting" isHorizontal="true"><dc:Bounds x="45" y="440" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_PhysicalReceipt_di" bpmnElement="Task_PhysicalReceipt"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_ReceiptOrder_di" bpmnElement="Task_ReceiptOrder"><dc:Bounds x="510" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_SystemNotice_di" bpmnElement="Task_SystemNotice"><dc:Bounds x="810" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Accounting_di" bpmnElement="Task_Accounting"><dc:Bounds x="1110" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="1410" y="510" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="510" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="730" y="135"/><di:waypoint x="770" y="135"/><di:waypoint x="770" y="335"/><di:waypoint x="810" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="1030" y="335"/><di:waypoint x="1070" y="335"/><di:waypoint x="1070" y="535"/><di:waypoint x="1110" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="1330" y="535"/><di:waypoint x="1370" y="535"/><di:waypoint x="1370" y="533"/><di:waypoint x="1410" y="533"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

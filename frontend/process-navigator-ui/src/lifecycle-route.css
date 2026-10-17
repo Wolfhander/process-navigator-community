@@ -1,0 +1,21 @@
+.lifecycle-body{overflow:auto}
+.lifecycle-status em{margin-left:auto;font-style:normal;font-size:11px;font-weight:700}
+.lifecycle-route{margin:4px 22px 10px;padding:12px;border:1px solid var(--line);border-radius:11px;background:#fafbf8}
+.lifecycle-section-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.lifecycle-section-title span,.lifecycle-section-title button,.route-save{display:flex;align-items:center;gap:6px}
+.lifecycle-section-title button,.route-save{padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:10px;cursor:pointer}
+.lifecycle-route article{display:grid;grid-template-columns:24px 1fr 28px;gap:8px;margin-top:7px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.lifecycle-route article.is-current{border-color:#77a586;box-shadow:0 0 0 2px #e4f0e7}
+.lifecycle-route article>b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#e8f1e9;color:var(--green);font-size:10px}
+.lifecycle-route article>div{display:grid;grid-template-columns:minmax(150px,1fr) 130px;gap:7px}
+.lifecycle-route article input[type=text],.lifecycle-route article>div>input,.lifecycle-route article input[type=number],.lifecycle-review-date input{box-sizing:border-box;width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:11px}
+.lifecycle-route article>div>label{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--muted)}
+.lifecycle-route article input[type=number]{width:48px}
+.lifecycle-approvers{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 12px;padding-top:3px}
+.lifecycle-approvers label{display:flex;align-items:center;gap:4px;font-size:9px}
+.lifecycle-approvers small{flex-basis:100%;color:var(--muted);font-size:9px}
+.icon-danger{align-self:start;padding:4px;border:0;background:transparent;color:#a4422b;cursor:pointer}
+.lifecycle-review-date{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;font-size:10px;font-weight:700;color:var(--muted)}
+.lifecycle-review-date input{width:150px}
+.route-save{margin:10px 0 0 auto;border-color:var(--green);color:var(--green)}
+@media(max-width:650px){.lifecycle-route article>div{grid-template-columns:1fr}.lifecycle-approvers{grid-column:1}.lifecycle-actions{flex-wrap:wrap}}

@@ -1,0 +1,238 @@
+{
+  "version": "1.0",
+  "owner": "УСЗ",
+  "ownerLegalEntityId": "plant",
+  "ownerUnitId": "1.6",
+  "status": "Published",
+  "passport": {
+    "level": 1,
+    "classification": "Основной",
+    "parentProcessId": "demo-showcase-l0",
+    "purpose": "Координировать подготовку, закупку, производство и передачу изделия.",
+    "scope": "Демонстрационный контур: вымышленные данные. Исходник сценария: tools/reset-demo-contour.mjs. Операции внешних систем подтверждаются вручную.",
+    "trigger": "Заказ включён в портфель",
+    "triggerOptions": [
+      "Заказ зарегистрирован в ERP",
+      "Получено распоряжение управляющего директора"
+    ],
+    "result": "Готовое изделие передано заказчику",
+    "inputs": [
+      "выполнение заказа на изделие: исходное задание"
+    ],
+    "outputs": [
+      "Готовое изделие передано заказчику"
+    ],
+    "systems": [
+      "1С:ERP",
+      "1С:PLM"
+    ],
+    "documents": [
+      "Требования",
+      "Заказ клиента",
+      "Комплект КД и ТД",
+      "Заказы поставщикам",
+      "Заказ на производство",
+      "Реализация",
+      "Паспорт и накладная"
+    ],
+    "relatedProcessIds": []
+  },
+  "elements": {
+    "StartEvent": {
+      "description": "Заказ включён в портфель. Внешняя граница демо: получены выполнение заказа на изделие: исходное задание, Требования.",
+      "responsible": "УСЗ",
+      "artifacts": [],
+      "actions": [],
+      "expectedResult": "выполнение заказа на изделие: исходное задание; Требования"
+    },
+    "Task_RegisterOrder": {
+      "description": "Проверить комплектность исходных требований и зарегистрировать заказ.",
+      "responsible": "УСЗ",
+      "duration": "2 часа",
+      "inputs": [
+        "выполнение заказа на изделие: исходное задание"
+      ],
+      "expectedResult": "выполнение заказа на изделие — зарегистрировать и уточнить заказ",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить комплектность исходных требований и зарегистрировать заказ. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_RegisterOrder-channel-1",
+          "kind": "email",
+          "label": "Письмо заказчика",
+          "flow": "alternative",
+          "direction": "input",
+          "systemName": null,
+          "documentName": "Требования"
+        },
+        {
+          "id": "Task_RegisterOrder-channel-2",
+          "kind": "phone",
+          "label": "Телефонное уточнение",
+          "flow": "alternative",
+          "direction": "input"
+        },
+        {
+          "id": "Task_RegisterOrder-channel-3",
+          "kind": "system",
+          "label": "Регистрация заказа",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Заказ клиента"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_Engineering": {
+      "description": "Разработать и выпустить конструкторско-технологический комплект.",
+      "responsible": "КО",
+      "duration": "2 часа",
+      "inputs": [
+        "выполнение заказа на изделие — зарегистрировать и уточнить заказ"
+      ],
+      "expectedResult": "выполнение заказа на изделие — выполнить подготовку изделия",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Разработать и выпустить конструкторско-технологический комплект. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Engineering-channel-1",
+          "kind": "system",
+          "label": "Жизненный цикл изделия",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:PLM",
+          "documentName": "Комплект КД и ТД"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l2-engineering",
+      "executionMode": "external",
+      "systemName": "1С:PLM",
+      "informationObjects": []
+    },
+    "Task_Procurement": {
+      "description": "Рассчитать потребность и обеспечить заказ материальными ресурсами.",
+      "responsible": "ОПиКЗ",
+      "duration": "2 часа",
+      "inputs": [
+        "выполнение заказа на изделие — выполнить подготовку изделия"
+      ],
+      "expectedResult": "выполнение заказа на изделие — обеспечить материалами и пки",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Рассчитать потребность и обеспечить заказ материальными ресурсами. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Procurement-channel-1",
+          "kind": "system",
+          "label": "Потребность и закупки",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Заказы поставщикам"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l2-procurement",
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_Production": {
+      "description": "Организовать изготовление, контроль и сдачу готового изделия.",
+      "responsible": "ИспДир",
+      "duration": "2 часа",
+      "inputs": [
+        "выполнение заказа на изделие — обеспечить материалами и пки"
+      ],
+      "expectedResult": "выполнение заказа на изделие — изготовить и принять изделие",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Организовать изготовление, контроль и сдачу готового изделия. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Production-channel-1",
+          "kind": "system",
+          "label": "Производственный заказ",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Заказ на производство"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l2-production",
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_Deliver": {
+      "description": "Передать изделие и комплект документов заказчику.",
+      "responsible": "УСЗ",
+      "duration": "2 часа",
+      "inputs": [
+        "выполнение заказа на изделие — изготовить и принять изделие"
+      ],
+      "expectedResult": "выполнение заказа на изделие — передать изделие заказчику",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Передать изделие и комплект документов заказчику. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Deliver-channel-1",
+          "kind": "system",
+          "label": "Электронная передача",
+          "flow": "primary",
+          "direction": "output",
+          "systemName": "1С:ERP",
+          "documentName": "Реализация"
+        },
+        {
+          "id": "Task_Deliver-channel-2",
+          "kind": "paper",
+          "label": "Бумажный комплект",
+          "flow": "parallel",
+          "direction": "output",
+          "systemName": null,
+          "documentName": "Паспорт и накладная"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "EndEvent": {
+      "description": "Готовое изделие передано заказчику",
+      "responsible": "ИспДир",
+      "artifacts": [],
+      "actions": [],
+      "inputs": [
+        "Готовое изделие передано заказчику",
+        "выполнение заказа на изделие — зарегистрировать и уточнить заказ",
+        "выполнение заказа на изделие — выполнить подготовку изделия",
+        "выполнение заказа на изделие — обеспечить материалами и пки",
+        "выполнение заказа на изделие — изготовить и принять изделие",
+        "выполнение заказа на изделие — передать изделие заказчику",
+        "Реализация",
+        "Паспорт и накладная"
+      ]
+    }
+  }
+}

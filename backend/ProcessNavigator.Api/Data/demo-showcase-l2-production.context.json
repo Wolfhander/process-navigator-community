@@ -1,0 +1,256 @@
+{
+  "version": "1.0",
+  "owner": "ИспДир",
+  "ownerLegalEntityId": "plant",
+  "ownerUnitId": "1.7",
+  "status": "Published",
+  "passport": {
+    "level": 2,
+    "classification": "Основной",
+    "parentProcessId": "demo-showcase-l1",
+    "purpose": "Организовать выпуск изделия и передачу на склад.",
+    "scope": "Демонстрационный контур: вымышленные данные. Исходник сценария: tools/reset-demo-contour.mjs. Операции внешних систем подтверждаются вручную.",
+    "trigger": "Комплект документации выпущен, ресурсы доступны",
+    "triggerOptions": [],
+    "result": "Изделие принято ОТК и передано на склад",
+    "inputs": [
+      "изготовление и приёмка изделия: исходное задание"
+    ],
+    "outputs": [
+      "Изделие принято ОТК и передано на склад"
+    ],
+    "systems": [
+      "1С:ERP"
+    ],
+    "documents": [
+      "Заказ на производство",
+      "Этап производства",
+      "Маршрутный лист",
+      "Лист готовности склада",
+      "Результат контроля качества",
+      "Поступление из производства",
+      "Паспорт изделия"
+    ],
+    "relatedProcessIds": []
+  },
+  "elements": {
+    "StartEvent": {
+      "description": "Комплект документации выпущен, ресурсы доступны. Внешняя граница демо: получены изготовление и приёмка изделия: исходное задание.",
+      "responsible": "ИспДир",
+      "artifacts": [],
+      "actions": [],
+      "expectedResult": "изготовление и приёмка изделия: исходное задание"
+    },
+    "Task_ProductionOrder": {
+      "description": "Сформировать маршрут и выдать производственное задание.",
+      "responsible": "ИспДир",
+      "duration": "2 часа",
+      "inputs": [
+        "изготовление и приёмка изделия: исходное задание"
+      ],
+      "expectedResult": "изготовление и приёмка изделия — запустить производственный заказ",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Сформировать маршрут и выдать производственное задание. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_ProductionOrder-channel-1",
+          "kind": "system",
+          "label": "Заказ на производство",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Заказ на производство"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": [
+        {
+          "objectId": "demo-approved-documentation",
+          "name": "Утверждённый комплект КД и ТД",
+          "role": "Input",
+          "required": true,
+          "version": "1.0"
+        },
+        {
+          "objectId": "demo-materials-available",
+          "name": "Материалы и ПКИ доступны производству",
+          "role": "Input",
+          "required": true,
+          "version": "1.0"
+        }
+      ]
+    },
+    "Gateway_ParallelSplit": {
+      "description": "Синхронизация ветвей",
+      "artifacts": [],
+      "actions": []
+    },
+    "Task_Manufacture": {
+      "description": "Выполнить операции и отразить выработку.",
+      "responsible": "Цех №10",
+      "duration": "2 часа",
+      "inputs": [
+        "изготовление и приёмка изделия — запустить производственный заказ"
+      ],
+      "expectedResult": "изготовление и приёмка изделия — изготовить изделие",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Выполнить операции и отразить выработку. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [
+        {
+          "id": "record-shift-result",
+          "label": "Зафиксировать результат сменного задания",
+          "kind": "manual"
+        }
+      ],
+      "channels": [
+        {
+          "id": "Task_Manufacture-channel-1",
+          "kind": "system",
+          "label": "Сменное задание",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Этап производства"
+        },
+        {
+          "id": "Task_Manufacture-channel-2",
+          "kind": "paper",
+          "label": "Маршрутный лист",
+          "flow": "parallel",
+          "direction": "work",
+          "systemName": null,
+          "documentName": "Маршрутный лист"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_PrepareWarehouse": {
+      "description": "Проверить свободное место и подготовить адрес хранения.",
+      "responsible": "СХ",
+      "duration": "2 часа",
+      "inputs": [
+        "изготовление и приёмка изделия — запустить производственный заказ"
+      ],
+      "expectedResult": "изготовление и приёмка изделия — подготовить склад к приёмке",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить свободное место и подготовить адрес хранения. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_PrepareWarehouse-channel-1",
+          "kind": "paper",
+          "label": "Лист подготовки",
+          "direction": "output",
+          "systemName": null,
+          "documentName": "Лист готовности склада",
+          "flow": "primary"
+        }
+      ],
+      "executionMode": "external",
+      "informationObjects": []
+    },
+    "Gateway_ParallelJoin": {
+      "description": "Синхронизация ветвей",
+      "artifacts": [],
+      "actions": []
+    },
+    "Task_Quality": {
+      "description": "Выполнить контроль, испытания и оформить заключение.",
+      "responsible": "ОТК",
+      "duration": "2 часа",
+      "inputs": [
+        "изготовление и приёмка изделия — изготовить изделие",
+        "изготовление и приёмка изделия — подготовить склад к приёмке"
+      ],
+      "expectedResult": "изготовление и приёмка изделия — провести контроль качества",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Выполнить контроль, испытания и оформить заключение. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Quality-channel-1",
+          "kind": "system",
+          "label": "Результат контроля",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:ERP",
+          "documentName": "Результат контроля качества"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l3-quality",
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "Task_TransferStock": {
+      "description": "Принять изделие на склад готовой продукции.",
+      "responsible": "СХ",
+      "duration": "2 часа",
+      "inputs": [
+        "изготовление и приёмка изделия — провести контроль качества"
+      ],
+      "expectedResult": "изготовление и приёмка изделия — передать готовое изделие",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Принять изделие на склад готовой продукции. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_TransferStock-channel-1",
+          "kind": "system",
+          "label": "Складское поступление",
+          "flow": "primary",
+          "direction": "output",
+          "systemName": "1С:ERP",
+          "documentName": "Поступление из производства"
+        },
+        {
+          "id": "Task_TransferStock-channel-2",
+          "kind": "paper",
+          "label": "Паспорт изделия",
+          "flow": "parallel",
+          "direction": "work",
+          "systemName": null,
+          "documentName": "Паспорт изделия"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:ERP",
+      "informationObjects": []
+    },
+    "EndEvent": {
+      "description": "Изделие принято ОТК и передано на склад",
+      "responsible": "СХ",
+      "artifacts": [],
+      "actions": [],
+      "inputs": [
+        "Изделие принято ОТК и передано на склад",
+        "изготовление и приёмка изделия — запустить производственный заказ",
+        "изготовление и приёмка изделия — изготовить изделие",
+        "изготовление и приёмка изделия — подготовить склад к приёмке",
+        "Лист готовности склада",
+        "изготовление и приёмка изделия — провести контроль качества",
+        "изготовление и приёмка изделия — передать готовое изделие",
+        "Поступление из производства"
+      ]
+    }
+  }
+}

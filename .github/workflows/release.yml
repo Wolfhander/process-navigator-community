@@ -1,0 +1,44 @@
+name: Offline release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows-offline-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        shell: pwsh
+        run: |
+          corepack enable
+          pnpm --dir frontend/process-navigator-ui install --frozen-lockfile
+      - name: Build autonomous package
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          .\tools\build-offline-release.ps1 -Version $version -SkipDependencyInstall
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          $notes = "docs/release-notes/$version.md"
+          $flags = @("--title", "Process Navigator $env:GITHUB_REF_NAME", "--prerelease", "--verify-tag")
+          if (Test-Path $notes) { $flags += @("--notes-file", $notes) }
+          else { $flags += "--generate-notes" }
+          $assets = @(Get-ChildItem -LiteralPath artifacts -File | Where-Object { $_.Name -match '\.(zip|sha256)$' } | ForEach-Object FullName)
+          if ($assets.Count -ne 2) { throw "Expected ZIP and SHA256 assets, found $($assets.Count)." }
+          gh release create $env:GITHUB_REF_NAME $assets @flags
+          if ($LASTEXITCODE -ne 0) { throw "GitHub Release publication failed." }

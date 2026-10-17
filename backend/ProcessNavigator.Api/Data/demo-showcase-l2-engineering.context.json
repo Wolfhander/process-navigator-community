@@ -1,0 +1,192 @@
+{
+  "version": "1.0",
+  "owner": "КО",
+  "ownerLegalEntityId": "plant",
+  "ownerUnitId": "1.4",
+  "status": "Published",
+  "passport": {
+    "level": 2,
+    "classification": "Основной",
+    "parentProcessId": "demo-showcase-l1",
+    "purpose": "Подготовить согласованный комплект документации для производства.",
+    "scope": "Демонстрационный контур: вымышленные данные. Исходник сценария: tools/reset-demo-contour.mjs. Операции внешних систем подтверждаются вручную.",
+    "trigger": "Требования к изделию подтверждены",
+    "triggerOptions": [],
+    "result": "Комплект КД и ТД выпущен",
+    "inputs": [
+      "конструкторско-технологическая подготовка: исходное задание"
+    ],
+    "outputs": [
+      "Комплект КД и ТД выпущен"
+    ],
+    "systems": [
+      "1С:PLM",
+      "1С:ERP"
+    ],
+    "documents": [
+      "Состав изделия",
+      "Комплект КД",
+      "Комплект ТД",
+      "Маршрутная карта",
+      "Утверждённый комплект"
+    ],
+    "relatedProcessIds": []
+  },
+  "elements": {
+    "StartEvent": {
+      "description": "Требования к изделию подтверждены. Внешняя граница демо: получены конструкторско-технологическая подготовка: исходное задание.",
+      "responsible": "КО",
+      "artifacts": [],
+      "actions": [],
+      "expectedResult": "конструкторско-технологическая подготовка: исходное задание"
+    },
+    "Task_Structure": {
+      "description": "Создать состав изделия и версии входящих компонентов.",
+      "responsible": "КО",
+      "duration": "2 часа",
+      "inputs": [
+        "конструкторско-технологическая подготовка: исходное задание"
+      ],
+      "expectedResult": "конструкторско-технологическая подготовка — сформировать состав изделия",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Создать состав изделия и версии входящих компонентов. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Structure-channel-1",
+          "kind": "system",
+          "label": "Состав изделия",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:PLM",
+          "documentName": "Состав изделия"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:PLM",
+      "informationObjects": []
+    },
+    "Task_Documentation": {
+      "description": "Подготовить модели, чертежи и спецификации.",
+      "responsible": "ОКСП",
+      "duration": "2 часа",
+      "inputs": [
+        "конструкторско-технологическая подготовка — сформировать состав изделия"
+      ],
+      "expectedResult": "конструкторско-технологическая подготовка — разработать комплект документации",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Подготовить модели, чертежи и спецификации. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Documentation-channel-1",
+          "kind": "system",
+          "label": "Конструкторские данные",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:PLM",
+          "documentName": "Комплект КД"
+        }
+      ],
+      "linkedProcessId": "demo-showcase-l3-documentation",
+      "executionMode": "external",
+      "systemName": "1С:PLM",
+      "informationObjects": []
+    },
+    "Task_Technology": {
+      "description": "Определить операции, нормы и технологические маршруты.",
+      "responsible": "ТО",
+      "duration": "2 часа",
+      "inputs": [
+        "конструкторско-технологическая подготовка — разработать комплект документации"
+      ],
+      "expectedResult": "конструкторско-технологическая подготовка — разработать технологию изготовления",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Определить операции, нормы и технологические маршруты. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_Technology-channel-1",
+          "kind": "system",
+          "label": "Технологическая подготовка",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:PLM",
+          "documentName": "Комплект ТД"
+        },
+        {
+          "id": "Task_Technology-channel-2",
+          "kind": "system",
+          "label": "Передача норм",
+          "flow": "parallel",
+          "direction": "output",
+          "systemName": "1С:ERP",
+          "documentName": "Маршрутная карта"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:PLM",
+      "informationObjects": []
+    },
+    "Task_EngineeringApprove": {
+      "description": "Проверить полноту, статусы и пригодность документации.",
+      "responsible": "УК",
+      "duration": "2 часа",
+      "inputs": [
+        "конструкторско-технологическая подготовка — разработать технологию изготовления"
+      ],
+      "expectedResult": "конструкторско-технологическая подготовка — проверить готовность комплекта",
+      "completionCriteria": "Результат зарегистрирован и доступен следующему участнику",
+      "instruction": "Проверить полноту, статусы и пригодность документации. Используйте входы и каналы в карточке; приложите демонстрационный результат. Для доработки укажите причину возврата. Все сведения синтетические.",
+      "workDuration": "2 часа",
+      "waitDuration": "0 часов",
+      "artifacts": [],
+      "actions": [],
+      "channels": [
+        {
+          "id": "Task_EngineeringApprove-channel-1",
+          "kind": "system",
+          "label": "Согласование комплекта",
+          "flow": "primary",
+          "direction": "work",
+          "systemName": "1С:PLM",
+          "documentName": "Утверждённый комплект"
+        }
+      ],
+      "executionMode": "external",
+      "systemName": "1С:PLM",
+      "informationObjects": [
+        {
+          "objectId": "demo-approved-documentation",
+          "name": "Утверждённый комплект КД и ТД",
+          "role": "Output",
+          "required": true,
+          "version": "1.0"
+        }
+      ]
+    },
+    "EndEvent": {
+      "description": "Комплект КД и ТД выпущен",
+      "responsible": "УК",
+      "artifacts": [],
+      "actions": [],
+      "inputs": [
+        "Комплект КД и ТД выпущен",
+        "конструкторско-технологическая подготовка — сформировать состав изделия",
+        "конструкторско-технологическая подготовка — разработать комплект документации",
+        "конструкторско-технологическая подготовка — разработать технологию изготовления",
+        "Маршрутная карта",
+        "конструкторско-технологическая подготовка — проверить готовность комплекта"
+      ]
+    }
+  }
+}

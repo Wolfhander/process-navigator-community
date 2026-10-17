@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_demo-showcase-l4-drawing" targetNamespace="https://process-navigator.local/demo">
+  <bpmn:process id="demo-showcase-l4-drawing" name="Демо: разработка и согласование чертежа" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_demo-showcase-l4-drawing">
+      <bpmn:lane id="Lane_Author" name="КО"><bpmn:flowNodeRef>StartEvent</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_Model</bpmn:flowNodeRef><bpmn:flowNodeRef>Task_RegisterPlm</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Reviewer" name="ОКСП"><bpmn:flowNodeRef>Task_ReviewDrawing</bpmn:flowNodeRef></bpmn:lane>
+      <bpmn:lane id="Lane_Controller" name="ОСиСМК"><bpmn:flowNodeRef>Task_PaperControl</bpmn:flowNodeRef><bpmn:flowNodeRef>EndEvent</bpmn:flowNodeRef></bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="StartEvent" name="Назначено задание на разработку чертежа"><bpmn:outgoing>Flow_1</bpmn:outgoing></bpmn:startEvent>
+    <bpmn:task id="Task_Model" name="Разработать модель и чертёж"><bpmn:incoming>Flow_1</bpmn:incoming><bpmn:outgoing>Flow_2</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_RegisterPlm" name="Зарегистрировать версию"><bpmn:incoming>Flow_2</bpmn:incoming><bpmn:outgoing>Flow_3</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_ReviewDrawing" name="Проверить технические решения"><bpmn:incoming>Flow_3</bpmn:incoming><bpmn:outgoing>Flow_4</bpmn:outgoing></bpmn:task>
+    <bpmn:task id="Task_PaperControl" name="Провести нормоконтроль и выпустить"><bpmn:incoming>Flow_4</bpmn:incoming><bpmn:outgoing>Flow_5</bpmn:outgoing></bpmn:task>
+    <bpmn:endEvent id="EndEvent" name="Утверждённый чертёж зарегистрирован и доступен потребителям"><bpmn:incoming>Flow_5</bpmn:incoming></bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent" targetRef="Task_Model"/>
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Model" targetRef="Task_RegisterPlm"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_RegisterPlm" targetRef="Task_ReviewDrawing"/>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_ReviewDrawing" targetRef="Task_PaperControl"/>
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Task_PaperControl" targetRef="EndEvent"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram_demo-showcase-l4-drawing"><bpmndi:BPMNPlane id="Plane_demo-showcase-l4-drawing" bpmnElement="demo-showcase-l4-drawing">
+    <bpmndi:BPMNShape id="Lane_Author_di" bpmnElement="Lane_Author" isHorizontal="true"><dc:Bounds x="45" y="40" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Reviewer_di" bpmnElement="Lane_Reviewer" isHorizontal="true"><dc:Bounds x="45" y="240" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Lane_Controller_di" bpmnElement="Lane_Controller" isHorizontal="true"><dc:Bounds x="45" y="440" width="1700" height="200"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="StartEvent_di" bpmnElement="StartEvent"><dc:Bounds x="95" y="98" width="42" height="42"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_Model_di" bpmnElement="Task_Model"><dc:Bounds x="210" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_RegisterPlm_di" bpmnElement="Task_RegisterPlm"><dc:Bounds x="510" y="80" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_ReviewDrawing_di" bpmnElement="Task_ReviewDrawing"><dc:Bounds x="810" y="280" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="Task_PaperControl_di" bpmnElement="Task_PaperControl"><dc:Bounds x="1110" y="480" width="220" height="110"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNShape id="EndEvent_di" bpmnElement="EndEvent"><dc:Bounds x="1410" y="510" width="46" height="46"/></bpmndi:BPMNShape>
+    <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1"><di:waypoint x="137" y="119"/><di:waypoint x="174" y="119"/><di:waypoint x="174" y="135"/><di:waypoint x="210" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2"><di:waypoint x="430" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="470" y="135"/><di:waypoint x="510" y="135"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3"><di:waypoint x="730" y="135"/><di:waypoint x="770" y="135"/><di:waypoint x="770" y="335"/><di:waypoint x="810" y="335"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4"><di:waypoint x="1030" y="335"/><di:waypoint x="1070" y="335"/><di:waypoint x="1070" y="535"/><di:waypoint x="1110" y="535"/></bpmndi:BPMNEdge>
+    <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5"><di:waypoint x="1330" y="535"/><di:waypoint x="1370" y="535"/><di:waypoint x="1370" y="533"/><di:waypoint x="1410" y="533"/></bpmndi:BPMNEdge>
+  </bpmndi:BPMNPlane></bpmndi:BPMNDiagram>
+</bpmn:definitions>

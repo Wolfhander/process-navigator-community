@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Build API
+        run: dotnet build backend/ProcessNavigator.Api --configuration Release
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        working-directory: frontend/process-navigator-ui
+        run: corepack pnpm install --frozen-lockfile
+      - name: Build UI
+        working-directory: frontend/process-navigator-ui
+        run: corepack pnpm build
+      - name: Unit tests
+        working-directory: frontend/process-navigator-ui
+        run: node --experimental-strip-types --test tests/*.test.mjs
