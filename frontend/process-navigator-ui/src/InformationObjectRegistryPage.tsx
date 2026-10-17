@@ -4,6 +4,7 @@ import { loadInformationObjects, saveInformationObject } from './api';
 import type { InformationObject, InformationObjectIssue, InformationObjectOccurrence, InformationObjectRegistry, InformationObjectUpdate } from './types';
 import { buildProcessDependencies } from './information-object-dependencies';
 import { InformationObjectDetailPage } from './InformationObjectDetailPage';
+import { InformationObjectCompositionEditor } from './InformationObjectCompositionEditor';
 import './information-object-registry.css';
 
 type Props = { canManage: boolean; onBack: () => void; onOpen: (occurrence: InformationObjectOccurrence) => void };
@@ -68,7 +69,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
     }) })).filter(item => item.objects.length > 0);
   }, [dependencies, issuesByObject, kind, filter, query]);
   const occurrence = (item: InformationObjectOccurrence) => <button key={`${item.processId}:${item.elementId}:${item.direction}`} onClick={() => onOpen(item)}><strong>{item.elementName ?? item.processName}</strong>{item.elementName && <small>{item.processName}</small>}{(item.version || item.condition || !item.required) && <small>{item.required ? 'обязательный' : 'необязательный'}{item.version ? ` · версия ${item.version}` : ''}{item.condition ? ` · ${item.condition}` : ''}</small>}<ArrowRight size={14}/></button>;
-  const beginEdit = (item: InformationObject) => { setEditing(item.id); setForm({ name: item.name, kind: item.kind, version: item.version, lifecycleState: item.lifecycleState === 'Observed' ? 'Draft' : item.lifecycleState, aliases: item.aliases, ...(item.managed ? { expectedVersion: item.version, expectedLifecycleState: item.lifecycleState } : {}) }); setError(''); };
+  const beginEdit = (item: InformationObject) => { setEditing(item.id); setForm({ name: item.name, kind: item.kind, version: item.version, lifecycleState: item.lifecycleState === 'Observed' ? 'Draft' : item.lifecycleState, aliases: item.aliases, components: item.components ?? [], ...(item.managed ? { expectedVersion: item.version, expectedLifecycleState: item.lifecycleState } : {}) }); setError(''); };
   const save = async () => { if (!editing || !form) return; setSaving(true); setError(''); try { setRegistry(await saveInformationObject(editing, form)); setEditing(undefined); setForm(undefined); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить объект.'); } finally { setSaving(false); } };
   const exportCsv = () => {
     if (!registry) return;
@@ -93,7 +94,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
     URL.revokeObjectURL(url);
   };
   const detail = registry?.objects.find(item => item.id === detailId);
-  if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
+  if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} objects={registry!.objects} onOpenObject={setDetailId} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Документы и результаты</strong></nav>
     <header className="registry-heading"><div><span className="eyebrow">Сквозные зависимости</span><h1>Документы и результаты</h1><p>Автоматический реестр входов и выходов всех доступных процессов. Он показывает, где объект создаётся, кто его получает и где цепочка обрывается.</p></div><div className="registry-heading-actions"><button disabled={!registry} onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button><button onClick={refresh}><RefreshCw size={16}/>Пересчитать</button></div></header>
@@ -113,6 +114,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
             <p>Состояние относится к записи реестра, а не к каждому файлу. Черновик → действующий или архивный; действующий → архивный. Для новой версии или возврата из архива задайте новое обозначение версии и выберите «Черновик». Прежние сведения сохранятся в истории.</p>
             <div><label>Каноническое наименование<input value={form.name} onChange={event => setForm({ ...form, name: event.target.value })}/></label><label>Тип<select value={form.kind} onChange={event => setForm({ ...form, kind: event.target.value as InformationObjectUpdate['kind'] })}><option value="Document">Документ</option><option value="Result">Результат</option></select></label><label>Версия<input value={form.version} onChange={event => setForm({ ...form, version: event.target.value })}/></label><label>Состояние<select value={form.lifecycleState} onChange={event => setForm({ ...form, lifecycleState: event.target.value as InformationObjectUpdate['lifecycleState'] })}><option value="Draft">Черновик</option><option value="Active">Действующий</option><option value="Archived">Архивный</option></select></label></div>
             <label>Синонимы — по одному в строке<textarea rows={4} value={form.aliases.join('\n')} onChange={event => setForm({ ...form, aliases: event.target.value.split('\n') })}/></label>
+            <InformationObjectCompositionEditor id={item.id} objects={registry.objects} value={form.components} onChange={components => setForm({ ...form, components })}/>
             <footer><button onClick={() => { setEditing(undefined); setForm(undefined); }}><X size={14}/>Отмена</button><button className="is-primary" disabled={saving} onClick={save}><Save size={14}/>{saving ? 'Сохранение…' : 'Сохранить объект'}</button></footer>
           </div> : <>
             {canManage && <div className="registry-manage"><span>{item.managed ? `Версия ${item.version} · ${item.lifecycleState === 'Active' ? 'действующий' : item.lifecycleState === 'Archived' ? 'архивный' : 'черновик'}` : 'Автоматически обнаруженный объект'}</span><button onClick={() => beginEdit(item)}><Pencil size={14}/>{item.managed ? 'Изменить' : 'Принять в реестр'}</button></div>}

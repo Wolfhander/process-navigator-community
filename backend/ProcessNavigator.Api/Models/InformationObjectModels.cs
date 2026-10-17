@@ -23,10 +23,13 @@ public sealed record InformationObjectModel(
     IReadOnlyList<InformationObjectOccurrenceModel> Producers,
     IReadOnlyList<InformationObjectOccurrenceModel> Consumers,
     IReadOnlyList<InformationObjectOccurrenceModel> References,
-    IReadOnlyList<InformationObjectRevisionModel>? History = null);
+    IReadOnlyList<InformationObjectRevisionModel>? History = null,
+    IReadOnlyList<InformationObjectComponentModel>? Components = null);
+
+public sealed record InformationObjectComponentModel(string ObjectId, bool Required = true, string? Version = null, string? Condition = null);
 
 public sealed record InformationObjectRevisionModel(string Name, string Kind, string Version, string LifecycleState,
-    IReadOnlyList<string> Aliases, DateTimeOffset ArchivedAt);
+    IReadOnlyList<string> Aliases, DateTimeOffset ArchivedAt, IReadOnlyList<InformationObjectComponentModel>? Components = null);
 
 public sealed record InformationObjectIssueModel(
     string ObjectId,
@@ -54,4 +57,5 @@ public sealed record InformationObjectUpdateModel(
     string LifecycleState,
     IReadOnlyList<string> Aliases,
     string? ExpectedVersion = null,
-    string? ExpectedLifecycleState = null);
+    string? ExpectedLifecycleState = null,
+    IReadOnlyList<InformationObjectComponentModel>? Components = null);

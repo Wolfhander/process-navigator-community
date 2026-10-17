@@ -60,4 +60,17 @@ Check(RejectedTransition("Archived", "1", "Active", "1"), "Archived version cann
 Check(!RejectedTransition("Draft", "1", "Archived", "1"), "Unused draft may be archived");
 Check(!RejectedTransition(null, null, "Active", "1"), "Initial registration can describe an already active document");
 Check(RejectedTransition(null, null, "Unknown", "1"), "Unknown lifecycle state is rejected");
+bool CompositionRejected(InformationObjectComponentModel[] parts, Dictionary<string, IReadOnlyList<InformationObjectComponentModel>>? graph = null)
+{
+    try { InformationObjectComposition.Validate("kit", parts, graph ?? [], new HashSet<string>(["kit", "part", "other"], StringComparer.OrdinalIgnoreCase)); return false; }
+    catch (InvalidDataException) { return true; }
+}
+Check(CompositionRejected([new("kit")]), "Self reference rejected");
+Check(CompositionRejected([new("part")], new() { ["part"] = [new("kit")] }), "Indirect cycle rejected");
+Check(CompositionRejected([new("part"), new("PART")]), "Case insensitive duplicate rejected");
+Check(CompositionRejected([new("missing")]), "Unknown member rejected");
+Check(CompositionRejected([null!]), "Null member rejected");
+Check(CompositionRejected([new("part", Version: new string('v', 51))]), "Oversize version rejected");
+Check(CompositionRejected(Enumerable.Repeat(new InformationObjectComponentModel("part"), 101).ToArray()), "Direct member limit enforced");
+Check(!CompositionRejected([new("part", false, "1", "По запросу"), new("other")], new() { ["other"] = [new("part")] }), "Shared DAG and conditional optional member allowed");
 Console.WriteLine($"Server checks passed: {count} scenarios.");

@@ -46,6 +46,21 @@ internal static class RegistryLifecycleChecks
             var unchanged = (await reloaded.SaveAsync("legacy", Update("2", "Draft", "2", "Draft"), false)).Objects.Single();
             Check(unchanged.History?.Count == 3, "Unchanged save does not add a false revision");
             await Reject(reloaded, Update("1", "Draft", "2", "Draft"));
+            await reloaded.SaveAsync("part", new("Часть", "Document", "1", "Draft", []), false);
+            var kitUpdate = Update("2", "Draft", "2", "Draft") with { Components = [new("part", false, "1", "По запросу")] };
+            var kit = (await reloaded.SaveAsync("legacy", kitUpdate, false)).Objects.Single(item => item.Id == "legacy");
+            Check(kit.Components?.Single().Condition == "По запросу", "Composition stored with condition");
+            var retained = (await reloaded.SaveAsync("legacy", Update("2", "Draft", "2", "Draft"), false)).Objects.Single(item => item.Id == "legacy");
+            Check(retained.Components?.Count == 1, "Legacy update preserves composition");
+            var beforeCycle = await File.ReadAllTextAsync(path);
+            var cycleRejected = false;
+            try { await reloaded.SaveAsync("part", new("Часть", "Document", "1", "Draft", [], Components: [new("legacy")]), false); }
+            catch (InvalidDataException) { cycleRejected = true; }
+            Check(cycleRejected && beforeCycle == await File.ReadAllTextAsync(path), "Cycle rejection leaves file unchanged");
+            var cleared = (await reloaded.SaveAsync("legacy", kitUpdate with { Components = [] }, false)).Objects.Single(item => item.Id == "legacy");
+            Check(cleared.Components?.Count == 0 && cleared.History?.Last().Components?.Single().ObjectId == "part", "Clear snapshots previous composition");
+            var loadedAgain = new InformationObjectRegistryService(catalog, environment);
+            Check((await loadedAgain.BuildAsync(false)).Objects.Single(item => item.Id == "legacy").History?.Last().Components?.Count == 1, "Composition history survives reload");
         }
         finally
         {
