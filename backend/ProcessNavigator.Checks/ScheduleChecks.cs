@@ -46,6 +46,57 @@ internal static class ScheduleChecks
             var service = new ProcessScheduleService(catalog, new InformationObjectRegistryService(catalog, env));
             var request = new ProcessScheduleRequestModel("source", "Forward", DateTimeOffset.Parse("2026-10-19T06:00:00Z"), UtcOffsetMinutes: 180);
             var result = await service.CalculateAsync(request, false);
+            var archives = new ScheduleArchiveService(env, service);
+            var archiveUpdate = new ScheduleArchiveSaveModel("Контрольный сценарий", request, result);
+            var archived = await archives.SaveAsync("archive-owner", archiveUpdate, false);
+            Check((await archives.ListAsync("archive-owner", false)).Count == 1 && (await archives.ListAsync("other-owner", false)).Count == 0,
+                "Server archive is private to its owner");
+            var readArchive = await new ScheduleArchiveService(env, service).LoadAsync("archive-owner", archived.Id, false);
+            Check(readArchive.Result.EndAt == result.EndAt && readArchive.Request.WorkingDays!.Count == 5 && readArchive.Request.Checkpoints is not null,
+                "Server archive survives reload and normalizes request defaults for UI restoration");
+            var parallelArchive = await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => archives.SaveAsync("archive-owner", archiveUpdate, false)));
+            Check(parallelArchive.All(item => item.Id == archived.Id) && (await archives.ListAsync("archive-owner", false)).Count == 1,
+                "Concurrent identical saves never multiply archive entries");
+            async Task RejectArchive(ScheduleArchiveSaveModel value, string label, string owner = "archive-owner")
+            {
+                var rejected = false;
+                try { await archives.SaveAsync(owner, value, false); } catch (InvalidDataException) { rejected = true; }
+                Check(rejected, label);
+            }
+            await RejectArchive(archiveUpdate with { ExpectedResult = result with { EndAt = result.EndAt.AddHours(1) } }, "Client-supplied altered dates not archived");
+            await RejectArchive(archiveUpdate with { Name = " " }, "Archive name required");
+            var hidden = false;
+            try { await archives.LoadAsync("other-owner", archived.Id, false); } catch (KeyNotFoundException) { hidden = true; }
+            Check(hidden && !await archives.DeleteAsync("other-owner", archived.Id, false), "Other profile cannot read or delete archive entry by known ID");
+            var secondArchive = await archives.SaveAsync("archive-owner", archiveUpdate with { Name = "Вторая запись" }, false);
+            Check(secondArchive.Id != archived.Id && (await archives.ListAsync("archive-owner", false)).Count == 2, "New archive entry never overwrites an old snapshot");
+            Check(await archives.DeleteAsync("archive-owner", secondArchive.Id, false) && (await archives.ListAsync("archive-owner", false)).Single().Id == archived.Id,
+                "Explicit owner deletion removes only selected archive entry");
+            var safeId = false;
+            try { await archives.LoadAsync("archive-owner", "../../other", false); } catch (InvalidDataException) { safeId = true; }
+            Check(safeId, "Archive IDs cannot escape storage directory");
+            for (var index = 0; index < 20; index++) await archives.SaveAsync("quota-owner", archiveUpdate with { Name = "Сценарий " + index }, false);
+            await RejectArchive(archiveUpdate, "Server archive quota never evicts existing entries", "quota-owner");
+            Check((await archives.ListAsync("quota-owner", false)).Count == 20, "Archive count retained after quota rejection");
+            await archives.SaveAsync("damaged-owner", archiveUpdate, false);
+            var damagedArchivePath = Path.Combine(data, "ScheduleArchive", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("damaged-owner")))) + ".json";
+            await File.WriteAllTextAsync(damagedArchivePath, "null");
+            await RejectArchive(archiveUpdate, "Corrupt server archive not overwritten", "damaged-owner");
+            Check(await File.ReadAllTextAsync(damagedArchivePath) == "null", "Corrupt archive retained for recovery");
+            var drafts = Path.Combine(data, "Drafts");
+            Directory.CreateDirectory(drafts);
+            File.Copy(Path.Combine(data, "source.bpmn"), Path.Combine(drafts, "source.bpmn"));
+            var draftContext = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(data, "source.context.json")))!;
+            draftContext["version"] = "draft-2"; draftContext["status"] = "Draft";
+            await File.WriteAllTextAsync(Path.Combine(drafts, "source.context.json"), draftContext.ToJsonString());
+            var draftResult = await service.CalculateAsync(request, true);
+            var draftArchive = await archives.SaveAsync("draft-owner", archiveUpdate with { ExpectedResult = draftResult }, true);
+            Check((await archives.ListAsync("draft-owner", false)).Count == 0 && (await archives.ListAsync("draft-owner", true)).Count == 1,
+                "Draft archive hidden when edit permission is absent");
+            var draftHidden = false;
+            try { await archives.LoadAsync("draft-owner", draftArchive.Id, false); } catch (KeyNotFoundException) { draftHidden = true; }
+            Check(draftHidden && !await archives.DeleteAsync("draft-owner", draftArchive.Id, false), "Draft permission enforced for direct load and deletion");
+            File.Delete(Path.Combine(drafts, "source.bpmn")); File.Delete(Path.Combine(drafts, "source.context.json"));
             var executions = new ProcessExecutionService(env);
             var process = await catalog.LoadAsync("source", false, default);
             var instance = await executions.StartAsync(process, "tester", "Контрольный заказ", default);
@@ -165,6 +216,8 @@ internal static class ScheduleChecks
             changedContext["elements"]!["task"]!["workDuration"] = "4 часа";
             await File.WriteAllTextAsync(contextPath, changedContext.ToJsonString());
             var recalculated = await service.CalculateAsync(request, false);
+            Check((await archives.LoadAsync("archive-owner", archived.Id, false)).Result.EndAt == result.EndAt, "Opening archive after source edits never recalculates past dates");
+            await RejectArchive(archiveUpdate, "Stale source/result pair cannot be saved as verified server snapshot");
             Check(recalculated.Sources!.Processes.Single(item => item.Id == "source").Nodes.Single().WorkDuration == "4 часа", "Recalculation uses current model even with unchanged version");
             Check(different.Sources!.Processes.Single(item => item.Id == "source").Nodes.Single().WorkDuration == "8 часов", "Previous source snapshot stays unchanged");
             var latestBeforeCheck = await File.ReadAllBytesAsync(baselinePath);
@@ -173,6 +226,7 @@ internal static class ScheduleChecks
             Check(drift.FinishShiftHours == -4 && drift.CurrentItem!.EndAt == assigned.Item.EndAt.AddHours(-4), "Calendar finish delta compares new calculation with original baseline");
             Check((await File.ReadAllBytesAsync(baselinePath)).SequenceEqual(latestBeforeCheck), "Drift check preserves all plan revisions and dates");
             File.Move(Path.Combine(data, "source.bpmn"), Path.Combine(data, "source.bpmn.hold"));
+            Check((await archives.LoadAsync("archive-owner", archived.Id, false)).Result.RootProcessId == "source", "Past archive still opens after deleting its original process");
             Check((await plans.CheckAsync("source", instance.Id)).Status == "Unavailable", "Deleted published root gives unknown freshness, not current");
         }
         finally

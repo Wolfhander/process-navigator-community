@@ -17,6 +17,7 @@ builder.Services.AddSingleton<AccessControlService>();
 builder.Services.AddSingleton<ArtifactRepositoryService>();
 builder.Services.AddSingleton<InformationObjectRegistryService>();
 builder.Services.AddSingleton<ProcessScheduleService>();
+builder.Services.AddSingleton<ScheduleArchiveService>();
 builder.Services.AddSingleton<InstanceSchedulePlanService>();
 builder.Services.AddSingleton<ProcessAssignmentService>();
 builder.Services.AddSingleton<ProcessExecutionService>();
@@ -309,6 +310,42 @@ app.MapGet("/api/processes/schedule", async (string rootProcessId, string direct
     }
     catch (FileNotFoundException) { return Results.NotFound(new { message = "Процесс не найден." }); }
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Schedule validation failed"); }
+});
+
+app.MapGet("/api/processes/schedule/archive", async (HttpContext context, ScheduleArchiveService archive,
+    AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await archive.ListAsync(access.CurrentUser(context).Id,
+        access.Has(context, ProcessPermissions.EditContext) || access.Has(context, ProcessPermissions.EditDiagram), ct)); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+app.MapGet("/api/processes/schedule/archive/{id}", async (string id, HttpContext context, ScheduleArchiveService archive,
+    AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await archive.LoadAsync(access.CurrentUser(context).Id, id,
+        access.Has(context, ProcessPermissions.EditContext) || access.Has(context, ProcessPermissions.EditDiagram), ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(new { message = "Архивный расчёт не найден." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+app.MapPost("/api/processes/schedule/archive", async (ScheduleArchiveSaveModel request, HttpContext context,
+    ScheduleArchiveService archive, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return Results.Ok(await archive.SaveAsync(access.CurrentUser(context).Id, request,
+        access.Has(context, ProcessPermissions.EditContext) || access.Has(context, ProcessPermissions.EditDiagram), ct)); }
+    catch (FileNotFoundException) { return Results.NotFound(new { message = "Исходный процесс не найден." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
+});
+app.MapDelete("/api/processes/schedule/archive/{id}", async (string id, HttpContext context, ScheduleArchiveService archive,
+    AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
+    try { return await archive.DeleteAsync(access.CurrentUser(context).Id, id,
+        access.Has(context, ProcessPermissions.EditContext) || access.Has(context, ProcessPermissions.EditDiagram), ct)
+        ? Results.NoContent() : Results.NotFound(new { message = "Архивный расчёт не найден." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422); }
 });
 
 app.MapPost("/api/processes/schedule", async (ProcessScheduleRequestModel request, HttpContext context,

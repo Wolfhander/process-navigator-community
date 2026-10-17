@@ -5,6 +5,7 @@ import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
 import { scheduleCsv } from './schedule-export';
 import { ScheduleRouteEditor } from './ScheduleRouteEditor';
 import { ScheduleArchive } from './ScheduleArchive';
+import { ScheduleServerArchive } from './ScheduleServerArchive';
 import { ScheduleFactPanel } from './ScheduleFactPanel';
 import type { ScheduleSnapshot } from './schedule-snapshots';
 import type { ProcessSchedule, ProcessScheduleRequest, ProcessSummary, ScheduleCalendar, ScheduleRepetition } from './types';
@@ -107,6 +108,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     <ScheduleCalendarEditor processes={result?.processes ?? []} defaults={{ workdayStart, workdayEnd, workingDays, nonWorkingDates, utcOffsetMinutes }} value={processCalendars} disabled={busy} onChange={value => { setProcessCalendars(value); setScenarioDirty(true); }}/>
     <ScheduleRouteEditor models={result?.sources?.processes ?? []} branches={processBranches} repetitions={processRepetitions} disabled={busy} onChange={(branches, repetitions) => { setProcessBranches(branches); setProcessRepetitions(repetitions); setScenarioDirty(true); }}/>
     <ScheduleArchive userId={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
+    <ScheduleServerArchive key={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
     {result && <ScheduleFactPanel result={result} request={lastRequest} canAssign={canAssign} dirty={scenarioDirty || busy}/>}
     {error && <div className="schedule-error"><AlertTriangle size={18}/>{error}</div>}
     {!result && !busy && !error && <section className="schedule-intro"><Network size={32}/><h2>Как строится цепочка</h2><p>Программа находит документы и результаты, которые выходят из одного процесса и являются входами другого. Затем применяет нормы работы, ожидания, календарь и параметры сценария.</p></section>}

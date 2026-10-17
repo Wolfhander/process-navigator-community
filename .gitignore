@@ -24,6 +24,7 @@ backend/ProcessNavigator.Api/Data/Users/
 backend/ProcessNavigator.Api/Data/Assignments/
 backend/ProcessNavigator.Api/Data/Executions/
 backend/ProcessNavigator.Api/Data/SchedulePlans/
+backend/ProcessNavigator.Api/Data/ScheduleArchive/
 backend/ProcessNavigator.Api/Data/Commands/
 backend/ProcessNavigator.Api/Data/Comments/
 backend/ProcessNavigator.Api/Data/Keys/

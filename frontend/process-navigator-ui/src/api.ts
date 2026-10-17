@@ -30,6 +30,18 @@ export async function saveInformationObject(objectId: string, update: Informatio
   return response.json() as Promise<InformationObjectRegistry>;
 }
 
+export type ServerScheduleSummary = { id: string; name: string; savedAt: string; rootProcessId: string; processCount: number; startAt: string; endAt: string; complete: boolean };
+async function scheduleArchiveCall(path: string, method = 'GET', body?: unknown) {
+  const response = await fetch('/api/processes/schedule/archive' + path, { method,
+    headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось выполнить операцию с серверным архивом.'));
+  return response.status === 204 ? undefined : response.json();
+}
+export const listServerSchedules = (): Promise<ServerScheduleSummary[]> => scheduleArchiveCall('');
+export const loadServerSchedule = (id: string): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('/' + encodeURIComponent(id));
+export const saveServerSchedule = (name: string, request: ProcessScheduleRequest, expectedResult: ProcessSchedule): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('', 'POST', { name, request, expectedResult });
+export const deleteServerSchedule = (id: string): Promise<void> => scheduleArchiveCall('/' + encodeURIComponent(id), 'DELETE');
+
 export async function calculateProcessSchedule(request: ProcessScheduleRequest): Promise<ProcessSchedule> {
   const response = await fetch('/api/processes/schedule', { method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(request) });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось рассчитать сроки цепочки процессов.'));
