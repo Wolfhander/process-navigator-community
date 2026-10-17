@@ -2,8 +2,8 @@ import type { StepEvidence } from './types';
 
 const labels = { fact: 'Подтверждённый факт', assumption: 'Предположение', question: 'Открытый вопрос' };
 
-export function StepEvidenceList({ entries = [] }: { entries?: StepEvidence[] }) {
-  if (!entries.length) return null;
+export function StepEvidenceList({ entries }: { entries?: StepEvidence[] | null }) {
+  if (!entries?.length) return null;
   return <section className="process-channels"><h3>Источники и вопросы</h3>{entries.map((entry, index) => <div className="collection-card" key={index}>
     <strong>{labels[entry.status] ?? entry.status}</strong><p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{entry.statement}</p>
     {entry.source && <p style={{ overflowWrap: 'anywhere' }}>Источник: {entry.source}{entry.locator ? ` · ${entry.locator}` : ''}</p>}
