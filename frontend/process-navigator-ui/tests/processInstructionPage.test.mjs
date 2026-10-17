@@ -8,7 +8,7 @@ import { buildProcessInstruction } from '../src/process-instruction.ts';
 import { inspectReadability } from '../src/process-readability.ts';
 const compiled = await transformWithOxc(readFileSync(new URL('../src/ProcessInstructionPage.tsx', import.meta.url), 'utf8'), 'ProcessInstructionPage.tsx', { jsx: { runtime: 'classic' } });
 const code = compiled.code.replace(/import[^;]+;/g, '').replace('export function ', 'function ');
-const Page = new Function('React','useState','useMemo','buildProcessInstruction','inspectReadability', code + '\nreturn ProcessInstructionPage;')({ createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability);
+const Page = new Function('React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')({ createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability, () => null);
 const process = { id: 'p', name: 'Процесс', version: '7', status: 'Draft', lanes: [{ id: 'lane', name: 'Отдел' }],
   nodes: [{ id: 's', type: 'startEvent', name: 'Начало' }, { id: 'a', type: 'task', name: '<script>действие</script>', laneId: 'lane', instruction: 'Сделать действие', channels: [{ id: 'mail', label: 'Заявка', kind: 'email', direction: 'input', flow: 'alternative' }], actions: [{ id: 'cmd', label: 'Зарегистрировать', kind: 'manual' }], informationObjects: [{ objectId: 'd', name: 'Чертёж', role: 'Output', required: true, version: '2' }] }], edges: [{ id: 'f', sourceId: 's', targetId: 'a' }] };
 test('instruction renders exact opened revision, gaps, channels and documents without executing anything', () => {

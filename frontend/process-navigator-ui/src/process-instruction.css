@@ -8,4 +8,7 @@
 .instruction-page button,.instruction-page input,.instruction-page select { padding: 9px 12px; border: 1px solid var(--line); border-radius: 7px; background: white; color: var(--ink); max-width: 100%; white-space: normal; }
 .instruction-page button { cursor: pointer; }.instruction-filters label { display: grid; gap: 7px; flex: 1; min-width: 200px; }
 .instruction-warning { color: #a54420; }
+.route-overview-lane { padding: 12px; border-top: 1px solid var(--line); }
+.route-overview-lane details { padding: 10px 12px; margin: 8px 0; border-left: 3px solid var(--line); }
+.route-overview-lane summary { cursor: pointer; overflow-wrap: anywhere; line-height: 1.5; }
 @media(max-width:750px) { .instruction-fields,.instruction-transitions { grid-template-columns: 1fr; }.instruction-card { padding: 14px; } }

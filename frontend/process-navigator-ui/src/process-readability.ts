@@ -1,6 +1,24 @@
 import type { ProcessModel } from './types';
 
-export type ReadabilityAdvice = { code: string; message: string; nodeIds: string[] };
+export type ReadabilityAdvice = { code: string; message: string; nodeIds: string[]; edgeIds?: string[] };
+
+// Open rectangle intersection: merely touching a border is not a crossing.
+function crossesInterior(a: {x: number; y: number}, b: {x: number; y: number}, box: {x: number; y: number; width: number; height: number}) {
+  if (a.x === b.x && a.y === b.y) return false;
+  let lower = 0, upper = 1;
+  for (const [position, delta, min, max] of [
+    [a.x, b.x - a.x, box.x, box.x + box.width],
+    [a.y, b.y - a.y, box.y, box.y + box.height]
+  ]) {
+    if (!delta) { if (position <= min || position >= max) return false; }
+    else {
+      const t1 = (min - position) / delta, t2 = (max - position) / delta;
+      lower = Math.max(lower, Math.min(t1, t2));
+      upper = Math.min(upper, Math.max(t1, t2));
+    }
+  }
+  return lower < upper && upper > 0 && lower < 1;
+}
 
 /** Advisory geometry heuristics only: never a validity or execution gate. */
 export function inspectReadability(process: ProcessModel): { advice: ReadabilityAdvice[]; limited: boolean } {
@@ -31,11 +49,30 @@ export function inspectReadability(process: ProcessModel): { advice: Readability
     }
   }
   if (overlapping.size) add('overlap', 'Блоки геометрически перекрываются. Проверьте расположение на схеме; вложенные контейнеры могут давать допустимые совпадения.', [...overlapping]);
+  let segmentCount = 0, crossingChecks = 0;
+  let edgesLimited = false;
+  const crossedNodes = new Set<string>(), crossedEdges = new Set<string>(), invalidEdges = new Set<string>();
+  edgeLoop: for (const edge of process.edges) {
+    if (!Array.isArray(edge.points) || edge.points.length < 2) { invalidEdges.add(edge.id); continue; }
+    for (let i = 1; i < edge.points.length; i++) {
+      if (++segmentCount > 20000) { edgesLimited = true; break edgeLoop; }
+      const a = edge.points[i - 1], b = edge.points[i];
+      if (![a.x, a.y, b.x, b.y].every(Number.isFinite)) { invalidEdges.add(edge.id); continue; }
+      for (const node of nodes) {
+        if (node.id === edge.sourceId || node.id === edge.targetId) continue;
+        if (++crossingChecks > 100000) { edgesLimited = true; break edgeLoop; }
+        if (crossesInterior(a, b, node)) { crossedNodes.add(node.id); crossedEdges.add(edge.id); }
+      }
+    }
+  }
+  if (crossedEdges.size) advice.push({ code: 'edge-crossing', message: 'Стрелки проходят через прямоугольные области посторонних блоков. Проверьте трассировку: для событий/шлюзов используется ограничивающий прямоугольник, для контейнеров пересечение может быть допустимым.', nodeIds: [...crossedNodes], edgeIds: [...crossedEdges] });
+  if (invalidEdges.size) advice.push({ code: 'edge-geometry', message: 'Геометрия части стрелок отсутствует или некорректна; пересечения этих участков не проверены.', nodeIds: [], edgeIds: [...invalidEdges] });
+  if (edgesLimited) { limited = true; add('edge-limit', 'Проверка стрелок остановлена: предел 20000 сегментов или 100000 сравнений. Результат неполный.', []); }
   if (nodes.length) {
     const width = Math.max(...nodes.map(node => node.x + node.width)) - Math.min(...nodes.map(node => node.x));
     const height = Math.max(...nodes.map(node => node.y + node.height)) - Math.min(...nodes.map(node => node.y));
     if (width / height > 8 || height / width > 8) add('aspect', 'Схема сильно вытянута. Проверьте читаемость в режиме «Весь процесс» и возможность разделения на уровни.', []);
   }
-  if (limited) add('limit', 'Проверка наложений остановлена после 100000 сравнений; список может быть неполным.', []);
+  if (comparisons > 100000) add('limit', 'Проверка наложений остановлена после 100000 сравнений; список может быть неполным.', []);
   return { advice, limited };
 }

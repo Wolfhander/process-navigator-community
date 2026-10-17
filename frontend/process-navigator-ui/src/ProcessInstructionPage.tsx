@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ProcessModel, ProcessNode } from './types';
 import { buildProcessInstruction } from './process-instruction';
 import { inspectReadability } from './process-readability';
+import { ProcessRouteOverview } from './ProcessRouteOverview';
 import './process-instruction.css';
 
 export function ProcessInstructionPage({ process, edition, onBack, onSelect }: { process: ProcessModel; edition?: string; onBack: () => void; onSelect: (node: ProcessNode) => void }) {
@@ -26,9 +27,10 @@ export function ProcessInstructionPage({ process, edition, onBack, onSelect }: {
     <nav className="feature-breadcrumb"><button onClick={onBack}>← К схеме процесса</button><span>›</span><strong>Рабочая инструкция</strong></nav>
     <header><span className="eyebrow">{edition ?? (process.status === 'Published' ? 'Опубликованная модель' : process.status === 'Draft' ? 'Черновик' : process.status)} · версия {process.version} · {process.id}</span><h1>{process.name}</h1><p>Представление текущей открытой редакции. Не меняет схему, статусы или доступность действий экземпляра. Фильтр скрывает карточки, но не меняет маршрут.</p></header>
     {built.error && <p role="alert">{built.error}</p>}
+    <ProcessRouteOverview process={process} onSelect={onSelect}/>
     <details className="instruction-card"><summary>Читаемость схемы · рекомендаций: {readability.advice.length}</summary><p>Подсказки по геометрии, не ошибки BPMN и не запрет сохранения. Дочерние схемы и фактическое отображение шрифтов здесь не проверяются.</p>
       {!readability.advice.length && <p>Эвристики не нашли замечаний. Это не подтверждает визуальную читаемость: проверьте схему на своём экране.</p>}
-      {readability.advice.map(item => <section key={item.code}><h3>{item.message}</h3>{item.nodeIds.slice(0, 30).map((id, index) => { const node = process.nodes.find(candidate => candidate.id === id); return node ? <button key={index} onClick={() => onSelect(node)}>{node.name || id} · {id}</button> : null; })}{item.nodeIds.length > 30 && <p>Показаны первые 30 из {item.nodeIds.length} элементов этой группы.</p>}</section>)}
+      {readability.advice.map(item => <section key={item.code}><h3>{item.message}</h3>{!!item.edgeIds?.length && <p>Стрелки (ID): {item.edgeIds.slice(0, 30).join(", ")}{item.edgeIds.length > 30 ? " · показаны первые 30 из " + item.edgeIds.length : ""}</p>}{item.nodeIds.slice(0, 30).map((id, index) => { const node = process.nodes.find(candidate => candidate.id === id); return node ? <button key={index} onClick={() => onSelect(node)}>{node.name || id} · {id}</button> : null; })}{item.nodeIds.length > 30 && <p>Показаны первые 30 из {item.nodeIds.length} элементов этой группы.</p>}</section>)}
     </details>
     {data && <>
       <section className="instruction-notice"><p>Карточки сгруппированы по минимальному расстоянию от начала для обзора. Это не обязательная последовательность: выбирайте ветви и параллельную работу по переходам схемы.</p>

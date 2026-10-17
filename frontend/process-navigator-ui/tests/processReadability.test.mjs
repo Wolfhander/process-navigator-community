@@ -3,6 +3,29 @@ import assert from 'node:assert/strict';
 import { inspectReadability } from '../src/process-readability.ts';
 const node = (id, x = 0, y = 0) => ({ id, type: 'task', name: 'Шаг', laneId: 'a', x, y, width: 150, height: 80 });
 const model = nodes => ({ nodes, edges: [], lanes: [{id:'a'}] });
+const withEdge = points => ({...model([node('a',-200),node('middle'),node('b',300)]),edges:[{id:'flow',sourceId:'a',targetId:'b',points}]});
+test('readability: crossing uses the complete polyline and excludes endpoints', () => {
+  const source = withEdge([{x:-50,y:40},{x:300,y:40}]);
+  const before = JSON.stringify(source);
+  const advice = inspectReadability(source).advice.find(item=>item.code==='edge-crossing');
+  assert.deepEqual(advice.nodeIds,['middle']);
+  assert.deepEqual(advice.edgeIds,['flow']);
+  assert.equal(JSON.stringify(source),before);
+  assert.ok(!inspectReadability(withEdge([{x:-50,y:40},{x:-50,y:100},{x:300,y:100},{x:300,y:40}])).advice.some(item=>item.code==='edge-crossing'));
+});
+test('readability: border contact and zero-length segments are not crossings; diagonal is', () => {
+  for (const points of [[{x:-50,y:0},{x:300,y:0}],[{x:20,y:20},{x:20,y:20}],[{x:-10,y:10},{x:10,y:-10}]]) {
+    assert.ok(!inspectReadability(withEdge(points)).advice.some(item=>item.code==='edge-crossing'));
+  }
+  assert.ok(inspectReadability(withEdge([{x:-50,y:-50},{x:200,y:120}])).advice.some(item=>item.code==='edge-crossing'));
+});
+test('readability: missing or invalid points and segment limits are explicit', () => {
+  assert.ok(inspectReadability(withEdge([])).advice.some(item=>item.code==='edge-geometry'));
+  assert.ok(inspectReadability(withEdge([{x:NaN,y:0},{x:5,y:0}])).advice.some(item=>item.code==='edge-geometry'));
+  const result = inspectReadability(withEdge(Array.from({length:20002},(_,i)=>({x:i,y:100}))));
+  assert.equal(result.limited,true);
+  assert.ok(result.advice.some(item=>item.code==='edge-limit'));
+});
 test('readability: touching blocks are not overlapping and source is unchanged', () => {
   const source = model([node('a'), node('b',150)]);
   const before = JSON.stringify(source);
