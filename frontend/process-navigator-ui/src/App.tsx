@@ -6,6 +6,7 @@ import { ContextPanel } from './ContextPanel';
 import { SectionLoadBoundary } from './SectionLoadBoundary';
 import { ProcessCanvas } from './ProcessCanvas';
 import { ProcessViewNavigation } from './ProcessViewNavigation';
+import { canRestoreProcessView, processViewLocation } from './process-view-history';
 import { VersionDialog } from './VersionDialog';
 import { UserMenu } from './UserMenu';
 import { AssignmentDialog } from './AssignmentDialog';
@@ -102,6 +103,34 @@ export default function App() {
   const [fitCommand, setFitCommand] = useState(0);
   const [focusCommand, setFocusCommand] = useState<{ id: number; elementId: string }>();
   const [processTrail, setProcessTrail] = useState<{ id: string; name: string }[]>(() => initialLocation?.trail?.map(id => ({ id, name: id })) ?? []);
+
+  const changeProcessView = (view: ProcessView) => {
+    if (editorOpen || view === processView) return;
+    const location = { processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
+      expandedSteps: readProcessLocation(window.location.hash)?.expandedSteps, trail: processTrail.map(item => item.id) };
+    window.history.pushState(null, '', window.location.pathname + window.location.search + processLocationHash(processViewLocation(location, view)));
+    setProcessView(view);
+  };
+
+  useEffect(() => {
+    const restoreView = () => {
+      const target = readProcessLocation(window.location.hash);
+      const current = { processId, elementId: selected?.id, draft: draftView, version: archivedVersion, view: processView };
+      if (editorOpen) {
+        // Never abandon an editor through a representation-history event.
+        window.history.replaceState(null, '', window.location.pathname + window.location.search + processLocationHash(current));
+        setMessage('Сначала сохраните или закройте редактор; переход истории не выполнен.');
+        return;
+      }
+      if (enterpriseOpen || !canRestoreProcessView(current, target)) { window.location.reload(); return; }
+      setProcessView(target?.view ?? 'diagram');
+      const node = process?.nodes.find(item => item.id === target?.elementId);
+      setSelected(node);
+      if (node) setFocusCommand(value => ({ id: (value?.id ?? 0) + 1, elementId: node.id }));
+    };
+    window.addEventListener('popstate', restoreView);
+    return () => window.removeEventListener('popstate', restoreView);
+  }, [processId, process, selected?.id, draftView, archivedVersion, processView, editorOpen, enterpriseOpen]);
 
   const refreshCatalog = async (preferredId?: string) => {
     const items = await loadProcessCatalog();
@@ -443,7 +472,7 @@ export default function App() {
     </header>
     <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
     <Suspense fallback={<main className="state-page" role="status"><div className="loader"/><p>Загружаем раздел…</p></main>}>
-    {!enterpriseOpen && !analyticsOpen && process && !editorOpen && <ProcessViewNavigation view={processView} onChange={setProcessView}/>}
+    {!enterpriseOpen && !analyticsOpen && process && !editorOpen && <ProcessViewNavigation view={processView} onChange={changeProcessView}/>}
     {!enterpriseOpen && !analyticsOpen && process && (processView === 'instruction' || processView === 'overview') && <ProcessInstructionPage mode={processView} process={process} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
       setProcessView('diagram'); setSelected(node); setFocusCommand(current => ({ id: (current?.id ?? 0) + 1, elementId: node.id }));
     }}/>}

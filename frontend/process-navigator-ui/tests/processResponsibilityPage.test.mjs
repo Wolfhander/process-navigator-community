@@ -19,6 +19,8 @@ test('read-only responsibility page distinguishes current directories from histo
   assert.match(html,/Архивная версия/); assert.match(html,/не исторический снимок/);
   assert.match(html,/не факт исполнения или подтверждение приёмки/);
   assert.match(html,/Это не означает их отсутствие/); assert.doesNotMatch(html,/<script>/);
+  assert.match(html,/НЕПОЛНЫЕ ИСХОДНИКИ/);
+  assert.match(html,/Состав печатной выборки/);
 });
 test('organization error preserves route and retry instead of treating unknown mappings as confirmed', () => {
   const html = render('Справочник недоступен');

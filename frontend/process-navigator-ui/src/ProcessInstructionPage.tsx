@@ -8,6 +8,7 @@ import './process-instruction.css';
 export function ProcessInstructionPage({ process, edition, mode = 'instruction', onBack, onSelect }: { process: ProcessModel; edition?: string; mode?: 'overview' | 'instruction'; onBack: () => void; onSelect: (node: ProcessNode) => void }) {
   const [query, setQuery] = useState('');
   const [laneId, setLaneId] = useState('');
+  const [page, setPage] = useState(0);
   const built = useMemo(() => {
     try { return { data: buildProcessInstruction(process), error: '' }; }
     catch (cause) { return { data: undefined, error: cause instanceof Error ? cause.message : 'Не удалось построить инструкцию.' }; }
@@ -23,10 +24,24 @@ export function ProcessInstructionPage({ process, edition, mode = 'instruction',
   const needle = query.trim().toLocaleLowerCase('ru-RU');
   const tasks = data?.tasks.filter(node => (!laneId || node.laneId === laneId) && (!needle ||
     [node.id, node.name, node.instruction, node.description, node.systemName, node.expectedResult, ...(node.inputs ?? []), ...(node.informationObjects ?? []).map(item => item.name)].join(' ').toLocaleLowerCase('ru-RU').includes(needle))) ?? [];
+  const pageCount = Math.max(1, Math.ceil(tasks.length / 200));
+  const activePage = Math.min(Math.max(0, Number(page) || 0), pageCount - 1);
+  const visibleTasks = tasks.slice(activePage * 200, (activePage + 1) * 200);
   return <main className="feature-page instruction-page"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}>← К схеме процесса</button><span>›</span><strong>{mode === 'overview' ? 'Обзор маршрута' : 'Рабочая инструкция'}</strong></nav>
     <header><span className="eyebrow">{edition ?? (process.status === 'Published' ? 'Опубликованная модель' : process.status === 'Draft' ? 'Черновик' : process.status)} · версия {process.version} · {process.id}</span><h1>{process.name}</h1><p>Представление текущей открытой редакции. Не меняет схему, статусы или доступность действий экземпляра. Фильтр скрывает карточки, но не меняет маршрут.</p></header>
     {built.error && <p role="alert">{built.error}</p>}
+    <section className="instruction-notice print-scope" aria-label="Состав печатной выборки"><h2>{mode === 'overview' ? 'Обзор маршрута' : 'Рабочая инструкция'} · состав документа</h2>
+      <p>Процесс: {process.id} · версия: {process.version}. Представлена только открытая модель, без дочерних редакций.</p>
+      {mode === 'instruction' && <><p>Поиск: {query || 'не задан'}. Дорожка: {laneId ? process.lanes.find(lane => lane.id === laneId)?.name ?? laneId : 'все'}.</p>
+        <p>Действий в документе: {visibleTasks.length}; найдено фильтром: {tasks.length}; всего в модели: {data?.tasks.length ?? 'не рассчитано'}. Страница выборки: {activePage + 1} из {pageCount}.</p>
+        <p>Событий и шлюзов в документе: {Math.min(process.nodes.filter(node => node.type !== 'task').length, 200)} из {process.nodes.filter(node => node.type !== 'task').length}; они не ограничиваются фильтром действий.</p>
+        {tasks.length > 200 && <p className="instruction-warning">НЕПОЛНАЯ ВЫБОРКА: в документ не вошли все найденные действия. Уточните фильтр и сформируйте отдельные документы.</p>}
+        {!!needle || !!laneId ? <p>Это отфильтрованная инструкция, а не полный маршрут процесса.</p> : null}
+        {!data && <p className="instruction-warning">Инструкция не построена. Этот документ не содержит карточек действий.</p>}
+      </>}
+      <p>Рекомендации по читаемости — эвристические; пределы показа перечислены в соответствующих разделах.</p>
+    </section>
     {mode === 'overview' && <ProcessRouteOverview process={process} onSelect={onSelect}/>}
     <details className="instruction-card"><summary>Читаемость схемы · рекомендаций: {readability.advice.length}</summary><p>Подсказки по геометрии, не ошибки BPMN и не запрет сохранения. Дочерние схемы и фактическое отображение шрифтов здесь не проверяются.</p>
       {!readability.advice.length && <p>Эвристики не нашли замечаний. Это не подтверждает визуальную читаемость: проверьте схему на своём экране.</p>}
@@ -42,8 +57,8 @@ export function ProcessInstructionPage({ process, edition, mode = 'instruction',
       </section>
       <div className="instruction-filters"><label>Найти действие<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Название, ID, инструкция, система…"/></label><label>Дорожка<select value={laneId} onChange={event => setLaneId(event.target.value)}><option value="">Все дорожки</option>{process.lanes.map(lane => <option key={lane.id} value={lane.id}>{lane.name}</option>)}</select></label><span>Показано {Math.min(tasks.length, 200)} из {data.tasks.length}</span></div>
       <details className="instruction-card"><summary>События, условия и развилки ({process.nodes.filter(node => node.type !== 'task').length})</summary>{process.nodes.filter(node => node.type !== 'task').slice(0, 200).map(node => <article key={node.id}><h3>{node.name || node.id} · {labels[node.type]}</h3>{node.type === 'parallelGateway' && <p>Параллельные ветви — не альтернативы. Условия синхронизации смотрите на схеме.</p>}{transitions(node)}</article>)}{process.nodes.filter(node => node.type !== 'task').length > 200 && <p>Показаны первые 200 событий/шлюзов. Остальные доступны на схеме.</p>}</details>
-      {tasks.length > 200 && <p>Показаны первые 200 из {tasks.length} найденных действий. Уточните поиск или дорожку; сама модель не ограничивается этим числом.</p>}
-      {tasks.slice(0, 200).map(node => <article className="instruction-card" key={node.id}><header><div><small>{node.id} · {process.lanes.find(lane => lane.id === node.laneId)?.name ?? 'Дорожка не определена'}</small><h2>{node.name || 'Без названия'}</h2></div><button onClick={() => onSelect(node)}>Открыть действие на схеме</button></header>
+      {tasks.length > 200 && <nav className="instruction-pagination" aria-label="Страницы действий"><button disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>Предыдущие действия</button><span>Страница {activePage + 1} из {pageCount} · действия {activePage * 200 + 1}–{activePage * 200 + visibleTasks.length} из {tasks.length}</span><button disabled={activePage + 1 === pageCount} onClick={() => setPage(activePage + 1)}>Следующие действия</button></nav>}
+      {visibleTasks.map(node => <article className="instruction-card" key={node.id}><header><div><small>{node.id} · {process.lanes.find(lane => lane.id === node.laneId)?.name ?? 'Дорожка не определена'}</small><h2>{node.name || 'Без названия'}</h2></div><button onClick={() => onSelect(node)}>Открыть действие на схеме</button></header>
         {data.unreachable.includes(node.id) && <p className="instruction-warning">Нет пути от найденного начала. Не считайте это подтверждённым рабочим маршрутом.</p>}
         <div className="instruction-fields"><section><h3>Как выполнить</h3><p>{node.instruction || node.description || 'Инструкция не заполнена.'}</p><p>Исполнитель: {node.executorKind === 'system' ? 'информационная система' : node.executorKind === 'human' ? 'сотрудник' : 'не уточнён'}{node.systemName ? ' · ' + node.systemName : ''}</p><p>Ответственный: {node.responsible || 'не указан'}.</p><p>Норма: {node.duration || 'не указана'}{node.workDuration ? ' · работа: ' + node.workDuration : ''}{node.waitDuration ? ' · ожидание: ' + node.waitDuration : ''}</p></section>
           <section><h3>Входы и результат</h3><p>Входы: {node.inputs?.length ? node.inputs.join('; ') : 'не заполнены'}.</p><p>Ожидаемый результат: {node.expectedResult || 'не заполнен'}.</p><p>Критерий завершения: {node.completionCriteria || 'не заполнен'}.</p></section></div>

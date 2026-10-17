@@ -39,6 +39,14 @@ export function ProcessResponsibilityPage({ process, assignments, edition, onBac
     {!assignments && <p>Назначения сотрудников ещё не загружены. Это не означает их отсутствие.</p>}
     <button onClick={() => setReload(value => value + 1)}>Обновить оргструктуру</button>
     {built.error && <p role="alert">{built.error}</p>}
+    <section className="instruction-notice print-scope" aria-label="Состав печатной выборки"><h2>Ответственность · состав документа</h2>
+      <p>Процесс: {process.id} · версия: {process.version}. Поиск: {query || 'не задан'}. Организация: {entityId ? organization?.legalEntities.find(entity => entity.id === entityId)?.name ?? entityId : 'все'}.</p>
+      <p>Дорожек в документе: {Math.min(rows.length, 200)} из {rows.length} найденных; всего: {data?.rows.length ?? 'не рассчитано'}. Передач: {Math.min(transfers.length, 200)} из {transfers.length} найденных.</p>
+      <p>В каждой дорожке показано не более 50 назначений и 50 действий. Это текущие справочники, не исторический снимок редакции.</p>
+      {(rows.length > 200 || transfers.length > 200 || rows.some(row => row.tasks.length > 50 || row.people.length > 50) || data?.limited) && <p className="instruction-warning">НЕПОЛНАЯ ВЫБОРКА: достигнут предел показа или обхода. Документ не содержит всех сведений.</p>}
+      {(!organization || !assignments || !data) && <p className="instruction-warning">НЕПОЛНЫЕ ИСХОДНИКИ: часть справочников или назначений не загружена либо представление не построено. Это не означает отсутствие ответственности.</p>}
+      {(needle || entityId) && <p>Это отфильтрованная выборка; для передачи достаточно совпадения хотя бы одной стороны.</p>}
+    </section>
     {data && <><p>Дорожек: {data.rows.length}. Возможных междорожечных передач: {data.transfers.length}. Ошибок ссылок в стрелках: {data.broken}. Действий без дорожки: {data.tasksWithoutLane}.</p>
       <div className="instruction-filters"><label>Поиск<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Дорожка, подразделение, сотрудник…"/></label><label>Организация<select value={entityId} onChange={event => setEntityId(event.target.value)}><option value="">Все организации</option>{organization?.legalEntities.map(entity => <option value={entity.id} key={entity.id}>{entity.name}</option>)}</select></label></div>
       {rows.slice(0, 200).map(row => <article className="instruction-card" key={row.lane.id}><h2>{row.lane.name}</h2><p>{organization ? row.entity?.name ?? 'Организация не сопоставлена' : 'Оргструктура не загружена'} · {row.unit?.name ?? 'Подразделение не определено'}</p>
