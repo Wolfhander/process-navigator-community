@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "synthetic": true,
-  "checkedAt": "2026-10-17T21:37:49.391Z",
+  "checkedAt": "2026-10-17T21:54:18.401Z",
   "status": "passed",
-  "inputsFingerprint": "26daa77b6674fa36ad95c98395e361a12544b7d3f94143e18da1035accb4b1b0",
+  "inputsFingerprint": "4d5ae287c662606183b63a21b337f0b784c15f772583815fd685990971770185",
   "checks": [
     {
       "id": "xlsx-roundtrip",
@@ -39,6 +39,14 @@
     },
     {
       "id": "calendar",
+      "status": "passed"
+    },
+    {
+      "id": "analytics-history",
+      "status": "passed"
+    },
+    {
+      "id": "analytics-history-comparison",
       "status": "passed"
     },
     {
@@ -86,7 +94,8 @@
     "basis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
     "evidence": [
       "master-data/acceptance-2026-10-18.md",
-      "master-data/analytics-acceptance-2026-10-18.md"
+      "master-data/analytics-acceptance-2026-10-18.md",
+      "master-data/history-acceptance-2026-10-18.md"
     ],
     "repeatedByThisRun": false
   },
@@ -113,6 +122,11 @@
     },
     {
       "roadmap": "64",
+      "automated": "passed",
+      "remaining": ""
+    },
+    {
+      "roadmap": "67",
       "automated": "passed",
       "remaining": ""
     },

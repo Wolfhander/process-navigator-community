@@ -71,6 +71,56 @@ internal static class MasterDataChecks
                 Check(duplicateAnalytics.Systems.Single().TaskCount==7,"Legacy and repeated channels count a system once per task");
             }
             finally { await File.WriteAllTextAsync(contextPath,originalContext); }
+            var history=new PortfolioHistoryService(environment,new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry));
+            var baseline=await history.SaveAsync("history-a",new("Исходный мастер-контур",analytics));
+            Check(baseline.Data.AverageReadinessPercent==100&&baseline.Algorithm==PortfolioHistoryService.Algorithm,"History captures server values and methodology");
+            Check((await history.SaveAsync("history-a",new("Исходный мастер-контур",analytics))).Id==baseline.Id,"History retry is idempotent");
+            var reopenedHistory=new PortfolioHistoryService(environment,new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry));
+            Check((await reopenedHistory.LoadAsync("history-a",baseline.Id)).Fingerprint==baseline.Fingerprint,"History survives service restart");
+            Check((await history.ListAsync("history-b")).Count==0,"History lists are profile-isolated");
+            try { await history.LoadAsync("history-b",baseline.Id);Check(false,"History owner isolation"); } catch(KeyNotFoundException){Check(true,"History owner isolation");}
+            try { await history.LoadAsync("history-a","../bad");Check(false,"History ID validation"); } catch(InvalidDataException){Check(true,"History ID validation");}
+            PortfolioHistorySnapshotModel changedSnapshot;
+            try
+            {
+                var context=JsonNode.Parse(originalContext)!;context["elements"]!["task-1"]!["description"]="";
+                await File.WriteAllTextAsync(contextPath,context.ToJsonString());
+                try { await history.SaveAsync("history-a",new("Устаревший экран",analytics));Check(false,"Stale history rejected"); } catch(InvalidDataException){Check(true,"Stale history rejected");}
+                var changedAnalytics=await new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry).BuildAsync();
+                Check(changedAnalytics.AverageReadinessPercent==97.5,"Independent expected change: one of two root descriptions missing");
+                changedSnapshot=await history.SaveAsync("history-a",new("Описание требует уточнения",changedAnalytics));
+                Check((await history.LoadAsync("history-a",baseline.Id)).Data.AverageReadinessPercent==100,"Frozen baseline does not change with live model");
+                Check(changedSnapshot.Data.Processes.Single(p=>p.Id=="md-order").ReadinessPercent==87.5,"History preserves per-model source");
+            }
+            finally { await File.WriteAllTextAsync(contextPath,originalContext); }
+            var repeated=await Task.WhenAll(Enumerable.Range(0,4).Select(_=>history.SaveAsync("history-a",new("Параллельный повтор",analytics))));
+            Check(repeated.Select(item=>item.Id).Distinct().Count()==1&&(await history.ListAsync("history-a")).Count==3,"Concurrent retries do not lose or duplicate records");
+            using(var cancelled=new CancellationTokenSource())
+            {
+                cancelled.Cancel();
+                try { await history.SaveAsync("history-a",new("Отменённый",analytics),cancelled.Token);Check(false,"History cancellation"); } catch(OperationCanceledException){Check(true,"History cancellation");}
+                Check((await history.ListAsync("history-a")).Count==3,"Cancellation leaves existing history intact");
+            }
+            await history.SaveAsync("history-corrupt",new("До повреждения",analytics));
+            var corruptPath=Path.Combine(root,"Data","PortfolioHistory",Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("history-corrupt")))+".json");
+            await File.WriteAllTextAsync(corruptPath,"{broken");
+            try { await history.SaveAsync("history-corrupt",new("Не перезаписывать",analytics));Check(false,"Corrupt history protected"); } catch(InvalidDataException){Check(true,"Corrupt history protected");}
+            Check(await File.ReadAllTextAsync(corruptPath)=="{broken","Corruption is not replaced with an empty history");
+            await history.SaveAsync("history-integrity",new("Контроль целостности",analytics));
+            var integrityPath=Path.Combine(root,"Data","PortfolioHistory",Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("history-integrity")))+".json");
+            var tampered=JsonNode.Parse(await File.ReadAllTextAsync(integrityPath))!;tampered["snapshots"]![0]!["data"]!["averageReadinessPercent"]=99;
+            await File.WriteAllTextAsync(integrityPath,tampered.ToJsonString());
+            try { await history.ListAsync("history-integrity");Check(false,"History fingerprint detects modification"); } catch(InvalidDataException){Check(true,"History fingerprint detects modification");}
+            for(var i=0;i<30;i++)await history.SaveAsync("history-limit",new("Срез "+i,analytics));
+            try { await history.SaveAsync("history-limit",new("Лишний срез",analytics));Check(false,"History count limit"); } catch(InvalidDataException){Check(true,"History count limit");}
+            Check((await history.ListAsync("history-limit")).Count==30&&!Directory.EnumerateFiles(Path.Combine(root,"Data","PortfolioHistory"),"*.tmp").Any(),"Limit keeps all records; atomic write leaves no temporary files");
+            var clock=new HistoryClock(DateTimeOffset.UtcNow);
+            var timedHistory=new PortfolioHistoryService(environment,new PortfolioAnalyticsService(catalog,organization,new ProcessExecutionService(environment),registry),clock);
+            var firstObservation=await timedHistory.SaveAsync("history-clock",new("Ежедневное наблюдение",analytics));
+            clock.Advance(TimeSpan.FromMinutes(2));
+            var secondObservation=await timedHistory.SaveAsync("history-clock",new("Ежедневное наблюдение",analytics));
+            Check(firstObservation.Id!=secondObservation.Id&&secondObservation.CapturedAt>firstObservation.CapturedAt,"Unchanged values can be observed again later; retry deduplication is not permanent");
+            Passed("analytics-history");
             var schedule=new ProcessScheduleService(catalog,registry);
             foreach(var item in spec.RootElement.GetProperty("calendarCases").EnumerateArray())
             {
@@ -98,6 +148,8 @@ internal static class MasterDataChecks
                 await File.WriteAllBytesAsync(Path.Combine(reportDirectory,"master-large-3000.xlsx"),large);
                 await File.WriteAllTextAsync(Path.Combine(reportDirectory,"registry-actual.json"),JsonSerializer.Serialize(objects,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
                 await File.WriteAllTextAsync(Path.Combine(reportDirectory,"analytics-actual.json"),JsonSerializer.Serialize(analytics,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
+                await File.WriteAllTextAsync(Path.Combine(reportDirectory,"portfolio-history-before.json"),JsonSerializer.Serialize(baseline,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
+                await File.WriteAllTextAsync(Path.Combine(reportDirectory,"portfolio-history-after.json"),JsonSerializer.Serialize(changedSnapshot,new JsonSerializerOptions(JsonSerializerDefaults.Web){WriteIndented=true}));
             }
         }
         finally
@@ -140,6 +192,11 @@ internal static class MasterDataChecks
             var channels=Read("xl/worksheets/sheet4.xml");channels.Descendants(ns+"row").Where(row=>(int?)row.Attribute("r")>3).Remove();Write("xl/worksheets/sheet4.xml",channels);
         }
         return memory.ToArray();
+    }
+    private sealed class HistoryClock(DateTimeOffset now):TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()=>now;
+        public void Advance(TimeSpan duration)=>now+=duration;
     }
     private sealed class Host(string root):IWebHostEnvironment
     {

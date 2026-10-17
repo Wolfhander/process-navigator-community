@@ -47,6 +47,15 @@
       "remaining": ""
     },
     {
+      "roadmap": "67",
+      "input": "history-case.json",
+      "checks": [
+        "analytics-history",
+        "analytics-history-comparison"
+      ],
+      "remaining": ""
+    },
+    {
       "roadmap": "72",
       "input": "spec.json",
       "checks": [
@@ -123,6 +132,7 @@
   "acceptanceBasis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
   "manualEvidence": [
     "master-data/acceptance-2026-10-18.md",
-    "master-data/analytics-acceptance-2026-10-18.md"
+    "master-data/analytics-acceptance-2026-10-18.md",
+    "master-data/history-acceptance-2026-10-18.md"
   ]
 }

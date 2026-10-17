@@ -1,6 +1,6 @@
 import type { PortfolioAnalytics, PortfolioProcess } from './types';
 
-export const analyticsViews = ['overview', 'processes', 'departments', 'systems'] as const;
+export const analyticsViews = ['overview', 'processes', 'departments', 'systems', 'history'] as const;
 export const analyticsFilters = ['all', 'attention', 'documents', 'timing', 'draft', 'execution'] as const;
 export const analyticsMetrics = {
   processes: 'Процессы', readiness: 'Готовность описания', coverage: 'Охват структуры',

@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "scope": "Согласованный мастер-контур, только отдельная тестовая копия",
+  "processId": "md-order",
+  "elementId": "task-1",
+  "mutation": {"field":"description","value":""},
+  "expected": {"baselineReadiness":100,"changedReadiness":97.5,"portfolioDelta":-2.5,"baselineProcessReadiness":100,"changedProcessReadiness":87.5,"processDelta":-12.5},
+  "restoreAfterCheck": true,
+  "meaning": "Одна из двух корневых задач теряет описание. Полнота корня уменьшается на 12.5 п.п.; среднее пяти моделей — на 2.5 п.п. Остальные модели не меняются."
+}

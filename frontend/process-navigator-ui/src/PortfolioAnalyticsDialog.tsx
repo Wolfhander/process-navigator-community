@@ -5,6 +5,7 @@ import type { PortfolioAnalytics } from './types';
 import './portfolio-analytics.css';
 import { PortfolioCharts } from './PortfolioCharts';
 import { AnalyticsWorkspaceControls } from './AnalyticsWorkspaceControls';
+import { PortfolioHistoryPanel } from './PortfolioHistoryPanel';
 import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
@@ -53,6 +54,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         <button className={view === 'processes' ? 'is-active' : ''} onClick={() => setView('processes')}><Layers3 size={15}/>Процессы</button>
         <button className={view === 'departments' ? 'is-active' : ''} onClick={() => setView('departments')}><Building2 size={15}/>Подразделения</button>
         <button className={view === 'systems' ? 'is-active' : ''} onClick={() => setView('systems')}><MonitorCog size={15}/>Системы и уровни</button>
+        <button className={view === 'history' ? 'is-active' : ''} onClick={() => setView('history')}><Clock3 size={15}/>История и сравнение</button>
       </nav>
       {error && <div className="portfolio-error"><AlertTriangle size={17}/>{error}</div>}
       {!data && !error && <div className="portfolio-loading"><div className="loader"/>Собираем показатели по всему репозиторию…</div>}
@@ -60,6 +62,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         {error && <p role="status">Показаны ранее загруженные данные от {loadedAt}; обновление не удалось.</p>}
         <AnalyticsWorkspaceControls profileId={profileId} current={{ view, query, filter, metrics }} loadedAt={loadedAt} count={processes.length} total={data.processes.length} onChange={next => { setView(next.view); setQuery(next.query); setFilter(next.filter); setMetrics(next.metrics); }} onExport={exportCsv}/>
         {exportError && <p role="alert">{exportError}</p>}
+        {view === 'history' && <PortfolioHistoryPanel data={data} onOpenProcess={onOpenProcess}/>}
         {view === 'overview' && <>
           <div className="portfolio-kpis">
             {metrics.includes('processes') && <article><Layers3/><span>Процессов<strong>{data.totalProcesses}</strong><small>{data.publishedProcesses} действующих · {data.draftProcesses} черновиков</small></span></article>}
@@ -108,7 +111,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
           ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}</section>
         </div>}
       </div>}
-      <footer className="portfolio-footer"><span><CheckCircle2 size={14}/>Текущий срез локального репозитория. История изменений показателей пока не накапливается.</span><button onClick={onClose}>На главную</button></footer>
+      <footer className="portfolio-footer"><span><CheckCircle2 size={14}/>{view === 'history' ? 'Сохранённые наблюдения текущего профиля. Исторические схемы этим разделом не восстанавливаются.' : 'Текущий срез репозитория. Сохранить наблюдение можно в разделе «История и сравнение».'}</span><button onClick={onClose}>На главную</button></footer>
     </section>
   </main>;
 }

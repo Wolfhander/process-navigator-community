@@ -22,6 +22,7 @@ builder.Services.AddSingleton<InstanceSchedulePlanService>();
 builder.Services.AddSingleton<ProcessAssignmentService>();
 builder.Services.AddSingleton<ProcessExecutionService>();
 builder.Services.AddSingleton<PortfolioAnalyticsService>();
+builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -80,6 +81,26 @@ app.MapGet("/api/analytics/portfolio", async (HttpContext context, PortfolioAnal
 {
     if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
     return Results.Ok(await analytics.BuildAsync(cancellationToken));
+});
+
+app.MapGet("/api/analytics/history", async (HttpContext context, PortfolioHistoryService history, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
+    try { return Results.Ok(await history.ListAsync(access.CurrentUser(context).Id, ct)); }
+    catch (InvalidDataException e) { return Results.BadRequest(new { message = e.Message }); }
+});
+app.MapGet("/api/analytics/history/{id}", async (string id, HttpContext context, PortfolioHistoryService history, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
+    try { return Results.Ok(await history.LoadAsync(access.CurrentUser(context).Id, id, ct)); }
+    catch (KeyNotFoundException) { return Results.NotFound(); }
+    catch (InvalidDataException e) { return Results.BadRequest(new { message = e.Message }); }
+});
+app.MapPost("/api/analytics/history", async (PortfolioHistorySaveModel request, HttpContext context, PortfolioHistoryService history, AccessControlService access, CancellationToken ct) =>
+{
+    if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
+    try { return Results.Ok(await history.SaveAsync(access.CurrentUser(context).Id, request, ct)); }
+    catch (InvalidDataException e) { return Results.BadRequest(new { message = e.Message }); }
 });
 
 app.MapGet("/api/admin/audit", async (int? limit, HttpContext context, AuditLogService audit,
