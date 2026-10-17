@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import type { ProcessModel, ProcessNode } from './types';
 import { buildProcessInstruction } from './process-instruction';
 import { inspectReadability } from './process-readability';
 import { ProcessRouteOverview } from './ProcessRouteOverview';
 import './process-instruction.css';
+const InstructionPackagePanel = lazy(() => import('./InstructionPackagePanel').then(module => ({default:module.InstructionPackagePanel})));
 
 export function ProcessInstructionPage({ process, edition, mode = 'instruction', onBack, onSelect }: { process: ProcessModel; edition?: string; mode?: 'overview' | 'instruction'; onBack: () => void; onSelect: (node: ProcessNode) => void }) {
   const [query, setQuery] = useState('');
@@ -31,6 +32,7 @@ export function ProcessInstructionPage({ process, edition, mode = 'instruction',
     <nav className="feature-breadcrumb"><button onClick={onBack}>← К схеме процесса</button><span>›</span><strong>{mode === 'overview' ? 'Обзор маршрута' : 'Рабочая инструкция'}</strong></nav>
     <header><span className="eyebrow">{edition ?? (process.status === 'Published' ? 'Опубликованная модель' : process.status === 'Draft' ? 'Черновик' : process.status)} · версия {process.version} · {process.id}</span><h1>{process.name}</h1><p>Представление текущей открытой редакции. Не меняет схему, статусы или доступность действий экземпляра. Фильтр скрывает карточки, но не меняет маршрут.</p></header>
     {built.error && <p role="alert">{built.error}</p>}
+    {mode === 'instruction' && <details className="instruction-card instruction-package-controls"><summary>Сквозная инструкция: выбрать редакции и скачать все уровни</summary><Suspense fallback={<p role="status">Загружаем инструмент сборки…</p>}><InstructionPackagePanel process={process} edition={edition ?? process.status}/></Suspense></details>}
     <section className="instruction-notice print-scope" aria-label="Состав печатной выборки"><h2>{mode === 'overview' ? 'Обзор маршрута' : 'Рабочая инструкция'} · состав документа</h2>
       <p>Процесс: {process.id} · версия: {process.version}. Представлена только открытая модель, без дочерних редакций.</p>
       {mode === 'instruction' && <><p>Поиск: {query || 'не задан'}. Дорожка: {laneId ? process.lanes.find(lane => lane.id === laneId)?.name ?? laneId : 'все'}.</p>

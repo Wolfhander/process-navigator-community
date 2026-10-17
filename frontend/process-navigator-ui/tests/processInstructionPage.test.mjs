@@ -7,15 +7,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { buildProcessInstruction } from '../src/process-instruction.ts';
 import { inspectReadability } from '../src/process-readability.ts';
 const compiled = await transformWithOxc(readFileSync(new URL('../src/ProcessInstructionPage.tsx', import.meta.url), 'utf8'), 'ProcessInstructionPage.tsx', { jsx: { runtime: 'classic' } });
-const code = compiled.code.replace(/import[^;]+;/g, '').replace('export function ', 'function ');
-const Page = new Function('React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')({ createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability, () => null);
+const code = compiled.code.replace(/^import[^\n]*\n/gm, '').replace('export function ', 'function ');
+const Page = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, { createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability, () => null);
 const process = { id: 'p', name: 'Процесс', version: '7', status: 'Draft', lanes: [{ id: 'lane', name: 'Отдел' }],
   nodes: [{ id: 's', type: 'startEvent', name: 'Начало' }, { id: 'a', type: 'task', name: '<script>действие</script>', laneId: 'lane', instruction: 'Сделать действие', channels: [{ id: 'mail', label: 'Заявка', kind: 'email', direction: 'input', flow: 'alternative' }], actions: [{ id: 'cmd', label: 'Зарегистрировать', kind: 'manual' }], informationObjects: [{ objectId: 'd', name: 'Чертёж', role: 'Output', required: true, version: '2' }] }], edges: [{ id: 'f', sourceId: 's', targetId: 'a' }] };
 
 test('printed instruction identifies filters and incomplete paged selection, including last page', () => {
   const large = {...process,nodes:Array.from({length:201},(_,i)=>({...process.nodes[1],id:'n'+String(i).padStart(3,'0'),name:'Шаг '+i,instruction:'Маркер инструкции '+i})),edges:[]};
   const states=['','',999];
-  const Paged = new Function('React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')({createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null);
+  const Paged = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null);
   const html=renderToStaticMarkup(Paged({process:large,onBack:()=>{},onSelect:()=>{}}));
   assert.match(html,/НЕПОЛНАЯ ВЫБОРКА/);
   assert.match(html,/Страница выборки: 2 из 2/);
@@ -27,7 +27,7 @@ test('printed instruction identifies filters and incomplete paged selection, inc
 
 test('filtered instruction prints literal escaped query and matching counts', () => {
   const states=['<script>','',0];
-  const Filtered = new Function('React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')({createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null);
+  const Filtered = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null);
   const html=renderToStaticMarkup(Filtered({process,onBack:()=>{},onSelect:()=>{}}));
   assert.match(html,/отфильтрованная инструкция/);
   assert.match(html,/Действий в документе: 1/);

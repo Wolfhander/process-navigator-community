@@ -37,5 +37,5 @@ test('current roadmap retains 39 complete parent points while exposing tracked r
   const steps=parseDevelopmentRoadmap(readFileSync(new URL('../../../docs/development-decomposition.md', import.meta.url),'utf8')).flatMap(s=>s.steps);
   assert.equal(roadmapProgress(steps).done,39);
   assert.deepEqual(steps.filter(s=>s.subtasks.length).map(s=>s.id),[77,98,99,100,101]);
-  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:17,verify:5,planned:11});
+  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:18,verify:5,planned:10});
 });
