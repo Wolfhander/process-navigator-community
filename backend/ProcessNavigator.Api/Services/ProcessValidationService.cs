@@ -145,6 +145,7 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
                     {
                         var targetSummary = catalogItems.First(item => item.Id.Equals(node.LinkedProcessId, StringComparison.OrdinalIgnoreCase));
                         var target = await catalog.LoadAsync(targetSummary.Id, draft: targetSummary.HasDraft || targetSummary.Status == "Draft", cancellationToken);
+                        issues.AddRange(ProcessBoundaryCheck.Compare(node, target));
                         if (process.Passport is not null && target.Passport is not null && target.Passport.Level != process.Passport.Level + 1)
                             Warning("linked-process-level", $"Детальный процесс «{target.Name}» рекомендуется разместить на уровне {process.Passport.Level + 1}.", node.Id, node.Name);
                         if (string.IsNullOrWhiteSpace(target.Passport?.Trigger))

@@ -117,6 +117,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                     if ((target.Passport?.Inputs?.Count ?? 0) == 0) missingBoundaries.Add("входы детального процесса");
                     if (string.IsNullOrWhiteSpace(target.Passport?.Result)) missingBoundaries.Add("результат детального процесса");
                     if ((target.Passport?.Outputs?.Count ?? 0) == 0) missingBoundaries.Add("выходы детального процесса");
+                    missingBoundaries.AddRange(ProcessBoundaryCheck.Compare(element, target).Select(issue => issue.Message));
                 }
                 links.Add(new(
                     summary.Id,
