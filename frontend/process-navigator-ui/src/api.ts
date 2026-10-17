@@ -187,8 +187,8 @@ export async function updateUser(userId: string, update: UserUpdate): Promise<Us
   return response.json() as Promise<UserProfile>;
 }
 
-export async function loadAssignments(processId: string): Promise<ProcessAssignments> {
-  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/assignments`, { headers: roleHeaders() });
+export async function loadAssignments(processId: string, signal?: AbortSignal): Promise<ProcessAssignments> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/assignments`, { headers: roleHeaders(), signal });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить ответственных по дорожкам.'));
   return response.json() as Promise<ProcessAssignments>;
 }
@@ -370,6 +370,13 @@ export async function uploadArtifact(file: File, name: string, kind: string, ver
 export function artifactDownloadUrl(reference: string, version?: string) {
   const id = reference.startsWith('artifact:') ? reference.slice('artifact:'.length) : '';
   return id ? `/api/artifacts/${encodeURIComponent(id)}/content${version ? `?version=${encodeURIComponent(version)}` : ''}` : undefined;
+}
+
+export async function probeInstructionArtifact(reference: string, version: string, signal: AbortSignal): Promise<number> {
+  const url = artifactDownloadUrl(reference, version);
+  if (!url) throw new Error('Проверяются только ссылки репозитория artifact:.');
+  const response = await fetch(url, {method:'HEAD',headers:roleHeaders(),signal,redirect:'error',cache:'no-store'});
+  return response.status;
 }
 
 export async function publishDraft(id: string): Promise<ProcessSummary> {

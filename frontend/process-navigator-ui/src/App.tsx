@@ -473,7 +473,7 @@ export default function App() {
     <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
     <Suspense fallback={<main className="state-page" role="status"><div className="loader"/><p>Загружаем раздел…</p></main>}>
     {!enterpriseOpen && !analyticsOpen && process && !editorOpen && <ProcessViewNavigation view={processView} onChange={changeProcessView}/>}
-    {!enterpriseOpen && !analyticsOpen && process && (processView === 'instruction' || processView === 'overview') && <ProcessInstructionPage mode={processView} process={process} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
+    {!enterpriseOpen && !analyticsOpen && process && (processView === 'instruction' || processView === 'overview') && <ProcessInstructionPage mode={processView} process={process} instance={!draftView && !archivedVersion ? activeInstance : undefined} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
       setProcessView('diagram'); setSelected(node); setFocusCommand(current => ({ id: (current?.id ?? 0) + 1, elementId: node.id }));
     }}/>}
     {!enterpriseOpen && !analyticsOpen && process && processView === 'responsibility' && <ProcessResponsibilityPage process={process} assignments={assignments} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {

@@ -573,7 +573,7 @@ app.MapPost("/api/artifacts", async (IFormFile file, [FromForm] string name, [Fr
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Artifact validation failed"); }
 }).DisableAntiforgery();
 
-app.MapGet("/api/artifacts/{artifactId}/content", async (string artifactId, string? version, HttpContext context,
+app.MapMethods("/api/artifacts/{artifactId}/content", ["GET", "HEAD"], async (string artifactId, string? version, HttpContext context,
     ArtifactRepositoryService artifacts, AccessControlService access, CancellationToken cancellationToken) =>
 {
     if (!access.Has(context, ProcessPermissions.View)) return Forbidden(ProcessPermissions.View);
