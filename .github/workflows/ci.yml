@@ -34,3 +34,5 @@ jobs:
       - name: Unit tests
         working-directory: frontend/process-navigator-ui
         run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Check UI chunk sizes
+        run: node tools/verify-ui-bundle.mjs

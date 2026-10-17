@@ -3,11 +3,10 @@ import { processLocationHash, readProcessLocation } from './process-location';
 import { Activity, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePenLine, GitPullRequest, History, Home, Maximize2, Minus, Network, PanelTop, PencilRuler, PlugZap, Plus, Rocket, RotateCcw, Search, Upload, UserCog, Users } from 'lucide-react';
 import { createDraft, loadArchivedProcess, loadAssignments, loadNotifications, loadOrganization, loadProcess, loadProcessCatalog, loadSession, markAllNotificationsRead, markNotificationRead, publishDraft, returnStep, setActiveUser, updateStep } from './api';
 import { ContextPanel } from './ContextPanel';
-import { ImportDialog } from './ImportDialog';
+import { SectionLoadBoundary } from './SectionLoadBoundary';
 import { ProcessCanvas } from './ProcessCanvas';
 import { VersionDialog } from './VersionDialog';
 import { UserMenu } from './UserMenu';
-import { UserAdminDialog } from './UserAdminDialog';
 import { AssignmentDialog } from './AssignmentDialog';
 import { ExecutionDialog } from './ExecutionDialog';
 import { AnalyticsDialog } from './AnalyticsDialog';
@@ -15,7 +14,6 @@ import { SearchDialog } from './SearchDialog';
 import { NotificationDialog } from './NotificationDialog';
 import { OneCIntegrationDialog } from './OneCIntegrationDialog';
 import { EnterpriseMap } from './EnterpriseMap';
-import { OrganizationAdminDialog } from './OrganizationAdminDialog';
 import { LaneOrganizationDialog } from './LaneOrganizationDialog';
 import { ResponsibilityMatrixDialog } from './ResponsibilityMatrixDialog';
 import { DeploymentDialog } from './DeploymentDialog';
@@ -23,18 +21,14 @@ import { CreateProcessDialog } from './CreateProcessDialog';
 import { EvidenceRegisterPage } from './EvidenceRegisterPage';
 import { ProcessCatalogDialog } from './ProcessCatalogDialog';
 import { ProcessPropertiesDialog } from './ProcessPropertiesDialog';
-import { PortfolioAnalyticsDialog } from './PortfolioAnalyticsDialog';
 import { PublicationValidationDialog } from './PublicationValidationDialog';
 import { AuditLogDialog } from './AuditLogDialog';
 import { WorkspaceHome, type HomeAction } from './WorkspaceHome';
 import { AppVersionPage } from './AppVersionPage';
-import { DevelopmentRoadmapPage } from './DevelopmentRoadmapPage';
-import { ProcessTableImportHistoryPage } from './ProcessTableImportHistoryPage';
 import { DraftLaneSyncDialog } from './DraftLaneSyncDialog';
 import { ProcessDirectionMatrixDialog } from './ProcessDirectionMatrixDialog';
 import { CatalogAuditDialog } from './CatalogAuditDialog';
 import { InformationObjectRegistryPage } from './InformationObjectRegistryPage';
-import { ProcessSchedulePage } from './ProcessSchedulePage';
 import { PersonalProcesses } from './PersonalProcesses';
 import { usePersonalWorkspace } from './usePersonalWorkspace';
 import { buildExecutionGuidance, buildReturnStepOptions } from './process-execution-flow';
@@ -46,6 +40,13 @@ import './workflow-fixes.css';
 
 const BpmnEditor = lazy(() => import('./BpmnEditor').then(module => ({ default: module.BpmnEditor })));
 const HelpDialog = lazy(() => import('./HelpDialog').then(module => ({ default: module.HelpDialog })));
+const ImportDialog = lazy(() => import('./ImportDialog').then(module => ({ default: module.ImportDialog })));
+const UserAdminDialog = lazy(() => import('./UserAdminDialog').then(module => ({ default: module.UserAdminDialog })));
+const OrganizationAdminDialog = lazy(() => import('./OrganizationAdminDialog').then(module => ({ default: module.OrganizationAdminDialog })));
+const PortfolioAnalyticsDialog = lazy(() => import('./PortfolioAnalyticsDialog').then(module => ({ default: module.PortfolioAnalyticsDialog })));
+const DevelopmentRoadmapPage = lazy(() => import('./DevelopmentRoadmapPage').then(module => ({ default: module.DevelopmentRoadmapPage })));
+const ProcessTableImportHistoryPage = lazy(() => import('./ProcessTableImportHistoryPage').then(module => ({ default: module.ProcessTableImportHistoryPage })));
+const ProcessSchedulePage = lazy(() => import('./ProcessSchedulePage').then(module => ({ default: module.ProcessSchedulePage })));
 
 export default function App() {
   const [initialLocation] = useState(() => readProcessLocation(window.location.hash));
@@ -93,6 +94,7 @@ export default function App() {
   const [lifecycleOpen, setLifecycleOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [sectionVisit, setSectionVisit] = useState(0);
   const [zoomCommand, setZoomCommand] = useState({ id: 0, factor: 1 });
   const [fitCommand, setFitCommand] = useState(0);
   const [focusCommand, setFocusCommand] = useState<{ id: number; elementId: string }>();
@@ -249,6 +251,8 @@ export default function App() {
 
   const navigateSection = (section: 'home' | 'map' | 'settings' | 'version' | 'roadmap' | 'analytics' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog') => {
     if (editorOpen && !window.confirm('Переход закроет редактор. Сохраните изменения перед выходом. Продолжить?')) return;
+    setSectionVisit(value => value + 1);
+    setImportOpen(false);
     setEditorOpen(false); setError(''); setEnterpriseOpen(true);
     setAnalyticsOpen(false);
     setPortfolioAnalyticsOpen(section === 'analytics');
@@ -433,6 +437,8 @@ export default function App() {
       <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
       <button className="header-action notification-button" onClick={() => setNotificationsOpen(true)} aria-label="Уведомления" title="Уведомления"><Bell size={17}/>{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><UserMenu session={session} onChange={changeUser}/><button className="search" onClick={() => setSearchOpen(true)} aria-label="Поиск" title="Поиск"><Search size={17}/></button>
     </header>
+    <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
+    <Suspense fallback={<main className="state-page" role="status"><div className="loader"/><p>Загружаем раздел…</p></main>}>
     {!enterpriseOpen && !analyticsOpen && process && <>
     {processTrail.length > 0 && <nav className="process-trail" aria-label="Путь детализации"><button className="process-back" onClick={returnToParentProcess} title={`Вернуться: ${processTrail.at(-1)?.name}`}><ChevronLeft size={18}/><span>Назад</span></button><div>{processTrail.map((item, index) => <span key={`${item.id}:${index}`}><button onClick={() => returnToTrailProcess(index)}>{item.name}</button><i>›</i></span>)}<strong>{process.name}</strong></div></nav>}
     <div className="process-bar"><div><span className={`eyebrow ${draftView ? 'is-draft' : archivedVersion ? 'is-archive' : ''}`}>{archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} {process.version}</span><h1>{process.name}</h1></div><div className="revision-actions"><button className="revision-button" onClick={() => setVersionsOpen(true)}><History size={15}/>История</button>{!draftView && !archivedVersion && <button className={`revision-button${activeInstance ? ' is-primary' : ''}`} onClick={() => setExecutionsOpen(true)}><Activity size={15}/>{activeInstance ? activeInstance.name : 'Выполнения'}</button>}{can('analytics.view') && !draftView && !archivedVersion && <button className="revision-button" onClick={() => setAnalyticsOpen(true)}><BarChart3 size={15}/>Аналитика</button>}{assignments && <button className={`revision-button${personalMode ? ' is-primary' : ''}`} disabled={!personalLaneIds.length} title={personalLaneIds.length ? 'Подсветить мои дорожки и задачи' : 'Текущий пользователь не назначен на дорожки процесса'} onClick={() => { setPersonalMode(value => !value); setSelected(undefined); }}><BriefcaseBusiness size={15}/>Мои шаги ({personalLaneIds.length})</button>}{assignments && !archivedVersion && <button className="revision-button" onClick={() => setResponsibilityOpen(true)}><ClipboardList size={15}/>Матрица</button>}{can('process.assignments.manage') && !archivedVersion && <button className="revision-button" onClick={() => setAssignmentsOpen(true)}><UserCog size={15}/>Ответственные</button>}{can('system.manage') && !archivedVersion && <button className="revision-button" onClick={openLaneOrganizationEditor}><Network size={15}/>Оргпривязки</button>}{archivedVersion ? <button className="revision-button is-primary" onClick={() => setArchivedVersion(undefined)}><RotateCcw size={15}/>К действующей</button> : draftView ? <>{can('process.diagram.edit') && <><button className="revision-button" onClick={() => setEditorOpen(true)}><PencilRuler size={15}/>Редактировать</button><button className="revision-button" onClick={() => setImportOpen(true)} disabled={revisionBusy}><Upload size={15}/>Заменить BPMN</button></>}{can('process.publish') && <button className="revision-button is-primary" onClick={publishRevision} disabled={revisionBusy}><Rocket size={15}/>Опубликовать</button>}</> : catalog.find(item => item.id === processId)?.hasDraft ? (can('process.diagram.edit') || can('process.context.edit') || can('process.publish')) && <button className="revision-button" onClick={() => setDraftView(true)}><FilePenLine size={15}/>Открыть черновик</button> : can('process.draft.create') && <button className="revision-button" onClick={beginRevision} disabled={revisionBusy}><FilePenLine size={15}/>Новая редакция</button>}</div><div className="owner">Владелец процесса<strong>{process.owner}</strong></div><div className="view-controls"><button aria-label="Уменьшить" onClick={() => setZoomCommand(command => ({ id: command.id + 1, factor: 1 / 1.25 }))}><Minus size={18}/></button><button aria-label="Показать весь процесс" onClick={() => { setFitCommand(command => command + 1); setSelected(undefined); }}><Maximize2 size={18}/><span>Весь процесс</span></button><button aria-label="Увеличить" onClick={() => setZoomCommand(command => ({ id: command.id + 1, factor: 1.25 }))}><Plus size={18}/></button></div></div>
@@ -603,5 +609,7 @@ export default function App() {
       onClose={() => setLifecycleOpen(false)}
       onChanged={async () => { setProcess(await loadProcess(processId, undefined, true)); await refreshCatalog(processId); setReloadKey(value => value + 1); }}/>
     }
+    </Suspense>
+    </SectionLoadBoundary>
   </div>;
 }
