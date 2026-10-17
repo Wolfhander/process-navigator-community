@@ -65,8 +65,17 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         }
 
         var result = objects.Values.Select(ToModel).OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase).ToArray();
+        var issues = Diagnose(result);
+        return new(DateTimeOffset.UtcNow, loadedProcesses, result.Length,
+            result.Count(item => item.Kind == "Document"), result.Count(item => item.Kind == "Result"),
+            issues.Count(item => item.Code == "missing-producer"), issues.Count(item => item.Code == "missing-consumer"),
+            issues.Count(item => item.Code == "multiple-producers"), issues.Count(item => item.Code == "version-conflict"), result, issues);
+    }
+
+    public static IReadOnlyList<InformationObjectIssueModel> Diagnose(IReadOnlyList<InformationObjectModel> objects)
+    {
         var issues = new List<InformationObjectIssueModel>();
-        foreach (var item in result)
+        foreach (var item in objects)
         {
             if (item.Producers.Count == 0 && item.Consumers.Count > 0)
             {
@@ -80,10 +89,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 issues.Add(new(item.Id, "multiple-producers", "Warning", "Обнаружено несколько источников. Требуется проверить версии и условия возникновения."));
             issues.AddRange(InformationObjectPolicy.Check(item));
         }
-        return new(DateTimeOffset.UtcNow, loadedProcesses, result.Length,
-            result.Count(item => item.Kind == "Document"), result.Count(item => item.Kind == "Result"),
-            issues.Count(item => item.Code == "missing-producer"), issues.Count(item => item.Code == "missing-consumer"),
-            issues.Count(item => item.Code == "multiple-producers"), issues.Count(item => item.Code == "version-conflict"), result, issues);
+        return issues;
     }
 
     public async Task<InformationObjectRegistryModel> SaveAsync(string id, InformationObjectUpdateModel update, bool includeDrafts,

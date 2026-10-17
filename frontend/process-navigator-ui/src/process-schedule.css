@@ -29,3 +29,7 @@
 .schedule-page .transfer-table td, .schedule-page .transfer-table th { border: 1px solid #d7e0da; text-align: left; padding: 12px; overflow-wrap: anywhere; vertical-align: top; }
 .schedule-page .transfer-table th { background: #f2f6f2; }
 @media(max-width:700px) { .schedule-page .transfer-table table { min-width: 620px; } .schedule-archive > label { display: flex; } }
+.schedule-route-editor > p, .schedule-route-editor details > p { font-size: 14px; line-height: 1.5; }
+.schedule-route-editor small { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.schedule-route-editor fieldset { min-width: 0; border: 1px solid #d7e0da; border-radius: 10px; }
+.schedule-route-editor select { width: 100%; }

@@ -25,48 +25,99 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         if (!summaryById.ContainsKey(request.RootProcessId)) throw new FileNotFoundException("Процесс не найден.");
         request = request with { RootProcessId = summaryById[request.RootProcessId].Id };
 
-        var objectRegistry = await registry.BuildAsync(includeDrafts, cancellationToken);
-        var allDependencies = BuildDependencies(objectRegistry);
-        var relevantIds = Traverse(request.RootProcessId, allDependencies, direction);
-        var dependencies = allDependencies.Where(item => relevantIds.Contains(item.SourceProcessId) && relevantIds.Contains(item.TargetProcessId)).ToArray();
-        ValidateScenarioParameters(request, relevantIds);
-        var profiles = (request.ProcessCalendars ?? new Dictionary<string, ScheduleCalendarModel>()).ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
-        if (relevantIds.Count > 200 || dependencies.Length > 5000) throw new InvalidDataException("Цепочка превышает предел: 200 процессов или 5000 зависимостей.");
-        var calendars = relevantIds.ToDictionary(id => id, id => profiles.TryGetValue(id, out var custom)
-            ? BuildCalendar(request with { WorkdayStart = custom.WorkdayStart, WorkdayEnd = custom.WorkdayEnd, WorkingDays = custom.WorkingDays, NonWorkingDates = custom.NonWorkingDates, UtcOffsetMinutes = custom.UtcOffsetMinutes }) : calendar, StringComparer.OrdinalIgnoreCase);
+        var originalRegistry = await registry.BuildAsync(includeDrafts, cancellationToken);
+        var allDependencies = BuildDependencies(originalRegistry);
+        var candidateIds = Traverse(request.RootProcessId, allDependencies, direction);
+        if (candidateIds.Count > 200 || allDependencies.Count(item => candidateIds.Contains(item.SourceProcessId) && candidateIds.Contains(item.TargetProcessId)) > 5000)
+            throw new InvalidDataException("Цепочка превышает предел: 200 процессов или 5000 зависимостей.");
+        ValidateScenarioParameters(request, candidateIds);
+        var branches = (request.ProcessBranches ?? new Dictionary<string, IReadOnlyDictionary<string, string>>()).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        var repetitions = (request.ProcessRepetitions ?? new Dictionary<string, ScheduleRepetitionModel>()).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         var sourceModels = new List<ProcessModel>();
-        var issues = new List<ProcessScheduleIssueModel>();
-        var estimates = new Dictionary<string, Estimate>(StringComparer.OrdinalIgnoreCase);
-        var uncertaintyReasons = relevantIds.ToDictionary(id => id, _ => new HashSet<string>(StringComparer.CurrentCultureIgnoreCase), StringComparer.OrdinalIgnoreCase);
-
-        foreach (var processId in relevantIds)
+        var routes = new Dictionary<string, ScheduleRouteResult>(StringComparer.OrdinalIgnoreCase);
+        var failures = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in candidateIds)
         {
+            ProcessModel process;
             try
             {
-                var summary = summaryById[processId];
-                var useDraft = summary.Status == "Draft" || (includeDrafts && summary.HasDraft);
-                var process = await catalog.LoadAsync(processId, useDraft, cancellationToken);
-                sourceModels.Add(process);
-                var rawEstimate = EstimateProcess(process, request.IncludeWaitTime);
-                var processScale = request.ProcessDurationScalePercent?.GetValueOrDefault(processId, 100) ?? 100;
-                var appliedScale = request.DurationScalePercent * processScale / 100d;
-                var estimate = rawEstimate with { Hours = rawEstimate.Hours * durationFactor * processScale / 100d, AppliedScalePercent = appliedScale };
-                estimates[processId] = estimate;
-                issues.AddRange(estimate.Issues);
-                if (estimate.MissingDurationCount > 0)
-                    uncertaintyReasons[processId].Add($"Не задан норматив для {estimate.MissingDurationCount} шагов.");
-                if (estimate.HasCycle)
-                    uncertaintyReasons[processId].Add("Внутри процесса есть возвратный цикл без правила повторения.");
+                var summary = summaryById.TryGetValue(id, out var known) ? known : throw new InvalidDataException("Каталог изменён во время расчёта. Повторите запрос.");
+                process = await catalog.LoadAsync(id, summary.Status == "Draft" || (includeDrafts && summary.HasDraft), cancellationToken);
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or System.Xml.XmlException or System.Text.Json.JsonException)
             {
-                issues.Add(new("process-unreadable", "Error", $"Не удалось прочитать процесс: {exception.Message}", processId));
-                estimates[processId] = new(0, 0, 100, 0, false, []);
-                uncertaintyReasons[processId].Add("Процесс не удалось прочитать.");
+                if (branches.ContainsKey(id) || repetitions.ContainsKey(id)) throw new InvalidDataException($"Невозможно проверить сценарий непрочитанного процесса «{id}».");
+                failures[id] = exception.Message;
+                continue;
+            }
+            sourceModels.Add(process);
+            routes[id] = ScheduleRouteScenario.Build(process, branches.GetValueOrDefault(id), repetitions.GetValueOrDefault(id));
+        }
+        bool InRoute(InformationObjectOccurrenceModel occurrence) => occurrence.Scope != "Step" ||
+            !routes.TryGetValue(occurrence.ProcessId, out var route) || route.ActiveIds.Contains(occurrence.ElementId ?? "");
+        var scenarioObjects = originalRegistry.Objects.Select(item => item with {
+            Producers = item.Producers.Where(InRoute).ToArray(), Consumers = item.Consumers.Where(InRoute).ToArray(),
+            References = item.References.Where(InRoute).ToArray()
+        }).ToArray();
+        var objectRegistry = originalRegistry with { Objects = scenarioObjects, Issues = InformationObjectRegistryService.Diagnose(scenarioObjects) };
+        var effectiveDependencies = BuildDependencies(objectRegistry);
+        var relevantIds = Traverse(request.RootProcessId, effectiveDependencies, direction);
+        var dependencies = effectiveDependencies.Where(item => relevantIds.Contains(item.SourceProcessId) && relevantIds.Contains(item.TargetProcessId)).ToArray();
+        var profiles = (request.ProcessCalendars ?? new Dictionary<string, ScheduleCalendarModel>()).ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+        // Validate even a calendar of a process removed by the selected scenario.
+        var allCalendars = candidateIds.ToDictionary(id => id, id => profiles.TryGetValue(id, out var custom)
+            ? BuildCalendar(request with { WorkdayStart = custom.WorkdayStart, WorkdayEnd = custom.WorkdayEnd, WorkingDays = custom.WorkingDays, NonWorkingDates = custom.NonWorkingDates, UtcOffsetMinutes = custom.UtcOffsetMinutes }) : calendar, StringComparer.OrdinalIgnoreCase);
+        var calendars = relevantIds.ToDictionary(id => id, id => allCalendars[id], StringComparer.OrdinalIgnoreCase);
+        var issues = new List<ProcessScheduleIssueModel>();
+        var estimates = new Dictionary<string, Estimate>(StringComparer.OrdinalIgnoreCase);
+        var uncertaintyReasons = relevantIds.ToDictionary(id => id, _ => new HashSet<string>(StringComparer.CurrentCultureIgnoreCase), StringComparer.OrdinalIgnoreCase);
+        foreach (var id in relevantIds)
+        {
+            if (!routes.TryGetValue(id, out var route))
+            {
+                issues.Add(new("process-unreadable", "Error", $"Не удалось прочитать процесс: {failures.GetValueOrDefault(id)}", id));
+                estimates[id] = new(0, 0, 100, 0, false, []);
+                uncertaintyReasons[id].Add("Процесс не удалось прочитать.");
+                continue;
+            }
+            var raw = EstimateProcess(route.Model, request.IncludeWaitTime, route.RepeatedIds, repetitions.GetValueOrDefault(id));
+            var scale = request.ProcessDurationScalePercent?.GetValueOrDefault(id, 100) ?? 100;
+            var factor = durationFactor * scale / 100d;
+            estimates[id] = raw with { Hours = raw.Hours * factor, MaximumHours = raw.MaximumHours * factor, AppliedScalePercent = request.DurationScalePercent * scale / 100d };
+            issues.AddRange(raw.Issues);
+            if (raw.MissingDurationCount > 0) uncertaintyReasons[id].Add($"Не задан норматив для {raw.MissingDurationCount} шагов.");
+            if (raw.HasCycle) uncertaintyReasons[id].Add("Внутри процесса остался цикл без поддержанного правила повторения.");
+            if (route.UnresolvedBranches)
+            {
+                uncertaintyReasons[id].Add("Не выбраны все доступные альтернативы; использована предварительная оценка по длинному пути.");
+                issues.Add(new("branch-unresolved", "Warning", "Остались исключающие развилки без выбора исхода. Даты предварительные.", id));
+            }
+            if (sourceModels.First(model => model.Id.Equals(id, StringComparison.OrdinalIgnoreCase)).Nodes.Any(node => node.Type == "endEvent") && !route.Model.Nodes.Any(node => node.Type == "endEvent"))
+            {
+                uncertaintyReasons[id].Add("Выбранный маршрут не достигает ни одного завершающего события.");
+                issues.Add(new("scenario-no-end", "Warning", "Выбранный маршрут не достигает завершающего события.", id));
+            }
+            if (route.RepetitionInactive) issues.Add(new("repeat-inactive", "Warning", "Повторяемый участок исключён выбранной ветвью и не добавляет время.", id));
+            if (repetitions.GetValueOrDefault(id)?.MaximumRepeats > 0 && scenarioObjects.Any(item =>
+                (item.Producers.Any(value => value.ProcessId.Equals(id, StringComparison.OrdinalIgnoreCase) && route.RepeatedIds.Contains(value.ElementId ?? "")) && item.Consumers.Any(value => !value.ProcessId.Equals(id, StringComparison.OrdinalIgnoreCase))) ||
+                (item.Consumers.Any(value => value.ProcessId.Equals(id, StringComparison.OrdinalIgnoreCase) && route.RepeatedIds.Contains(value.ElementId ?? "")) && item.Producers.Any(value => !value.ProcessId.Equals(id, StringComparison.OrdinalIgnoreCase)))))
+            {
+                uncertaintyReasons[id].Add("Межпроцессные передачи внутри повторяемого участка не развёрнуты по отдельным проходам.");
+                issues.Add(new("repeat-transfer-unexpanded", "Warning", "Повторяются нормы участка, но межпроцессные передачи по каждому проходу пока не моделируются.", id));
+            }
+            if (branches.GetValueOrDefault(id)?.Count > 0 || repetitions.ContainsKey(id))
+            {
+                var unbound = scenarioObjects.Any(item => item.Producers.Concat(item.Consumers).Any(value => value.ProcessId.Equals(id, StringComparison.OrdinalIgnoreCase) && value.Scope != "Step"));
+                if (unbound)
+                {
+                    uncertaintyReasons[id].Add("Границы из паспорта не привязаны к шагам и не могут быть исключены решением развилки.");
+                    issues.Add(new("scenario-passport-boundary", "Warning", "Границы паспорта без привязки к шагам оставлены в сценарии и требуют проверки.", id));
+                }
             }
         }
-
-        if (estimates.Values.Any(item => !double.IsFinite(item.Hours) || item.Hours > 200000)) throw new InvalidDataException("Длительность процесса превышает предел 200 000 часов или не является конечной.");
+        if (candidateIds.Count != relevantIds.Count) issues.Add(new("scenario-chain-pruned", "Warning", $"По выбранным ветвям из цепочки исключено процессов: {candidateIds.Count - relevantIds.Count}. Исходные модели сохранены в снимке."));
+        if (estimates.Values.Any(item => !double.IsFinite(item.Hours) || !double.IsFinite(item.MaximumHours) || item.MaximumHours > 200000))
+            throw new InvalidDataException("Длительность процесса превышает предел 200 000 часов или не является конечной.");
         foreach (var issue in objectRegistry.Issues)
         {
             var item = objectRegistry.Objects.FirstOrDefault(value => value.Id.Equals(issue.ObjectId, StringComparison.OrdinalIgnoreCase));
@@ -87,6 +138,13 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             }
         }
 
+        foreach (var item in scenarioObjects)
+        foreach (var consumer in item.Consumers.Where(value => relevantIds.Contains(value.ProcessId) && (!value.Required || !string.IsNullOrWhiteSpace(value.Condition))))
+        {
+            uncertaintyReasons[consumer.ProcessId].Add($"Условие или необязательность входа «{item.Name}» не вычисляются автоматически.");
+            issues.Add(new("object-condition-unresolved", "Warning", $"«{item.Name}»: текстовые условия и необязательность не исключают передачу автоматически.", consumer.ProcessId, consumer.ElementId, item.Id));
+        }
+
         var order = TopologicalOrder(relevantIds, dependencies, out var hasCycle);
         if (hasCycle)
         {
@@ -101,6 +159,11 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             ? ScheduleForward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendars)
             : ScheduleBackward(order, dependencies, estimates, request.AnchorDate, request.TransferDelayHours, calendars);
 
+        var maximumEstimates = estimates.ToDictionary(pair => pair.Key, pair => pair.Value with { Hours = pair.Value.MaximumHours }, StringComparer.OrdinalIgnoreCase);
+        var maximumSchedule = direction == "Forward"
+            ? ScheduleForward(order, dependencies, maximumEstimates, request.AnchorDate, request.TransferDelayHours, calendars)
+            : ScheduleBackward(order, dependencies, maximumEstimates, request.AnchorDate, request.TransferDelayHours, calendars);
+        var maximumById = maximumSchedule.ToDictionary(item => item.ProcessId, StringComparer.OrdinalIgnoreCase);
         var items = scheduled.Select(item =>
             {
                 DateTimeOffset? checkpoint = null;
@@ -116,7 +179,8 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
                     Math.Round(estimates[item.ProcessId].AppliedScalePercent, 2), checkpoint,
                     checkpointDelta is null ? null : Math.Round(checkpointDelta.Value, 2), checkpointDelta > .001,
                     uncertaintyReasons[item.ProcessId].Count == 0, uncertaintyReasons[item.ProcessId].OrderBy(value => value).ToArray(),
-                    estimates[item.ProcessId].MissingDurationCount, estimates[item.ProcessId].HasCycle);
+                    estimates[item.ProcessId].MissingDurationCount, estimates[item.ProcessId].HasCycle,
+                    Math.Round(estimates[item.ProcessId].MaximumHours, 2), maximumById[item.ProcessId].StartAt, maximumById[item.ProcessId].EndAt);
             })
             .OrderBy(item => item.StartAt).ThenBy(item => item.ProcessName, StringComparer.CurrentCultureIgnoreCase).ToArray();
         var startAt = items.Min(item => item.StartAt);
@@ -125,13 +189,14 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             calendar.WorkingDays.Select(value => (int)value).OrderBy(value => value).ToArray(), request.DurationScalePercent, request.TransferDelayHours,
             calendar.NonWorkingDates.OrderBy(value => value).Select(value => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray(),
             request.ProcessDurationScalePercent ?? new Dictionary<string, double>(), request.Checkpoints ?? new Dictionary<string, DateTimeOffset>(), (int)calendar.Offset.TotalMinutes,
-            relevantIds.Where(profiles.ContainsKey).ToDictionary(id => id, id => profiles[id]));
+            candidateIds.Where(profiles.ContainsKey).ToDictionary(id => id, id => profiles[id]), branches, repetitions);
         return new(direction, request.RootProcessId, request.AnchorDate, startAt, endAt,
             Math.Round(items.Sum(item => item.DurationHours), 2), Math.Round(critical.DurationHours, 2),
             uncertaintyReasons.Values.All(value => value.Count == 0) && !issues.Any(item => item.Severity == "Error" || item.Code == "internal-cycle"), assumptions,
             items, dependencies, issues.DistinctBy(item => $"{item.Code}:{item.ProcessId}:{item.ElementId}:{item.ObjectId}").ToArray(),
-            new("schedule-v2-fixed-offset", DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
-                objectRegistry.Objects.Where(item => item.Producers.Concat(item.Consumers).Any(value => relevantIds.Contains(value.ProcessId))).ToArray()));
+            new("schedule-v3-route-scenario", DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
+                originalRegistry.Objects.Where(item => item.Producers.Concat(item.Consumers).Any(value => candidateIds.Contains(value.ProcessId))).ToArray()),
+            maximumSchedule.Min(item => item.StartAt), maximumSchedule.Max(item => item.EndAt));
     }
 
     private static WorkCalendar BuildCalendar(ProcessScheduleRequestModel request)
@@ -159,6 +224,8 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
     private static void ValidateScenarioParameters(ProcessScheduleRequestModel request, HashSet<string> relevantIds)
     {
+        ValidateMap(request.ProcessBranches, relevantIds);
+        ValidateMap(request.ProcessRepetitions, relevantIds);
         if (request.ProcessCalendars?.Count > 200) throw new InvalidDataException("Не более 200 календарей в сценарии.");
         if (request.ProcessCalendars?.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != request.ProcessCalendars?.Count) throw new InvalidDataException("ID календарей повторяются с разным регистром.");
         foreach (var entry in request.ProcessCalendars ?? new Dictionary<string, ScheduleCalendarModel>())
@@ -172,6 +239,13 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         if (request.Checkpoints?.Values.Any(value => value.Year is < 1000 or > 9000) == true) throw new InvalidDataException("Контрольная дата вне допустимого диапазона.");
         foreach (var processId in request.Checkpoints?.Keys ?? [])
             if (!relevantIds.Contains(processId)) throw new InvalidDataException($"Контрольная точка относится к процессу «{processId}», которого нет в рассчитанной цепочке.");
+    }
+
+    private static void ValidateMap<T>(IReadOnlyDictionary<string, T>? map, HashSet<string> ids) where T : class
+    {
+        if (map is null) return;
+        if (map.Count > 200 || map.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != map.Count ||
+            map.Any(pair => !ids.Contains(pair.Key) || pair.Value is null)) throw new InvalidDataException("Решения и повторы должны относиться к процессам исходной цепочки, без повторных ID и пустых значений (до 200 процессов).");
     }
 
     private static void PropagateUncertainty(IReadOnlyList<string> order, IReadOnlyList<ProcessScheduleDependencyModel> dependencies,
@@ -214,7 +288,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         return result;
     }
 
-    private static Estimate EstimateProcess(ProcessModel process, bool includeWait)
+    private static Estimate EstimateProcess(ProcessModel process, bool includeWait, IReadOnlySet<string> repeatedIds, ScheduleRepetitionModel? repetition)
     {
         var issues = new List<ProcessScheduleIssueModel>();
         var weights = process.Nodes.ToDictionary(node => node.Id, node =>
@@ -253,7 +327,32 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             }
             hours = longest.Values.DefaultIfEmpty(0).Max();
         }
-        return new(hours, hours, 100, issues.Count(item => item.Code == "missing-duration"), hasCycle, issues);
+        var baseHours = hours;
+        var maximum = hours;
+        if (repetition is not null && repeatedIds.Count > 0)
+        {
+            var section = process.Edges.Where(edge => repeatedIds.Contains(edge.SourceId) && repeatedIds.Contains(edge.TargetId)).ToArray();
+            var sectionOrder = TopologicalNodeOrder(repeatedIds.ToHashSet(StringComparer.OrdinalIgnoreCase), section, out var sectionCycle);
+            if (hasCycle || sectionCycle) throw new InvalidDataException("Невозможно оценить повторение участка с дополнительными циклами.");
+            var sectionHours = Longest(sectionOrder, section, weights);
+            var gate = sectionOrder[^1]; // Every region node reaches the unique terminal return gateway.
+            var plannedWeights = new Dictionary<string, double>(weights, StringComparer.OrdinalIgnoreCase);
+            plannedWeights[gate] += sectionHours * repetition.PlannedRepeats;
+            var maximumWeights = new Dictionary<string, double>(weights, StringComparer.OrdinalIgnoreCase);
+            maximumWeights[gate] += sectionHours * repetition.MaximumRepeats;
+            hours = Longest(order, edges, plannedWeights);
+            maximum = Longest(order, edges, maximumWeights);
+            issues.Add(new("repeat-assumption", "Warning", $"Дополнительных проходов участка: план {repetition.PlannedRepeats}, предел {repetition.MaximumRepeats}. Это допущение сценария, не факт выполнения.", process.Id));
+        }
+        return new(baseHours, hours, 100, issues.Count(item => item.Code == "missing-duration"), hasCycle, issues, maximum);
+    }
+
+    private static double Longest(IReadOnlyList<string> order, IReadOnlyList<EdgeModel> edges, IReadOnlyDictionary<string, double> weights)
+    {
+        var lengths = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in order) lengths[id] = edges.Where(edge => edge.TargetId.Equals(id, StringComparison.OrdinalIgnoreCase))
+            .Select(edge => lengths.GetValueOrDefault(edge.SourceId)).DefaultIfEmpty(0).Max() + weights.GetValueOrDefault(id);
+        return lengths.Values.DefaultIfEmpty(0).Max();
     }
 
     private static double? ParseHours(string? value)
@@ -300,7 +399,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         while (queue.TryDequeue(out var id))
         {
             result.Add(id);
-            foreach (var target in edges.Where(edge => edge.SourceId.Equals(id, StringComparison.OrdinalIgnoreCase)).Select(edge => edge.TargetId).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var target in edges.Where(edge => edge.SourceId.Equals(id, StringComparison.OrdinalIgnoreCase)).Select(edge => edge.TargetId))
                 if (--indegree[target] == 0) queue.Enqueue(target);
         }
         hasCycle = result.Count != ids.Count;
@@ -432,7 +531,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     private static bool IsWorkingDay(DateTimeOffset value, WorkCalendar calendar) =>
         calendar.WorkingDays.Contains(value.DayOfWeek) && !calendar.NonWorkingDates.Contains(DateOnly.FromDateTime(value.Date));
 
-    private sealed record Estimate(double BaseHours, double Hours, double AppliedScalePercent, int MissingDurationCount, bool HasCycle, IReadOnlyList<ProcessScheduleIssueModel> Issues);
+    private sealed record Estimate(double BaseHours, double Hours, double AppliedScalePercent, int MissingDurationCount, bool HasCycle, IReadOnlyList<ProcessScheduleIssueModel> Issues, double MaximumHours = 0);
     private sealed record Scheduled(string ProcessId, DateTimeOffset StartAt, DateTimeOffset EndAt);
     private sealed record CriticalPath(double DurationHours, HashSet<string> CriticalIds, IReadOnlyDictionary<string, double> Slack);
     private sealed record WorkCalendar(TimeSpan Start, TimeSpan End, HashSet<DayOfWeek> WorkingDays, HashSet<DateOnly> NonWorkingDates, TimeSpan Offset);

@@ -11,9 +11,17 @@ export function scheduleCsv(result: ProcessSchedule) {
     const source = result.sources?.processes.find(model => model.id === item.processId);
     rows.push([item.processName, item.processId, item.startAt, item.endAt, item.durationHours, item.isDateReliable, item.uncertaintyReasons.join(' | '),
       calendar.workdayStart, calendar.workdayEnd, calendar.utcOffsetMinutes ?? 0, calendar.workingDays.join(','), calendar.nonWorkingDates.join(','),
-      source?.version ?? '', source?.status ?? '', item.slackHours, item.checkpointAt ?? '', item.checkpointDeltaHours ?? '']);
+      source?.version ?? '', source?.status ?? '', item.slackHours, item.checkpointAt ?? '', item.checkpointDeltaHours ?? '',
+      item.maximumDurationHours ?? '', item.maximumStartAt ?? '', item.maximumEndAt ?? '',
+      JSON.stringify(result.assumptions.processBranches?.[item.processId] ?? {}),
+      result.assumptions.processRepetitions?.[item.processId]?.returnEdgeId ?? '',
+      result.assumptions.processRepetitions?.[item.processId]?.plannedRepeats ?? '',
+      result.assumptions.processRepetitions?.[item.processId]?.maximumRepeats ?? '']);
   }
+  rows[0].push('Предельные рабочие часы', 'Начало при предельных повторах ISO', 'Конец при предельных повторах ISO', 'Решения развилок JSON', 'Возвратная стрелка', 'План дополнительных проходов', 'Предел дополнительных проходов');
   rows.push([], ['Алгоритм', result.sources?.algorithm ?? 'не указан'], ['Направление', result.direction],
+    ['Решения всех исходных процессов JSON', JSON.stringify(result.assumptions.processBranches ?? {})],
+    ['Повторы всех исходных процессов JSON', JSON.stringify(result.assumptions.processRepetitions ?? {})],
     ['Начальная дата ISO', result.anchorDate], ['Общий коэффициент, %', result.assumptions.durationScalePercent],
     ['Передача в календаре получателя, ч', result.assumptions.transferDelayHours], ['Учитывать ожидание', result.assumptions.includeWaitTime],
     ['Критичность', 'Номинальные рабочие часы; при разных календарях не является точной календарной критичностью']);

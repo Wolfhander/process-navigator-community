@@ -34,3 +34,13 @@ test('changed source model is detected even if version label was not changed', (
   assert.equal(compareScheduleSnapshots(result, result)[0].sourceChanged, false);
   assert.equal(compareScheduleSnapshots({ ...result, sources: undefined }, result)[0].sourceChanged, undefined);
 });
+test('route choices, repetition bounds and dates survive snapshots while old snapshots still load', () => {
+  const updated = { ...saved, request: { ...request, processBranches: { p: { gateway: 'yes' } }, processRepetitions: { p: { returnEdgeId: 'back', plannedRepeats: 1, maximumRepeats: 3 } } },
+    result: { ...result, assumptions: { ...request, processBranches: { p: { gateway: 'yes' } }, processRepetitions: { p: { returnEdgeId: 'back', plannedRepeats: 1, maximumRepeats: 3 } } }, maximumEndAt: '2026-10-21T14:00:00Z' } };
+  assert.deepEqual(parseScheduleSnapshots(serializeScheduleSnapshots([updated]))[0], updated);
+  assert.equal(parseScheduleSnapshots(serializeScheduleSnapshots([saved]))[0].request.processRepetitions, undefined);
+  assert.equal(compareScheduleSnapshots(result, updated.result)[0].routeChanged, true);
+  for (const bad of [{ returnEdgeId: 'back', plannedRepeats: 4, maximumRepeats: 2 }, { returnEdgeId: 'back', plannedRepeats: .5, maximumRepeats: 2 }, null]) {
+    assert.throws(() => serializeScheduleSnapshots([{ ...saved, request: { ...request, processRepetitions: { p: bad } } }]));
+  }
+});

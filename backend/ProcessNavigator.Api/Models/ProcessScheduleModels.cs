@@ -14,7 +14,11 @@ public sealed record ProcessScheduleRequestModel(
     IReadOnlyDictionary<string, double>? ProcessDurationScalePercent = null,
     IReadOnlyDictionary<string, DateTimeOffset>? Checkpoints = null,
     int? UtcOffsetMinutes = null,
-    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null);
+    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null,
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? ProcessBranches = null,
+    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null);
+
+public sealed record ScheduleRepetitionModel(string ReturnEdgeId, int PlannedRepeats, int MaximumRepeats);
 
 public sealed record ScheduleCalendarModel(string WorkdayStart, string WorkdayEnd,
     IReadOnlyList<int> WorkingDays, IReadOnlyList<string> NonWorkingDates, int UtcOffsetMinutes);
@@ -35,7 +39,10 @@ public sealed record ProcessScheduleItemModel(
     bool IsDateReliable,
     IReadOnlyList<string> UncertaintyReasons,
     int MissingDurationCount,
-    bool HasInternalCycle);
+    bool HasInternalCycle,
+    double? MaximumDurationHours = null,
+    DateTimeOffset? MaximumStartAt = null,
+    DateTimeOffset? MaximumEndAt = null);
 
 public sealed record ProcessScheduleDependencyModel(
     string SourceProcessId,
@@ -65,7 +72,9 @@ public sealed record ProcessScheduleAssumptionsModel(
     IReadOnlyDictionary<string, double> ProcessDurationScalePercent,
     IReadOnlyDictionary<string, DateTimeOffset> Checkpoints,
     int UtcOffsetMinutes = 0,
-    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null);
+    IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null,
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? ProcessBranches = null,
+    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null);
 
 public sealed record ProcessScheduleModel(
     string Direction,
@@ -80,7 +89,9 @@ public sealed record ProcessScheduleModel(
     IReadOnlyList<ProcessScheduleItemModel> Processes,
     IReadOnlyList<ProcessScheduleDependencyModel> Dependencies,
     IReadOnlyList<ProcessScheduleIssueModel> Issues,
-    ScheduleSourceSnapshotModel? Sources = null);
+    ScheduleSourceSnapshotModel? Sources = null,
+    DateTimeOffset? MaximumStartAt = null,
+    DateTimeOffset? MaximumEndAt = null);
 
 public sealed record ScheduleSourceSnapshotModel(string Algorithm, DateTimeOffset CapturedAt,
     IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects);

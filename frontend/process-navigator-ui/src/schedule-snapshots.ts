@@ -8,6 +8,9 @@ const strings = (value: unknown) => Array.isArray(value) && value.every(item => 
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
 const calendar = (value: unknown) => isRecord(value) && typeof value.workdayStart === 'string' && typeof value.workdayEnd === 'string'
   && Array.isArray(value.workingDays) && value.workingDays.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && strings(value.nonWorkingDates) && finite(value.utcOffsetMinutes);
+const routes = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(choices => isRecord(choices) && Object.values(choices).every(choice => typeof choice === 'string')));
+const repetitions = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(repeat => isRecord(repeat) && typeof repeat.returnEdgeId === 'string' && Number.isInteger(repeat.plannedRepeats) && Number.isInteger(repeat.maximumRepeats) && Number(repeat.plannedRepeats) >= 0 && Number(repeat.plannedRepeats) <= Number(repeat.maximumRepeats) && Number(repeat.maximumRepeats) <= 50));
+const optionalDate = (value: unknown) => value == null || date(value);
 export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
   if (raw === null) return [];
   if (raw.length > 2_000_000) throw new Error('Хранилище расчётов превышает 2 млн символов. Оно не перезаписано.');
@@ -17,6 +20,7 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
     if (!isRecord(saved) || typeof saved.id !== 'string' || typeof saved.name !== 'string' || !date(saved.savedAt) || !isRecord(saved.request) || !isRecord(saved.result)) throw new Error('Повреждён снимок расчёта.');
     const result = saved.result;
     const request = saved.request;
+    if (!routes(request.processBranches) || !repetitions(request.processRepetitions) || !optionalDate(result.maximumStartAt) || !optionalDate(result.maximumEndAt)) throw new Error('Повреждены решения, повторения или предельные даты.');
     if (typeof request.rootProcessId !== 'string' || !['Forward', 'Backward'].includes(String(request.direction)) || !date(request.anchorDate) ||
       !calendar({ ...request, utcOffsetMinutes: request.utcOffsetMinutes ?? 0 }) || typeof request.includeWaitTime !== 'boolean' ||
       !finite(request.durationScalePercent) || !finite(request.transferDelayHours) || !isRecord(request.processDurationScalePercent) ||
@@ -29,7 +33,8 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
       if (!isRecord(item) || typeof item.processId !== 'string' || typeof item.processName !== 'string' || !date(item.startAt) || !date(item.endAt) || !strings(item.uncertaintyReasons) ||
         !['durationHours', 'baseDurationHours', 'appliedDurationScalePercent', 'slackHours', 'missingDurationCount'].every(key => finite(item[key])) ||
         !['isDateReliable', 'hasInternalCycle', 'isCritical', 'isCheckpointMissed'].every(key => typeof item[key] === 'boolean') ||
-        (item.checkpointAt != null && !date(item.checkpointAt)) || (item.checkpointDeltaHours != null && !finite(item.checkpointDeltaHours))) throw new Error('Повреждены даты или нормы процесса.');
+        (item.checkpointAt != null && !date(item.checkpointAt)) || (item.checkpointDeltaHours != null && !finite(item.checkpointDeltaHours)) ||
+        !optionalDate(item.maximumStartAt) || !optionalDate(item.maximumEndAt) || (item.maximumDurationHours != null && !finite(item.maximumDurationHours))) throw new Error('Повреждены даты или нормы процесса.');
     }
     if (!calendar({ ...result.assumptions, utcOffsetMinutes: result.assumptions.utcOffsetMinutes ?? 0 }) ||
       !finite(result.assumptions.durationScalePercent) || !finite(result.assumptions.transferDelayHours) || typeof result.assumptions.includeWaitTime !== 'boolean' ||
@@ -39,6 +44,7 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
     if (result.sources !== undefined && (!isRecord(result.sources) || typeof result.sources.algorithm !== 'string' || !date(result.sources.capturedAt) ||
       !Array.isArray(result.sources.processes) || !result.sources.processes.every(item => isRecord(item) && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.version === 'string' && typeof item.status === 'string') ||
       !Array.isArray(result.sources.objects))) throw new Error('Повреждён снимок исходных данных.');
+    if (!routes(result.assumptions.processBranches) || !repetitions(result.assumptions.processRepetitions)) throw new Error('Повреждены сценарные допущения.');
   }
   return list as ScheduleSnapshot[];
 }
@@ -54,8 +60,9 @@ export function compareScheduleSnapshots(baseline: ProcessSchedule, current: Pro
     const old = previous.get(item.processId); previous.delete(item.processId);
     const before = baseline.sources?.processes.find(model => model.id === item.processId);
     const after = current.sources?.processes.find(model => model.id === item.processId);
-    return { id: item.processId, name: item.processName, state: old ? 'changed' : 'added', sourceChanged: before && after ? JSON.stringify(before) !== JSON.stringify(after) : undefined, finishDeltaHours: old ? (Date.parse(item.endAt) - Date.parse(old.endAt)) / 3600000 : undefined,
+    const routeChanged = old ? JSON.stringify([baseline.assumptions.processBranches?.[item.processId] ?? {}, baseline.assumptions.processRepetitions?.[item.processId] ?? null]) !== JSON.stringify([current.assumptions.processBranches?.[item.processId] ?? {}, current.assumptions.processRepetitions?.[item.processId] ?? null]) : undefined;
+    return { id: item.processId, name: item.processName, state: old ? 'changed' : 'added', routeChanged, sourceChanged: before && after ? JSON.stringify(before) !== JSON.stringify(after) : undefined, finishDeltaHours: old ? (Date.parse(item.endAt) - Date.parse(old.endAt)) / 3600000 : undefined,
       durationDeltaHours: old ? item.durationHours - old.durationHours : undefined };
   });
-  return [...rows, ...[...previous.values()].map(item => ({ id: item.processId, name: item.processName, state: 'removed', sourceChanged: undefined, finishDeltaHours: undefined, durationDeltaHours: undefined }))];
+  return [...rows, ...[...previous.values()].map(item => ({ id: item.processId, name: item.processName, state: 'removed', routeChanged: undefined, sourceChanged: undefined, finishDeltaHours: undefined, durationDeltaHours: undefined }))];
 }

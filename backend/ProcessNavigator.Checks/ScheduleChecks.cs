@@ -49,7 +49,7 @@ internal static class ScheduleChecks
             Check(result.Processes.Single(item => item.ProcessId == "source").EndAt == DateTimeOffset.Parse("2026-10-19T14:00:00Z"), "UTC input must use explicit local calendar hours");
             Check(result.EndAt == DateTimeOffset.Parse("2026-10-20T14:00:00Z"), "Sequential work rolls over to next workday");
             Check(result.Sources?.Processes.Count == 2 && result.Sources.Objects.Single().Id == "shared", "Snapshot captures actual models and dependency objects");
-            Check(result.Sources?.Algorithm == "schedule-v2-fixed-offset" && result.Assumptions.UtcOffsetMinutes == 180, "Algorithm and calendar offset retained");
+            Check(result.Sources?.Algorithm == "schedule-v3-route-scenario" && result.Assumptions.UtcOffsetMinutes == 180, "Algorithm and calendar offset retained");
             var profile = new ScheduleCalendarModel("09:00", "17:00", [1, 2, 3, 4, 5], [], 300);
             var custom = request with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["target"] = profile } };
             var different = await service.CalculateAsync(custom, false);
