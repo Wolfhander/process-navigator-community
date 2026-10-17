@@ -49,4 +49,15 @@ Check(grouped.Count(issue => issue.Code == "version-source-missing") == 1 && gro
 Check(!InformationObjectPolicy.Check(RegistryObject([], [consumer])).Any(issue => issue.Code == "version-source-missing"), "Missing producer is diagnosed by the existing registry rule, not duplicated as a version issue");
 var versionRecipients = RegistryObject([producer], [consumer, consumer with { ProcessId = "needs-v2", Version = "2" }]);
 Check(InformationObjectPolicy.AffectedConsumers(versionRecipients, "version-source-missing").Single().ProcessId == "needs-v2", "Version-specific uncertainty targets only consumers needing the unavailable version");
+count += await RegistryLifecycleChecks.RunAsync();
+static bool RejectedTransition(string? previous, string? previousVersion, string state, string version)
+{
+    try { InformationObjectLifecycle.Validate(previous, previousVersion, state, version); return false; }
+    catch (InvalidDataException) { return true; }
+}
+Check(RejectedTransition("Active", "1", "Draft", "1"), "Active version cannot become the same draft");
+Check(RejectedTransition("Archived", "1", "Active", "1"), "Archived version cannot be reactivated in place");
+Check(!RejectedTransition("Draft", "1", "Archived", "1"), "Unused draft may be archived");
+Check(!RejectedTransition(null, null, "Active", "1"), "Initial registration can describe an already active document");
+Check(RejectedTransition(null, null, "Unknown", "1"), "Unknown lifecycle state is rejected");
 Console.WriteLine($"Server checks passed: {count} scenarios.");
