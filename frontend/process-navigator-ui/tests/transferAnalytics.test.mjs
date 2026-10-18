@@ -18,3 +18,16 @@ test('CSV includes every row beyond the 100-row screen page without fabricating 
   const large = {...report, findings: Array.from({length: 301}, (_, i) => ({...finding, elementId: 'a' + i}))};
   const csv = transfersCsv(large, '', ''); assert.equal(csv.split('\r\n').length, 302); assert.ok(csv.includes('a300'));
 });
+test('gateway witness is searchable and retained as ordered JSON without invented alternate paths', () => {
+  const routed = {...report, findings: [{...finding, routeElementIds: ['a', 'gateway-1', 'b']}]};
+  assert.equal(selectTransfers(routed, '', 'gateway-1').length, 1);
+  const csv = transfersCsv(routed, '', '');
+  assert.ok(csv.includes('[""a"",""gateway-1"",""b""]'));
+  assert.equal(csv.split('\r\n').length, 2);
+});
+test('older reports without route metadata and explicit incomplete findings remain exportable', () => {
+  assert.ok(transfersCsv(report, '', '').includes('"[]"'));
+  const limited = {...report, findings: [{...finding, code: 'traversal-limit', targetId: undefined, targetName: undefined, routeElementIds: []}]};
+  assert.equal(selectTransfers(limited, 'traversal-limit', '').length, 1);
+  assert.ok(transfersCsv(limited, '', '').includes('traversal-limit'));
+});

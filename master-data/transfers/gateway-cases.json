@@ -1,0 +1,5 @@
+[
+  {"name":"Простой шлюз","gateways":["g"],"edges":[["a","g"],["g","b"]],"expectedWitness":["a","g","b"]},
+  {"name":"Схождение и цикл","gateways":["g","h"],"edges":[["a","g"],["g","h"],["g","b"],["h","b"],["h","g"]],"expectedWitness":["a","g","b"]},
+  {"name":"Две равные длины","gateways":["g","h"],"edges":[["a","h"],["h","b"],["a","g"],["g","b"]],"expectedWitness":["a","g","b"]}
+]
