@@ -6,6 +6,7 @@ import './portfolio-analytics.css';
 import { PortfolioCharts } from './PortfolioCharts';
 import { AnalyticsWorkspaceControls } from './AnalyticsWorkspaceControls';
 import { PortfolioHistoryPanel } from './PortfolioHistoryPanel';
+import { DocumentAnalyticsPanel } from './DocumentAnalyticsPanel';
 import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
@@ -50,6 +51,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         <button className="portfolio-refresh" onClick={() => void refresh()} disabled={refreshing}><RefreshCw size={16}/>{refreshing ? 'Обновление…' : 'Обновить данные'}</button>
       </header>
       <nav className="portfolio-tabs" aria-label="Разделы аналитики">
+        <button className={view === 'documents' ? 'is-active' : ''} onClick={() => setView('documents')}><FileWarning size={15}/>Документы и передачи</button>
         <button className={view === 'overview' ? 'is-active' : ''} onClick={() => setView('overview')}><BarChart3 size={15}/>Обзор</button>
         <button className={view === 'processes' ? 'is-active' : ''} onClick={() => setView('processes')}><Layers3 size={15}/>Процессы</button>
         <button className={view === 'departments' ? 'is-active' : ''} onClick={() => setView('departments')}><Building2 size={15}/>Подразделения</button>
@@ -63,6 +65,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         <AnalyticsWorkspaceControls profileId={profileId} current={{ view, query, filter, metrics }} loadedAt={loadedAt} count={processes.length} total={data.processes.length} onChange={next => { setView(next.view); setQuery(next.query); setFilter(next.filter); setMetrics(next.metrics); }} onExport={exportCsv}/>
         {exportError && <p role="alert">{exportError}</p>}
         {view === 'history' && <PortfolioHistoryPanel data={data} onOpenProcess={onOpenProcess}/>}
+        {view === 'documents' && <DocumentAnalyticsPanel onOpenProcess={onOpenProcess}/>}
         {view === 'overview' && <>
           <div className="portfolio-kpis">
             {metrics.includes('processes') && <article><Layers3/><span>Процессов<strong>{data.totalProcesses}</strong><small>{data.publishedProcesses} действующих · {data.draftProcesses} черновиков</small></span></article>}
