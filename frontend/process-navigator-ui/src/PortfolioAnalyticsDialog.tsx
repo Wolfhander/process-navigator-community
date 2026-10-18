@@ -9,6 +9,7 @@ import { PortfolioHistoryPanel } from './PortfolioHistoryPanel';
 import { DocumentAnalyticsPanel } from './DocumentAnalyticsPanel';
 import { TransferAnalyticsPanel } from './TransferAnalyticsPanel';
 import { DepartmentHeatmapPanel } from './DepartmentHeatmapPanel';
+import {readAnalyticsTab,readSectionLocation,sectionLocationHash} from './section-location';
 import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
@@ -25,7 +26,7 @@ function duration(value?: number) {
 export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: Props) {
   const [data, setData] = useState<PortfolioAnalytics>();
   const [error, setError] = useState('');
-  const [view, setView] = useState<View>('overview');
+  const [view, setView] = useState<View>(()=>readAnalyticsTab(window.location.hash));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<AnalyticsFilter>('all');
   const [metrics, setMetrics] = useState<AnalyticsMetric[]>([...defaultAnalyticsSelection.metrics]);
@@ -35,6 +36,11 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => { setRefreshing(true); setError(''); try { setData(await loadPortfolioAnalytics()); setLoadedAt(new Date().toISOString()); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось загрузить аналитику.'); } finally { setRefreshing(false); } };
   useEffect(() => { void refresh(); }, []);
+  useEffect(()=>{
+    if(readSectionLocation(window.location.hash)!=='analytics')return;
+    const hash=sectionLocationHash('analytics',view);
+    if(window.location.hash!==hash)window.history.pushState(null,'',window.location.pathname+window.location.search+hash);
+  },[view]);
   const processes = useMemo(() => data ? selectAnalyticsProcesses(data, query, filter) : [], [data, query, filter]);
   function exportCsv(scope: 'portfolio' | 'processes') {
     if (!data) return;

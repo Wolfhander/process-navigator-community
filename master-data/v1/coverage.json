@@ -85,7 +85,7 @@
       "checks": [
         "location"
       ],
-      "remaining": "Браузерная история на рабочем сценарии"
+      "remaining": ""
     },
     {
       "roadmap": "98.6",
@@ -131,6 +131,7 @@
   ],
   "acceptanceBasis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
   "manualEvidence": [
+    "master-data/navigation-acceptance-2026-10-18.md",
     "master-data/acceptance-2026-10-18.md",
     "master-data/analytics-acceptance-2026-10-18.md",
     "master-data/history-acceptance-2026-10-18.md"

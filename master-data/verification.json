@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "synthetic": true,
-  "checkedAt": "2026-10-17T21:54:18.401Z",
+  "checkedAt": "2026-10-18T12:19:00.944Z",
   "status": "passed",
-  "inputsFingerprint": "4d5ae287c662606183b63a21b337f0b784c15f772583815fd685990971770185",
+  "inputsFingerprint": "710702da4d31c8024e5f7e0adab3ca1349f4b265d98bdf9653d4a980915a8471",
   "checks": [
     {
       "id": "xlsx-roundtrip",
@@ -93,6 +93,7 @@
   "manualAcceptance": {
     "basis": "Мастер-контур принят пользователем как рабочие данные для приёмки 18.10.2026; происхождение остаётся синтетическим.",
     "evidence": [
+      "master-data/navigation-acceptance-2026-10-18.md",
       "master-data/acceptance-2026-10-18.md",
       "master-data/analytics-acceptance-2026-10-18.md",
       "master-data/history-acceptance-2026-10-18.md"
@@ -148,7 +149,7 @@
     {
       "roadmap": "77.5",
       "automated": "passed",
-      "remaining": "Браузерная история на рабочем сценарии"
+      "remaining": ""
     },
     {
       "roadmap": "98.6",

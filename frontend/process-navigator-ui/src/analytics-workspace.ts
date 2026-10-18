@@ -1,12 +1,13 @@
 import type { PortfolioAnalytics, PortfolioProcess } from './types';
+import {analyticsViews,type AnalyticsView} from './analytics-views.ts';
+export {analyticsViews};
+export type {AnalyticsView};
 
-export const analyticsViews = ['overview', 'processes', 'departments', 'systems', 'history', 'documents'] as const;
 export const analyticsFilters = ['all', 'attention', 'documents', 'timing', 'draft', 'execution'] as const;
 export const analyticsMetrics = {
   processes: 'Процессы', readiness: 'Готовность описания', coverage: 'Охват структуры',
   instances: 'Выполнения', overdue: 'Просроченные шаги', documents: 'Разрывы данных', transfers: 'Передачи между дорожками',
 };
-export type AnalyticsView = typeof analyticsViews[number];
 export type AnalyticsFilter = typeof analyticsFilters[number];
 export type AnalyticsMetric = keyof typeof analyticsMetrics;
 export type AnalyticsSelection = { view: AnalyticsView; query: string; filter: AnalyticsFilter; metrics: AnalyticsMetric[] };

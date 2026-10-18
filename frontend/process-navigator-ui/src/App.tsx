@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { processLocationHash, readProcessLocation, type ProcessView } from './process-location';
+import {isSectionAvailable,readSectionLocation,readAnalyticsTab,sectionLocationHash,type AppSection,type HomeSection} from './section-location';
 import { Activity, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePenLine, GitPullRequest, History, Home, Maximize2, Minus, Network, PanelTop, PencilRuler, PlugZap, Plus, Rocket, RotateCcw, Search, Upload, UserCog, Users } from 'lucide-react';
 import { createDraft, loadArchivedProcess, loadAssignments, loadNotifications, loadOrganization, loadProcess, loadProcessCatalog, loadSession, markAllNotificationsRead, markNotificationRead, publishDraft, returnStep, setActiveUser, updateStep } from './api';
 import { ContextPanel } from './ContextPanel';
@@ -52,7 +53,9 @@ const ProcessResponsibilityPage = lazy(() => import('./ProcessResponsibilityPage
 const InformationObjectRegistryPage = lazy(() => import('./InformationObjectRegistryPage').then(module => ({ default: module.InformationObjectRegistryPage })));
 
 export default function App() {
+  const [initialSection] = useState(() => readSectionLocation(window.location.hash));
   const [initialLocation] = useState(() => readProcessLocation(window.location.hash));
+  const locationSynchronized = useRef(false);
   const restoreLocation = useRef(initialLocation);
   const hostContext = readHostContext();
   const [catalog, setCatalog] = useState<ProcessSummary[]>([]);
@@ -74,7 +77,7 @@ export default function App() {
   const [personalMode, setPersonalMode] = useState(false);
   const [executionsOpen, setExecutionsOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [portfolioAnalyticsOpen, setPortfolioAnalyticsOpen] = useState(false);
+  const [portfolioAnalyticsOpen, setPortfolioAnalyticsOpen] = useState(initialSection === 'analytics');
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
@@ -82,7 +85,7 @@ export default function App() {
   const [deploymentOpen, setDeploymentOpen] = useState(false);
   const [enterpriseOpen, setEnterpriseOpen] = useState(!initialLocation);
   useEffect(() => { setProcessView('diagram'); }, [enterpriseOpen, session?.currentUser.id]);
-  const [homeSection, setHomeSection] = useState<'home' | 'map' | 'settings' | 'version' | 'roadmap' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog'>('home');
+  const [homeSection, setHomeSection] = useState<HomeSection>(initialSection && initialSection !== 'analytics' ? initialSection : 'home');
   const [organizationIdentity, setOrganizationIdentity] = useState<OrganizationMap>();
   const [organizationEditor, setOrganizationEditor] = useState<OrganizationMap>();
   const [laneOrganizationEditor, setLaneOrganizationEditor] = useState<{ organization: OrganizationMap; process: ProcessModel }>();
@@ -172,11 +175,11 @@ export default function App() {
 
   useEffect(() => {
     const openCreateProcess = () => setCreateProcessOpen(true);
-    const openAuditLog = () => { setEnterpriseOpen(true); setPortfolioAnalyticsOpen(false); setHomeSection('auditLog'); };
+    const openAuditLog = () => navigateSection('auditLog');
     window.addEventListener('process-navigator:create-process', openCreateProcess);
     window.addEventListener('process-navigator:audit', openAuditLog);
     return () => { window.removeEventListener('process-navigator:create-process', openCreateProcess); window.removeEventListener('process-navigator:audit', openAuditLog); };
-  }, []);
+  }, [editorOpen]);
 
   useEffect(() => {
     if (session) announceReady(hostContext, session.currentUser.id);
@@ -206,11 +209,21 @@ export default function App() {
   useEffect(() => {
     if (!session || (!enterpriseOpen && process?.id !== processId)) return;
     const currentLocation = readProcessLocation(window.location.hash);
-    const hash = processLocationHash(enterpriseOpen ? undefined : { processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
+    const hash = enterpriseOpen ? sectionLocationHash(portfolioAnalyticsOpen ? 'analytics' : homeSection, readAnalyticsTab(window.location.hash)) : processLocationHash({ processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
       expandedSteps: currentLocation?.processId === processId ? currentLocation.expandedSteps : undefined,
       trail: processTrail.map(parent => parent.id), view: processView });
-    if (window.location.hash !== hash) window.history.replaceState(null, '', window.location.pathname + window.location.search + hash);
-  }, [session, enterpriseOpen, process, processId, selected?.id, draftView, archivedVersion, processTrail, processView]);
+    if (window.location.hash !== hash) {
+      const meaningful = enterpriseOpen || currentLocation?.processId !== processId;
+      const method = locationSynchronized.current && meaningful ? 'pushState' : 'replaceState';
+      window.history[method](null, '', window.location.pathname + window.location.search + hash);
+    }
+    locationSynchronized.current = true;
+  }, [session, enterpriseOpen, homeSection, portfolioAnalyticsOpen, process, processId, selected?.id, draftView, archivedVersion, processTrail, processView]);
+
+  useEffect(() => {
+    if (enterpriseOpen && homeSection === 'organization' && !organizationEditor && organizationIdentity)
+      setOrganizationEditor(organizationIdentity);
+  }, [enterpriseOpen, homeSection, organizationEditor, organizationIdentity]);
 
   useEffect(() => {
     if (!processId || !session || enterpriseOpen) return;
@@ -282,7 +295,7 @@ export default function App() {
     notify(`Текущий пользователь: ${nextSession.currentUser.displayName}`);
   };
 
-  const navigateSection = (section: 'home' | 'map' | 'settings' | 'version' | 'roadmap' | 'analytics' | 'import' | 'importHistory' | 'help' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'organization' | 'users' | 'directions' | 'auditLog') => {
+  const navigateSection = (section: AppSection) => {
     if (editorOpen && !window.confirm('Переход закроет редактор. Сохраните изменения перед выходом. Продолжить?')) return;
     setSectionVisit(value => value + 1);
     setImportOpen(false);
@@ -303,7 +316,7 @@ export default function App() {
     if (action === 'create') setCreateProcessOpen(true);
     if (action === 'import') { setDraftView(false); navigateSection('import'); }
     if (action === 'importHistory') navigateSection('importHistory');
-    if (action === 'organization') { setOrganizationEditor(undefined); navigateSection('organization'); loadOrganization().then(setOrganizationEditor).catch(reason => notify(reason.message)); }
+    if (action === 'organization') { setOrganizationEditor(undefined); navigateSection('organization'); }
     if (action === 'syncLanes') setDraftLaneSyncOpen(true);
     if (action === 'directionMatrix') navigateSection('directions');
     if (action === 'users') navigateSection('users');
@@ -462,8 +475,9 @@ export default function App() {
   const nextExecutionSteps = process?.nodes.filter(node => executionGuidance.availableStepIds.includes(node.id)) ?? [];
   const returnStepOptions = process && selected ? buildReturnStepOptions(process, activeInstance, selected.id) : [];
 
-  if (error) return <main className="state-page"><h1>Не удалось открыть Process Navigator</h1><p>{error}</p>{session && <label>Профиль пользователя <select value={session.currentUser.id} onChange={event => void changeUser(event.target.value)}>{session.availableUsers.map(user => <option key={user.id} value={user.id}>{user.roleName} — {user.displayName}</option>)}</select></label>}<button onClick={() => { setError(''); setEnterpriseOpen(true); setEditorOpen(false); setDraftView(false); setArchivedVersion(undefined); }}>На главную</button><button onClick={() => location.reload()}>Повторить</button></main>;
+  if (error) return <main className="state-page"><h1>Не удалось открыть Process Navigator</h1><p>{error}</p>{session && <label>Профиль пользователя <select value={session.currentUser.id} onChange={event => void changeUser(event.target.value)}>{session.availableUsers.map(user => <option key={user.id} value={user.id}>{user.roleName} — {user.displayName}</option>)}</select></label>}<button onClick={() => navigateSection('home')}>На главную</button><button onClick={() => location.reload()}>Повторить</button></main>;
   if (!session || (!enterpriseOpen && !process)) return <main className="state-page"><div className="loader"/><p>{catalog.length ? 'Загружаем рабочее пространство…' : 'Загружаем каталог процессов…'}</p></main>;
+  const sectionAccessible = !enterpriseOpen || isSectionAvailable(portfolioAnalyticsOpen ? 'analytics' : homeSection,session.currentUser.permissions);
 
   return <div className="app-shell">
     <header className="workspace-header"><button className="brand app-home-button" onClick={() => navigateSection('home')} aria-label="Главная"><span className="brand-mark">PN</span><span>Process Navigator</span></button>
@@ -472,6 +486,7 @@ export default function App() {
     </header>
     <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
     <Suspense fallback={<main className="state-page" role="status"><div className="loader"/><p>Загружаем раздел…</p></main>}>
+    {!sectionAccessible ? <main className="state-page"><h1>Раздел недоступен текущему профилю</h1><p>Адрес страницы не предоставляет дополнительных прав. Выберите доступный раздел или другой профиль.</p><button onClick={()=>navigateSection('home')}>На главную</button></main> : <>
     {!enterpriseOpen && !analyticsOpen && process && !editorOpen && <ProcessViewNavigation view={processView} onChange={changeProcessView}/>}
     {!enterpriseOpen && !analyticsOpen && process && (processView === 'instruction' || processView === 'overview') && <ProcessInstructionPage mode={processView} process={process} instance={!draftView && !archivedVersion ? activeInstance : undefined} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
       setProcessView('diagram'); setSelected(node); setFocusCommand(current => ({ id: (current?.id ?? 0) + 1, elementId: node.id }));
@@ -645,6 +660,7 @@ export default function App() {
       onClose={() => setLifecycleOpen(false)}
       onChanged={async () => { setProcess(await loadProcess(processId, undefined, true)); await refreshCatalog(processId); setReloadKey(value => value + 1); }}/>
     }
+    </>}
     </Suspense>
     </SectionLoadBoundary>
   </div>;
