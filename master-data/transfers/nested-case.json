@@ -1,0 +1,19 @@
+{
+  "description":"Синтетический контракт чертежа: PLM → вложенная ERP второго уровня → MES. Не является готовым регламентом предприятия.",
+  "models":[
+    {"id":"nested-root","nodes":[
+      {"id":"s","type":"startEvent"},{"id":"before","type":"task","system":"PLM","output":true},
+      {"id":"g","type":"exclusiveGateway"},
+      {"id":"call","type":"task","child":"nested-child","input":true,"output":true},
+      {"id":"after","type":"task","system":"MES","input":true},{"id":"e","type":"endEvent"}
+    ],"edges":[["s","before"],["before","g"],["g","call"],["call","after"],["after","e"]]},
+    {"id":"nested-child","nodes":[
+      {"id":"s","type":"startEvent"},{"id":"call","type":"task","child":"nested-detail","input":true,"output":true},{"id":"e","type":"endEvent"}
+    ],"edges":[["s","call"],["call","e"]]},
+    {"id":"nested-detail","nodes":[
+      {"id":"s","type":"startEvent"},{"id":"work","type":"task","system":"ERP","input":true,"output":true},{"id":"e","type":"endEvent"}
+    ],"edges":[["s","work"],["work","e"]]}
+  ],
+  "expectedTransitions":2,
+  "documentId":"drawing"
+}

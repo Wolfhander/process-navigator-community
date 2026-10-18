@@ -31,3 +31,11 @@ test('older reports without route metadata and explicit incomplete findings rema
   assert.equal(selectTransfers(limited, 'traversal-limit', '').length, 1);
   assert.ok(transfersCsv(limited, '', '').includes('traversal-limit'));
 });
+test('nested models keep qualified endpoint IDs, separate call occurrences and searchable boundary explanations', () => {
+  const nested = {...finding, code:'nested-transition',sourceProcessId:'child-a',targetProcessId:'child-b',routeElementIds:['root/call-a','child-a/a','root/call-b','child-b/b']};
+  const data = {...report,findings:[nested,{...nested,routeElementIds:['root/second-call','child-a/a','child-b/b']},{...finding,code:'nested-boundary',explanation:'Не сопоставлен объект drawing'}]};
+  assert.equal(selectTransfers(data,'nested-transition','child-b').length,2);
+  assert.equal(selectTransfers(data,'nested-transition','second-call').length,1);
+  assert.equal(selectTransfers(data,'nested-boundary','drawing').length,1);
+  const csv=transfersCsv(data,'nested-transition','');assert.ok(csv.includes('Модель источника ID'));assert.ok(csv.includes('child-b'));assert.equal(csv.split('\r\n').length,3);
+});

@@ -59,6 +59,22 @@ internal static class MasterDataChecks
             Check(analytics.InformationObjectCount==5&&analytics.CrossLaneTransferCount==1&&analytics.AverageReadinessPercent==100,"Analytics object/transfer/readiness formulas");
             Check(analytics.Levels.Count==5&&analytics.Levels.All(item=>item.ProcessCount==1)&&analytics.Systems.Single().TaskCount==7,"Analytics level and task distributions");
             var contextPath=Path.Combine(root,"Data","md-order.context.json");
+            var transferService=new TransferAnalyticsService(catalog);
+            var baselineTransfers=await transferService.BuildAsync(default);
+            Check(baselineTransfers.ProcessCount==5&&!baselineTransfers.Findings.Any(f=>f.Code=="nested-transition"),"Same-system master does not invent nested system transfers");
+            var leafContextPath=Path.Combine(root,"Data","md-drawing.context.json");
+            var leafOriginal=await File.ReadAllTextAsync(leafContextPath);
+            try
+            {
+                var leafContext=JsonNode.Parse(leafOriginal)!;
+                leafContext["elements"]!["task-1"]!["channels"]![0]!["systemName"]="Учебная ERP";
+                await File.WriteAllTextAsync(leafContextPath,leafContext.ToJsonString());
+                var nestedReport=await transferService.BuildAsync(default);
+                var reused=nestedReport.Findings.Single(f=>f.Code=="nested-transition"&&f.ProcessId=="md-order");
+                Check(reused.SourceProcessId=="md-drawing"&&reused.TargetProcessId=="md-drawing","Real loader resolves both calls to fourth-level endpoints");
+                Check(reused.RouteElementIds!.Contains("md-order/task-1")&&reused.RouteElementIds!.Contains("md-order/task-2"),"Real catalog preserves both occurrences of shared detailed process");
+            }
+            finally {await File.WriteAllTextAsync(leafContextPath,leafOriginal);}
             var originalContext=await File.ReadAllTextAsync(contextPath);
             try
             {

@@ -5,7 +5,7 @@ namespace ProcessNavigator.Api.Services;
 public sealed record TransferFinding(string ProcessId, string ProcessName, string Code, string ElementId,
     string ElementName, string? TargetId, string? TargetName, IReadOnlyList<string> SourceSystems,
     IReadOnlyList<string> TargetSystems, IReadOnlyList<string> ObjectIds, string Explanation,
-    IReadOnlyList<string>? RouteElementIds = null);
+    IReadOnlyList<string>? RouteElementIds = null, string? SourceProcessId = null, string? TargetProcessId = null);
 public sealed record TransferAnalyticsReport(DateTimeOffset GeneratedAt, int ProcessCount, IReadOnlyList<TransferFinding> Findings);
 
 public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
@@ -14,16 +14,19 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
     {
         var summaries = await catalog.ListAsync(cancellationToken);
         var findings = new List<TransferFinding>();
+        var models = new List<ProcessModel>();
         foreach (var summary in summaries)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var process = await catalog.LoadAsync(summary.Id, summary.Status.Equals("Draft", StringComparison.OrdinalIgnoreCase), cancellationToken);
+            models.Add(process);
             findings.AddRange(Analyze(process, cancellationToken));
         }
+        findings.AddRange(NestedTransferAnalysis.Analyze(models, cancellationToken));
         return new(DateTimeOffset.UtcNow, summaries.Count, findings);
     }
 
-    private static string[] WorkSystems(NodeModel node) => (node.Channels ?? [])
+    internal static string[] WorkSystems(NodeModel node) => (node.Channels ?? [])
         .Where(c => c.Kind == "system" && c.Direction == "work").Select(c => c.SystemName ?? "")
         .Concat(node.ExecutionMode == "system" ? [node.SystemName ?? ""] : Array.Empty<string>())
         .Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
@@ -40,7 +43,7 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
             var work = (node.Channels ?? []).Where(c => c.Direction == "work").ToArray();
             if (node.ExecutionMode == "manual" || (work.Length > 0 && work.All(c => c.Kind != "system")))
                 Add("outside-system", node, "Указана ручная работа или только внесистемные рабочие каналы. Это описание модели, не журнал выполнения.");
-            else if (WorkSystems(node).Length == 0)
+            else if (WorkSystems(node).Length == 0 && string.IsNullOrWhiteSpace(node.LinkedProcessId))
                 Add("system-unspecified", node, "Система выполнения не указана. Отсутствие сведений не доказывает ручную работу.");
 
             foreach (var group in (node.Channels ?? []).Where(c => c.Kind == "paper").GroupBy(c => (c.Direction, c.Flow)))
