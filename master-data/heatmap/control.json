@@ -1,0 +1,9 @@
+{
+  "basis":"Синтетические подразделения с одинаковыми названиями и ID unit в разных организациях. Не данные предприятия.",
+  "expected":{
+    "rows":3,
+    "first":{"entityId":"a","unitId":"unit","processCount":1,"taskCount":1,"incoming":0,"outgoing":1,"overdue":1},
+    "second":{"entityId":"b","unitId":"unit","processCount":1,"taskCount":2,"incoming":1,"outgoing":0,"overdue":2},
+    "ownerOnly":{"entityId":"a","unitId":"idle","processCount":0,"ownedProcessCount":1,"overdue":null}
+  }
+}

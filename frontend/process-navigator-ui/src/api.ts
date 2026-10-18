@@ -2,11 +2,17 @@ import type { CatalogAuditReport, CommandExecution, DeploymentProfile, DraftLane
 import { readHostContext } from './host';
 import type { PortfolioSnapshot, PortfolioSnapshotSummary } from './portfolio-history';
 import type { TransferReport } from './transfer-analytics';
+import type { DepartmentReport } from './department-heatmap';
 
 const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+export async function loadDepartmentHeatmap(signal?: AbortSignal):Promise<DepartmentReport> {
+  const response=await fetch('/api/analytics/organization',{signal,headers:roleHeaders()});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось загрузить тепловую карту подразделений.'));
+  return response.json() as Promise<DepartmentReport>;
+}
 export async function loadTransferAnalytics(signal?: AbortSignal): Promise<TransferReport> {
   const response = await fetch('/api/analytics/transfers', { signal, headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось проверить передачи документов.'));

@@ -23,6 +23,7 @@ builder.Services.AddSingleton<ProcessAssignmentService>();
 builder.Services.AddSingleton<ProcessExecutionService>();
 builder.Services.AddSingleton<PortfolioAnalyticsService>();
 builder.Services.AddSingleton<TransferAnalyticsService>();
+builder.Services.AddSingleton<OrganizationHeatmapService>();
 builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
@@ -78,6 +79,13 @@ app.MapGet("/api/deployment-profile", (HttpContext context, DeploymentProfileSer
     access.Has(context, ProcessPermissions.View) ? Results.Ok(deployment.Get()) : Forbidden(ProcessPermissions.View));
 
 app.MapGet("/api/analytics/transfers", async (HttpContext context, TransferAnalyticsService analytics,
+    AccessControlService access, CancellationToken cancellationToken) =>
+{
+    if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
+    return Results.Ok(await analytics.BuildAsync(cancellationToken));
+});
+
+app.MapGet("/api/analytics/organization", async (HttpContext context, OrganizationHeatmapService analytics,
     AccessControlService access, CancellationToken cancellationToken) =>
 {
     if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);

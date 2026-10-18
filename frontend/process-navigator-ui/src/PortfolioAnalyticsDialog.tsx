@@ -8,6 +8,7 @@ import { AnalyticsWorkspaceControls } from './AnalyticsWorkspaceControls';
 import { PortfolioHistoryPanel } from './PortfolioHistoryPanel';
 import { DocumentAnalyticsPanel } from './DocumentAnalyticsPanel';
 import { TransferAnalyticsPanel } from './TransferAnalyticsPanel';
+import { DepartmentHeatmapPanel } from './DepartmentHeatmapPanel';
 import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
@@ -96,10 +97,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
             <span className="portfolio-process-facts"><small>Дорожки<strong>{process.mappedLaneCount}/{process.laneCount}</strong></small><small>Нормативы<strong>{process.timedTaskCount}/{process.taskCount}</strong></small><small>Передачи<strong>{process.crossLaneTransferCount}</strong></small><small>Разрывы данных<strong>{process.informationIssueCount}</strong></small></span>
           </button>)}{!processes.length && <div className="empty-collection">По заданным условиям процессы не найдены.</div>}</div>
         </>}
-        {view === 'departments' && <div className="portfolio-department-grid">
-          <section className="portfolio-panel"><div className="portfolio-panel-title"><div><strong>Участие подразделений</strong><span>число процессов с дорожками подразделения</span></div></div><div className="portfolio-ranking">{data.departments.map((item, index) => <div key={`${item.legalEntityName}:${item.id}`}><b>{index + 1}</b><span><strong>{item.shortName || item.name}</strong><small>{item.name} · {item.legalEntityName}</small></span><em>{item.processCount}</em></div>)}</div></section>
-          <section className="portfolio-panel portfolio-coverage"><ShieldCheck/><strong>{data.participatingDepartments} подразделений участвуют в процессах</strong><p>{data.totalDepartments - data.participatingDepartments} подразделений пока не представлены ни в одной организационно привязанной дорожке.</p><div><i style={{ width: `${percent(data.participatingDepartments, data.totalDepartments)}%` }}/></div><span>{percent(data.participatingDepartments, data.totalDepartments)}% охвата</span></section>
-        </div>}
+        {view === 'departments' && <DepartmentHeatmapPanel onOpenProcess={onOpenProcess}/>}
         {view === 'systems' && <div className="portfolio-systems-layout">
           <section className="portfolio-panel"><div className="portfolio-panel-title"><div><strong>Информационные системы</strong><span>по паспортам и шагам процессов</span></div></div>
             <div className="portfolio-system-list">{data.systems.map(item => <div key={item.name}><MonitorCog size={17}/><span><strong>{item.name}</strong><small>{item.processCount} процессов</small></span><em>{item.taskCount} шагов</em></div>)}{!data.systems.length && <p>Системы выполнения пока не указаны.</p>}</div>

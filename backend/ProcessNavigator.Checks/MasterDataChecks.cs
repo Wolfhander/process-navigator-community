@@ -59,6 +59,10 @@ internal static class MasterDataChecks
             Check(analytics.InformationObjectCount==5&&analytics.CrossLaneTransferCount==1&&analytics.AverageReadinessPercent==100,"Analytics object/transfer/readiness formulas");
             Check(analytics.Levels.Count==5&&analytics.Levels.All(item=>item.ProcessCount==1)&&analytics.Systems.Single().TaskCount==7,"Analytics level and task distributions");
             var contextPath=Path.Combine(root,"Data","md-order.context.json");
+            var heatmap=await new OrganizationHeatmapService(catalog,organization,new ProcessExecutionService(environment)).BuildAsync(default);
+            Check(heatmap.Rows.Count==6&&heatmap.Rows.Count(r=>r.ProcessCount>0)==3,"Heatmap real loader includes participating and unused master units");
+            Check(heatmap.Rows.Sum(r=>r.TaskCount)==7&&heatmap.Rows.Sum(r=>r.OwnedProcessCount)==5,"Heatmap real loader reconciles tasks and stable owners");
+            Check(heatmap.Rows.All(r=>r.OverdueCount==null),"Master has no instances, not a zero-delay enterprise");
             var transferService=new TransferAnalyticsService(catalog);
             var baselineTransfers=await transferService.BuildAsync(default);
             Check(baselineTransfers.ProcessCount==5&&!baselineTransfers.Findings.Any(f=>f.Code=="nested-transition"),"Same-system master does not invent nested system transfers");
