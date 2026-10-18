@@ -35,7 +35,7 @@ export function DocumentAnalyticsPanel({ onOpenProcess }: { onOpenProcess: (id: 
         <td>{(['producers', 'consumers'] as const).map(kind => <details key={kind}><summary>{kind === 'producers' ? 'Источники' : 'Получатели'}: {row.object[kind].length}</summary>{row.object[kind].map((o, index) => <p key={index}><button onClick={() => onOpenProcess(o.processId)}>{o.processName}</button> — {o.elementName || 'Паспорт процесса'} ({o.elementId || o.processId}); версия {o.version || 'не указана'}{o.condition && `; условие: ${o.condition}`}</p>)}</details>)}</td>
         <td style={{ overflowWrap: 'anywhere', minWidth: 220 }}>Версии использований: {row.versions.join(', ') || 'не указаны'}{row.issues.map((issue, index) => <p key={index}>{issue.message}</p>)}{row.duplicateIds.length > 0 && <p>Возможные дубли: {row.duplicateIds.join(', ')}</p>}</td>
       </tr>)}</tbody></table></div>{!rows.length && <p>По заданным условиям документов нет.</p>}
-      <p>Бумажные разрывы и повторный ввод здесь пока не определяются: реестр объектов не содержит подтверждённого способа передачи. Неоднозначные источники не превращаются в вымышленные маршруты.</p>
+      <p>Признаки бумажной работы и межсистемных переходов показаны отдельно ниже: это другой срез моделей, а не подтверждённый журнал передач.</p>
     </>}
   </section>;
 }

@@ -2,7 +2,7 @@
   "name": "process-navigator-ui",
   "private": true,
   "packageManager": "pnpm@11.25.0",
-  "version": "0.2.0-preview.63-dev",
+  "version": "0.2.0-preview.64-dev",
   "type": "module",
   "scripts": {
     "dev": "vite",

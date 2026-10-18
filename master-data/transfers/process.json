@@ -1,0 +1,15 @@
+{
+  "id":"md-transfer", "name":"Учебная передача чертежа", "version":"1", "owner":"Учебный отдел", "status":"Published", "lanes":[],
+  "nodes":[
+    {"id":"design","type":"task","name":"Создать чертёж","laneId":"design","x":0,"y":0,"width":180,"height":80,"description":null,"responsible":null,"duration":null,"artifacts":[],"actions":[],
+     "channels":[{"id":"plm","kind":"system","label":"Работа в PLM","systemName":"Учебная PLM","direction":"work","flow":"primary"},{"id":"paper","kind":"paper","label":"Подписанный оригинал","documentName":"Чертёж","direction":"output","flow":"parallel"}],
+     "informationObjects":[{"objectId":"drawing","name":"Чертёж","role":"Output","required":true,"version":"1"}]},
+    {"id":"register","type":"task","name":"Принять чертёж","laneId":"production","x":250,"y":0,"width":180,"height":80,"description":null,"responsible":null,"duration":null,"artifacts":[],"actions":[],
+     "channels":[{"id":"erp","kind":"system","label":"Работа в ERP","systemName":"Учебная ERP","direction":"work","flow":"primary"},{"id":"paper","kind":"paper","label":"Получить оригинал","documentName":"Чертёж","direction":"input","flow":"primary"}],
+     "informationObjects":[{"objectId":"drawing","name":"Чертёж","role":"Input","required":true,"version":"2"}]},
+    {"id":"call","type":"task","name":"Уточнить по телефону","laneId":"production","x":500,"y":0,"width":180,"height":80,"description":null,"responsible":null,"duration":null,"artifacts":[],"actions":[],
+     "channels":[{"id":"phone","kind":"phone","label":"Звонок","direction":"work","flow":"primary"},{"id":"memo","kind":"paper","label":"Либо записка","direction":"input","flow":"alternative"}]},
+    {"id":"unknown","type":"task","name":"Неописанный шаг","laneId":"production","x":750,"y":0,"width":180,"height":80,"description":null,"responsible":null,"duration":null,"artifacts":[],"actions":[]}
+  ],
+  "edges":[{"id":"flow1","sourceId":"design","targetId":"register","label":null,"points":[]},{"id":"flow2","sourceId":"register","targetId":"call","label":null,"points":[]}]
+}

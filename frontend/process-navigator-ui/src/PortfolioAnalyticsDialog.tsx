@@ -7,6 +7,7 @@ import { PortfolioCharts } from './PortfolioCharts';
 import { AnalyticsWorkspaceControls } from './AnalyticsWorkspaceControls';
 import { PortfolioHistoryPanel } from './PortfolioHistoryPanel';
 import { DocumentAnalyticsPanel } from './DocumentAnalyticsPanel';
+import { TransferAnalyticsPanel } from './TransferAnalyticsPanel';
 import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type AnalyticsView, type AnalyticsFilter, type AnalyticsMetric } from './analytics-workspace';
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
@@ -65,7 +66,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         <AnalyticsWorkspaceControls profileId={profileId} current={{ view, query, filter, metrics }} loadedAt={loadedAt} count={processes.length} total={data.processes.length} onChange={next => { setView(next.view); setQuery(next.query); setFilter(next.filter); setMetrics(next.metrics); }} onExport={exportCsv}/>
         {exportError && <p role="alert">{exportError}</p>}
         {view === 'history' && <PortfolioHistoryPanel data={data} onOpenProcess={onOpenProcess}/>}
-        {view === 'documents' && <DocumentAnalyticsPanel onOpenProcess={onOpenProcess}/>}
+        {view === 'documents' && <><DocumentAnalyticsPanel onOpenProcess={onOpenProcess}/><TransferAnalyticsPanel onOpenProcess={onOpenProcess}/></>}
         {view === 'overview' && <>
           <div className="portfolio-kpis">
             {metrics.includes('processes') && <article><Layers3/><span>Процессов<strong>{data.totalProcesses}</strong><small>{data.publishedProcesses} действующих · {data.draftProcesses} черновиков</small></span></article>}

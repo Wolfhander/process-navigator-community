@@ -22,6 +22,7 @@ builder.Services.AddSingleton<InstanceSchedulePlanService>();
 builder.Services.AddSingleton<ProcessAssignmentService>();
 builder.Services.AddSingleton<ProcessExecutionService>();
 builder.Services.AddSingleton<PortfolioAnalyticsService>();
+builder.Services.AddSingleton<TransferAnalyticsService>();
 builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
@@ -75,6 +76,13 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "healthy", service = "
 app.MapGet("/api/deployment-profile", (HttpContext context, DeploymentProfileService deployment,
     AccessControlService access) =>
     access.Has(context, ProcessPermissions.View) ? Results.Ok(deployment.Get()) : Forbidden(ProcessPermissions.View));
+
+app.MapGet("/api/analytics/transfers", async (HttpContext context, TransferAnalyticsService analytics,
+    AccessControlService access, CancellationToken cancellationToken) =>
+{
+    if (!access.Has(context, ProcessPermissions.ViewAnalytics)) return Forbidden(ProcessPermissions.ViewAnalytics);
+    return Results.Ok(await analytics.BuildAsync(cancellationToken));
+});
 
 app.MapGet("/api/analytics/portfolio", async (HttpContext context, PortfolioAnalyticsService analytics,
     AccessControlService access, CancellationToken cancellationToken) =>

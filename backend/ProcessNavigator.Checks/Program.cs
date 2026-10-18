@@ -6,6 +6,7 @@ static NodeModel Node(params InformationObjectBindingModel[] bindings) =>
 static ProcessModel Child(params InformationObjectBindingModel[] bindings) =>
     new("child", "Детальный процесс", "1", "Демо", "Published", [], [Node(bindings)], []);
 var count = 0;
+count += TransferAnalyticsChecks.Run();
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); count++; }
 var input = new InformationObjectBindingModel("request", "Заявка", "Input", Version: "1");
 var output = new InformationObjectBindingModel("result", "Результат", "Output");

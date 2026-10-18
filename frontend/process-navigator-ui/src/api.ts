@@ -1,11 +1,17 @@
 import type { CatalogAuditReport, CommandExecution, DeploymentProfile, DraftLaneSyncReport, ElementComment, ElementContextUpdate, ExecutionTimeline, InformationObjectRegistry, InformationObjectUpdate, LaneOrganization, OneCConnectionStatus, OneCIntegrationSettings, OneCIntegrationUpdate, OrganizationMap, PortfolioAnalytics, ProcessAnalytics, ProcessAssignments, ProcessImportResult, ProcessPackageImportResult, ProcessSchedule, ProcessScheduleRequest, ProcessTableImportCleanupResult, ProcessTableImportHistoryItem, ProcessTableImportReport, ProcessTableImportResult, ProcessTableImportRetentionPolicy, ProcessTablePreview, ProcessTableSelectionSet, ProcessInstance, ProcessModel, ProcessNode, ProcessPropertiesUpdate, ProcessSummary, ProcessValidationReport, ProcessVersion, RepositoryArtifact, RepositoryArtifactUpload, SearchResult, Session, UserDirectory, UserNotification, UserProfile, UserUpdate } from './types';
 import { readHostContext } from './host';
 import type { PortfolioSnapshot, PortfolioSnapshotSummary } from './portfolio-history';
+import type { TransferReport } from './transfer-analytics';
 
 const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+export async function loadTransferAnalytics(signal?: AbortSignal): Promise<TransferReport> {
+  const response = await fetch('/api/analytics/transfers', { signal, headers: roleHeaders() });
+  if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось проверить передачи документов.'));
+  return response.json() as Promise<TransferReport>;
+}
 async function portfolioHistoryCall<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const response = await fetch('/api/analytics/history' + path, { method, signal, headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось открыть историю аналитики.'));
