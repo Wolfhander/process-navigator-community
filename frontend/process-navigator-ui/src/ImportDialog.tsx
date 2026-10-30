@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, BookmarkPlus, CheckCircle2, Download, FileArchive, FileJson2, FileSpreadsheet, FileUp, Trash2, Upload, X } from 'lucide-react';
-import { deleteProcessTableSelectionSet, downloadProcessTableExport, downloadProcessTableImportReport, downloadProcessTableTemplate, importProcess, importProcessPackage, importProcessTable, loadProcessTableSelectionSets, previewProcessTable, replaceDraft, saveProcessTableSelectionSet } from './api';
+import { deleteProcessTableSelectionSet, downloadProcessTableExport, downloadProcessPackage, downloadProcessTableImportReport, downloadProcessTableTemplate, importProcess, importProcessPackage, importProcessTable, loadProcessTableSelectionSets, previewProcessTable, replaceDraft, saveProcessTableSelectionSet } from './api';
 import type { ProcessImportResult, ProcessPackageImportResult, ProcessSummary, ProcessTableImportResult, ProcessTablePreview, ProcessTablePreviewItem, ProcessTableSelectionSet, ProcessTableStepIdMapping } from './types';
 
 type Props = {
@@ -16,6 +16,7 @@ type Props = {
 
 export function ImportDialog({ onClose, onImported, onPackageImported, onTableImported, processId, initialExportProcessId, catalog, page = false }: Props) {
   const [mode, setMode] = useState<'single' | 'package' | 'table'>('single');
+  const [packageDraft, setPackageDraft] = useState(false);
   const [bpmnFile, setBpmnFile] = useState<File>();
   const [contextFile, setContextFile] = useState<File>();
   const [packageFile, setPackageFile] = useState<File>();
@@ -113,6 +114,14 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
         <button type="button" className={mode === 'table' ? 'is-active' : ''} onClick={() => setMode('table')}>Таблица Excel</button>
       </div>}
 
+      {!completed && mode === 'package' && !processId && <section className="package-transfer-intro">
+        <h3>Перенос одной модели вместе с описанием</h3>
+        <p>ZIP содержит BPMN и файл .pn-context.json: структурированный паспорт, исполнителей, нормы, каналы, привязки документов, основания, вопросы и сверку. На принимающей стороне создаётся новый черновик 0.1; существующий ID не заменяется.</p>
+        <label>Модель для ZIP<select value={exportProcessId} onChange={e=>setExportProcessId(e.target.value)}><option value="">Выберите модель…</option>{catalog.map(p=><option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}</select></label>
+        <label><input type="checkbox" checked={packageDraft} onChange={e=>setPackageDraft(e.target.checked)}/>Выгрузить черновик вместо действующей модели</label>
+        <button type="button" className="secondary-button" disabled={busy||!exportProcessId} onClick={async()=>{setBusy(true);setError('');try{await downloadProcessPackage(exportProcessId,packageDraft);}catch(reason){setError(reason instanceof Error?reason.message:'Не удалось выгрузить ZIP.');}finally{setBusy(false);}}}><Download size={18}/>Выгрузить модель ZIP</button>
+        <small>Подпроцессы, организации, назначения сотрудников, файлы материалов, история и согласования не включены. Ссылки и оргпривязки проверяются после импорта. ZIP без .pn-context.json по-прежнему восстанавливается только из BPMN/Markdown.</small>
+      </section>}
       {!completed && mode === 'table' && !processId && !tablePreview && <div className="table-import-intro">
         <FileSpreadsheet size={34}/><h3>Шаблон для описания процессов</h3>
         <p>Пустая книга содержит формулы проверки и актуальные справочники организаций и подразделений. Чтобы получить заполненный пример, выберите корневой демонстрационный процесс ниже и выгрузите его вместе со вложенными процессами.</p>
@@ -165,11 +174,11 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
       </div>}
 
       {!completed && mode !== 'table' && <form onSubmit={submit}>
-        {mode === 'package' && !processId ? <label className="file-field"><FileArchive size={21}/><span><strong>Пакет процессов</strong><small>{packageFile?.name ?? 'ZIP с папками bpmn и passports, до 50 МБ'}</small></span><input type="file" accept=".zip,application/zip" required onChange={event => setPackageFile(event.target.files?.[0])}/></label> : <>
+        {mode === 'package' && !processId ? <label className="file-field"><FileArchive size={21}/><span><strong>Пакет процессов</strong><small>{packageFile?.name ?? 'ZIP с BPMN и описанием .pn-context.json или Markdown, до 50 МБ'}</small></span><input type="file" accept=".zip,application/zip" required onChange={event => setPackageFile(event.target.files?.[0])}/></label> : <>
           <label className="file-field"><FileUp size={21}/><span><strong>BPMN 2.0 XML</strong><small>{bpmnFile?.name ?? 'Обязательный файл .bpmn, до 2 МБ'}</small></span><input type="file" accept=".bpmn,application/xml,text/xml" required onChange={event => setBpmnFile(event.target.files?.[0])}/></label>
           <label className="file-field"><FileJson2 size={21}/><span><strong>Контекст Process Navigator</strong><small>{contextFile?.name ?? 'Необязательный файл .json, до 2 МБ'}</small></span><input type="file" accept=".json,application/json" onChange={event => setContextFile(event.target.files?.[0])}/></label>
         </>}
-        {error && <div className="import-message is-error"><AlertTriangle size={18}/><span><strong>Импорт отклонён</strong>{error}</span></div>}
+        {error && <div className="import-message is-error"><AlertTriangle size={18}/><span><strong>Операция не выполнена</strong>{error}</span></div>}
         <button className="import-submit" disabled={(mode === 'package' ? !packageFile : !bpmnFile) || busy}><Upload size={18}/>{busy ? 'Проверяем…' : mode === 'package' ? 'Проверить и импортировать пакет' : 'Проверить и импортировать'}</button>
       </form>}
 

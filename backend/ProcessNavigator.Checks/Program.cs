@@ -55,6 +55,7 @@ var versionRecipients = RegistryObject([producer], [consumer, consumer with { Pr
 Check(InformationObjectPolicy.AffectedConsumers(versionRecipients, "version-source-missing").Single().ProcessId == "needs-v2", "Version-specific uncertainty targets only consumers needing the unavailable version");
 count += await RegistryLifecycleChecks.RunAsync();
 count += await WorkRulesChecks.RunAsync();
+count += await PackageContextChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();

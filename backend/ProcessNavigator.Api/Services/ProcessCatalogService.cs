@@ -308,7 +308,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
 
             var passportEntries = archive.Entries
                 .Where(entry => string.Equals(Path.GetExtension(entry.Name), ".md", StringComparison.OrdinalIgnoreCase))
-                .ToDictionary(entry => Path.GetFileNameWithoutExtension(entry.Name), StringComparer.OrdinalIgnoreCase);
+                .ToLookup(entry => Path.GetFileNameWithoutExtension(entry.Name), StringComparer.OrdinalIgnoreCase);
             var items = new List<ProcessPackageImportItemModel>();
             Directory.CreateDirectory(DraftRoot);
             Directory.CreateDirectory(Path.Combine(loader.DataRoot, "Passports"));
@@ -340,8 +340,12 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                         continue;
                     }
 
-                    passportEntries.TryGetValue(Path.GetFileNameWithoutExtension(entry.Name), out var passportEntry);
+                    var matchingPassports = passportEntries[Path.GetFileNameWithoutExtension(entry.Name)].ToArray();
+                    if (matchingPassports.Length > 1) throw new InvalidDataException("Неоднозначный паспорт: " + entry.Name);
+                    var passportEntry = matchingPassports.SingleOrDefault();
                     var passport = passportEntry is null ? null : await ReadTextEntryAsync(passportEntry, cancellationToken);
+                    var passportPath = Path.Combine(loader.DataRoot, "Passports", $"{metadata.Id}.md");
+                    if (passportEntry is not null && File.Exists(passportPath)) throw new InvalidDataException("Паспорт с таким ID уже существует.");
                     var owner = PassportOwner(passport) ?? "Не назначен";
                     var elements = metadata.Elements.ToDictionary(
                         element => element.Id,
@@ -361,27 +365,49 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                         source = new { package = packageFile.FileName, bpmn = entry.FullName, passport = passportEntry?.FullName },
                         elements
                     }, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
+                    var sidecarName = entry.FullName[..^5] + ".pn-context.json";
+                    var sidecars = archive.Entries.Where(candidate => candidate.FullName.Equals(sidecarName, StringComparison.OrdinalIgnoreCase)).ToArray();
+                    if (sidecars.Length > 1) throw new InvalidDataException("Неоднозначный контекст пакета: " + sidecarName);
+                    if (sidecars.SingleOrDefault() is { } sidecar)
+                    {
+                        var portable = NormalizePackageContext(await ReadTextEntryAsync(sidecar, cancellationToken), metadata);
+                        var sourceVersion = portable["version"]?.GetValue<string>();
+                        portable["version"] = "0.1";
+                        portable["status"] = "Draft";
+                        portable["source"] = new JsonObject { ["package"] = packageFile.FileName, ["bpmn"] = entry.FullName, ["context"] = sidecar.FullName, ["sourceVersion"] = sourceVersion };
+                        context = portable.ToJsonString(PackageJson);
+                    }
                     await File.WriteAllTextAsync(temporaryContext, context, new UTF8Encoding(false), cancellationToken);
                     var validated = await loader.LoadFilesAsync(temporaryBpmn, temporaryContext, metadata.Id, cancellationToken);
 
                     var paths = DraftPaths(metadata.Id);
                     File.Copy(temporaryBpmn, paths.Bpmn, overwrite: false);
+                    var contextCopied = false;
+                    var passportCopied = false;
                     try
                     {
                         File.Copy(temporaryContext, paths.Context, overwrite: false);
+                        contextCopied = true;
                         if (!string.IsNullOrWhiteSpace(passport))
-                            await File.WriteAllTextAsync(Path.Combine(loader.DataRoot, "Passports", $"{metadata.Id}.md"), passport, new UTF8Encoding(false), cancellationToken);
+                        {
+                            var temporaryPassport = Path.Combine(itemDirectory.FullName, "passport.md");
+                            await File.WriteAllTextAsync(temporaryPassport, passport, new UTF8Encoding(false), cancellationToken);
+                            File.Move(temporaryPassport, passportPath, overwrite: false);
+                            passportCopied = true;
+                        }
                     }
                     catch
                     {
                         File.Delete(paths.Bpmn);
-                        File.Delete(paths.Context);
+                        if (contextCopied) File.Delete(paths.Context);
+                        if (passportCopied) File.Delete(passportPath);
                         throw;
                     }
 
                     var warnings = new List<string>();
-                    if (passportEntry is null) warnings.Add("No process passport was found in the package.");
-                    warnings.Add("Organization bindings must be reviewed before publication.");
+                    warnings.Add(sidecars.Length == 1 ? "Описание перенесено; создан новый черновик 0.1. История и согласования не переносятся." : "Файл .pn-context.json не найден: описание восстановлено из BPMN.");
+                    if (passportEntry is null) warnings.Add("В пакете нет отдельного паспорта Markdown.");
+                    warnings.Add("Оргпривязки и ссылки нужно проверить перед публикацией.");
                     items.Add(new(entry.FullName, "Imported", ToSummary(validated, validated), warnings));
                 }
                 catch (Exception exception) when (exception is InvalidDataException or IOException or System.Xml.XmlException or JsonException)

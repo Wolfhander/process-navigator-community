@@ -495,6 +495,10 @@ export async function importProcess(bpmnFile: File, contextFile?: File): Promise
   return response.json() as Promise<ProcessImportResult>;
 }
 
+export function downloadProcessPackage(processId: string, draft: boolean) {
+  return downloadAdminFile('/api/processes/'+encodeURIComponent(processId)+'/package-export?draft='+draft,processId+'.zip');
+}
+
 export async function downloadProcessTableTemplate(): Promise<void> {
   const response = await fetch('/api/processes/table-template', { headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось скачать табличный шаблон.'));

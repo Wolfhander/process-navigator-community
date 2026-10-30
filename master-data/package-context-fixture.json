@@ -1,0 +1,12 @@
+{
+  "processId":"demo-showcase-l3-warehouse",
+  "taskId":"Task_PhysicalReceipt",
+  "evidence":[
+    {"status":"fact","statement":"Проверить комплект","source":"PKG-001.md","locator":"пункт 1","author":"Учебный автор"},
+    {"status":"assumption","statement":"Уточнить упаковку"},
+    {"status":"question","statement":"Кто получает оригинал?"}
+  ],
+  "sourceRequirements":[
+    {"id":"r1","text":"Принять и зарегистрировать","source":"PKG-001.md","locator":"пункт 2","elementIds":["Task_PhysicalReceipt","Task_ReceiptOrder"],"checkSequence":true}
+  ]
+}

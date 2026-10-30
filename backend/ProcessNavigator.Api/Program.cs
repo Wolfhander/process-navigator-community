@@ -1064,6 +1064,21 @@ app.MapDelete("/api/processes/table-selection-sets/{id}", async (string id, Http
     catch (InvalidDataException exception) { return Results.BadRequest(new { message = exception.Message }); }
 });
 
+app.MapGet("/api/processes/{processId}/package-export", async (string processId, bool? draft, HttpContext context,
+    ProcessCatalogService catalog, AccessControlService access, CancellationToken cancellationToken) =>
+{
+    if (!access.Has(context, ProcessPermissions.Import)) return Forbidden(ProcessPermissions.Import);
+    if (draft == true && !CanOpenDraft(context, access)) return Forbidden("process.draft.view");
+    try
+    {
+        var content = await catalog.ExportPackageAsync(processId, draft == true, cancellationToken);
+        return Results.File(content, "application/zip", processId + ".zip");
+    }
+    catch (FileNotFoundException) { return Results.NotFound(new { message = "Редакция модели не найдена." }); }
+    catch (Exception exception) when (exception is InvalidDataException or JsonException)
+    { return Results.Problem(exception.Message, statusCode: 422, title: "Process package export failed"); }
+});
+
 app.MapPost("/api/processes/import-package", async (
     IFormFile packageFile,
     HttpContext context,
