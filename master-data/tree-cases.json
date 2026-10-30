@@ -1,0 +1,12 @@
+{
+  "synthetic": true,
+  "callCount": 3000,
+  "deepModelCount": 30,
+  "expectedRowLimit": 2000,
+  "expectedDepth": 20,
+  "pageSize": 100,
+  "rootId": "tree-root",
+  "sharedId": "md-drawing",
+  "searchIncluded": "tree-task-1500",
+  "searchExcluded": "tree-task-999"
+}
