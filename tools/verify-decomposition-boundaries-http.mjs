@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {boundaryStatus,boundariesCsv,selectBoundaries} from '../frontend/process-navigator-ui/src/decomposition-boundaries.ts';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const origin=process.argv[2];
+assert.equal(origin,'http://127.0.0.1:5087','Use the isolated acceptance server only.');
+const folder=path.join(root,'artifacts/boundary-acceptance-20261030');
+async function call(route,user='demo-superadministrator',method='GET'){
+  const response=await fetch(origin+route,{method,headers:{'X-Process-Navigator-User':user}});
+  assert.equal(response.status,200,route);return response.json();
+}
+const expected=['md-design','md-documentation','md-drawing','md-engineering','md-order'];
+assert.deepEqual((await call('/api/processes')).map(p=>p.id).sort(),expected);
+const baseline=await call('/api/processes/decomposition');
+assert.equal(baseline.links.length,5);
+assert.ok(baseline.links.every(l=>l.sourceVersion==='1.0'&&l.targetVersion==='1.0'&&!l.sourceDraft&&!l.targetDraft));
+await call('/api/processes/md-order/draft','demo-superadministrator','POST');
+await call('/api/processes/md-engineering/draft','demo-superadministrator','POST');
+const draft=await call('/api/processes/decomposition');
+assert.ok(draft.links.filter(l=>l.sourceProcessId==='md-order').every(l=>l.sourceDraft&&l.sourceVersion==='1.1'));
+assert.ok(draft.links.filter(l=>l.targetProcessId==='md-engineering').every(l=>l.targetDraft&&l.targetVersion==='1.1'));
+const published=await call('/api/processes/decomposition','demo-employee');
+assert.ok(published.links.every(l=>!l.sourceDraft&&!l.targetDraft&&l.sourceVersion==='1.0'));
+// Deliberately broken disposable copy: no canonical source or application data is edited.
+const contextPath=path.join(folder,'Data/Drafts/md-order.context.json');
+const context=JSON.parse(fs.readFileSync(contextPath,'utf8'));
+context.elements['task-2'].linkedProcessId='md-missing';
+context.passport.level=7;
+fs.writeFileSync(contextPath,JSON.stringify(context,null,2));
+const detailPath=path.join(folder,'Data/Drafts/md-engineering.context.json');
+const detail=JSON.parse(fs.readFileSync(detailPath,'utf8'));detail.passport.level=8;
+fs.writeFileSync(detailPath,JSON.stringify(detail,null,2));
+const broken=await call('/api/processes/decomposition');
+const missing=broken.links.find(l=>l.targetProcessId==='md-missing');
+assert.equal(boundaryStatus(missing),'missing');assert.equal(missing.targetVersion,null);assert.equal(missing.targetDraft,false);
+assert.equal(selectBoundaries(broken,'md-missing','missing').length,1);
+assert.ok(broken.links.filter(l=>l.sourceProcessId==='md-order').every(l=>l.sourceLevel===7));
+assert.equal(broken.links.find(l=>l.targetProcessId==='md-engineering').targetLevel,8);
+const employee=await call('/api/processes/decomposition','demo-employee');
+assert.equal(employee.links.some(l=>l.targetProcessId==='md-missing'),false);
+assert.ok(employee.links.filter(l=>l.sourceProcessId==='md-order').every(l=>l.sourceLevel===0));
+assert.equal(employee.links.find(l=>l.targetProcessId==='md-engineering').targetLevel,1);
+fs.writeFileSync(path.join(folder,'boundary-actual.json'),JSON.stringify(broken,null,2));
+fs.writeFileSync(path.join(folder,'boundary-selected.csv'),boundariesCsv(broken,'md-missing','missing',new Date().toISOString()));
+console.log('Boundary HTTP checks passed: published metadata, source/target draft selection, employee isolation, missing target and filtered CSV.');

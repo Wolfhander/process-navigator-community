@@ -1,20 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, GitBranch, Search, Unlink } from 'lucide-react';
 import { loadProcessDecomposition } from './api';
 import { DecompositionTreeView } from './DecompositionTreeView';
 import type { ProcessDecompositionMap as DecompositionData } from './types';
 import './process-decomposition.css';
 
+const DecompositionBoundaryView=lazy(()=>import('./DecompositionBoundaryView').then(module=>({default:module.DecompositionBoundaryView})));
+
 export function ProcessDecompositionMap({ onOpenProcess }: { onOpenProcess: (processId: string) => void }) {
   const [data, setData] = useState<DecompositionData>();
   const [query, setQuery] = useState('');
-  const [view, setView] = useState<'levels' | 'tree'>('levels');
+  const [view, setView] = useState<'levels' | 'tree' | 'boundaries'>('levels');
+  const [loadedAt, setLoadedAt] = useState('');
+  const [revision, setRevision] = useState(0);
   const [error, setError] = useState('');
   useEffect(() => {
     const controller = new AbortController();
-    loadProcessDecomposition(controller.signal).then(setData).catch(reason => reason.name !== 'AbortError' && setError(reason.message));
+    loadProcessDecomposition(controller.signal).then(value=>{setData(value);setLoadedAt(new Date().toISOString());}).catch(reason => reason.name !== 'AbortError' && setError(reason.message));
     return () => controller.abort();
-  }, []);
+  }, [revision]);
   const visible = useMemo(() => {
     if (!data) return [];
     const term = query.trim().toLocaleLowerCase('ru');
@@ -24,7 +28,7 @@ export function ProcessDecompositionMap({ onOpenProcess }: { onOpenProcess: (pro
     return data.processes.filter(item => matchingIds.has(item.id));
   }, [data, query]);
 
-  if (error) return <section className="decomposition-state"><AlertTriangle size={25}/><strong>Карта детализации недоступна</strong><span>{error}</span></section>;
+  if (error) return <section className="decomposition-state"><AlertTriangle size={25}/><strong>Карта детализации недоступна</strong><span>{error}</span><button onClick={()=>{setError('');setData(undefined);setRevision(value=>value+1);}}>Повторить загрузку карты</button></section>;
   if (!data) return <section className="decomposition-state"><div className="loader"/><span>Строим связи между уровнями…</span></section>;
   const broken = data.links.filter(link => !link.targetProcessName);
   const incomplete = data.links.filter(link => link.targetProcessName && !link.boundaryReady);
@@ -34,8 +38,8 @@ export function ProcessDecompositionMap({ onOpenProcess }: { onOpenProcess: (pro
     <header><div><span className="eyebrow">Архитектура процессов</span><h2>Уровни и детализация</h2><p>Каждая связь показывает, какая задача верхнего уровня раскрывается отдельной BPMN-схемой.</p></div><label><Search size={16}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти процесс или этап…"/></label></header>
     <div className="decomposition-summary"><span><GitBranch size={18}/><strong>{data.links.length}</strong> связей</span><span className={broken.length ? 'is-error' : ''}><Unlink size={18}/><strong>{broken.length}</strong> потерянных</span><span className={incomplete.length ? 'is-warning' : ''}><CheckCircle2 size={18}/><strong>{incomplete.length}</strong> границ требуют проверки</span></div>
     {data.links.length === 0 && <div className="decomposition-hint"><GitBranch size={18}/><span><strong>Связи детализации пока не назначены</strong><small>Откройте черновик процесса, выберите задачу и укажите детальную схему в её контексте.</small></span></div>}
-    <nav className="home-quick" aria-label="Представление детализации"><button aria-pressed={view === 'levels'} onClick={() => setView('levels')}>По уровням</button><button aria-pressed={view === 'tree'} onClick={() => setView('tree')}>Дерево связей</button></nav>
-    {view === 'tree' ? <DecompositionTreeView data={data} query={query} onOpen={onOpenProcess}/> : <div className="decomposition-levels">{levels.map(level => {
+    <nav className="home-quick" aria-label="Представление детализации"><button aria-pressed={view === 'levels'} onClick={() => setView('levels')}>По уровням</button><button aria-pressed={view === 'tree'} onClick={() => setView('tree')}>Дерево связей</button><button aria-pressed={view === 'boundaries'} onClick={()=>setView('boundaries')}>Карта границ</button><button onClick={()=>{setData(undefined);setRevision(value=>value+1);}}>Обновить карту</button></nav>
+    {view === 'boundaries' ? <DecompositionBoundaryView data={data} query={query} loadedAt={loadedAt}/> : view === 'tree' ? <DecompositionTreeView data={data} query={query} onOpen={onOpenProcess}/> : <div className="decomposition-levels">{levels.map(level => {
       const items = visible.filter(item => item.level === level);
       return <section className="decomposition-level" key={level}><header><strong>Уровень {level}</strong><span>{items.length}</span></header><div>{items.map(item => {
         const outgoing = data.links.filter(link => link.sourceProcessId === item.id);

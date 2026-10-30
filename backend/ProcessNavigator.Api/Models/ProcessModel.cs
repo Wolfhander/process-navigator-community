@@ -180,7 +180,11 @@ public sealed record ProcessDecompositionLinkModel(
     string? TargetProcessName,
     int? TargetLevel,
     bool BoundaryReady,
-    IReadOnlyList<string> MissingBoundaries);
+    IReadOnlyList<string> MissingBoundaries,
+    string? SourceVersion = null,
+    bool SourceDraft = false,
+    string? TargetVersion = null,
+    bool TargetDraft = false);
 public sealed record ProcessDecompositionMapModel(
     IReadOnlyList<ProcessHierarchyNodeModel> Processes,
     IReadOnlyList<ProcessDecompositionLinkModel> Links);

@@ -99,10 +99,9 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         {
             if (summary.Status == "Draft" && !includeDrafts) continue;
             var source = await LoadAsync(summary.Id, draft: includeDrafts && (summary.HasDraft || summary.Status == "Draft"), cancellationToken);
-            var sourceLevel = hierarchyById.GetValueOrDefault(summary.Id)?.Level ?? source.Passport?.Level ?? 2;
+            var sourceLevel = source.Passport?.Level ?? hierarchyById.GetValueOrDefault(summary.Id)?.Level ?? 2;
             foreach (var element in source.Nodes.Where(node => !string.IsNullOrWhiteSpace(node.LinkedProcessId)))
             {
-                hierarchyById.TryGetValue(element.LinkedProcessId!, out var targetHierarchy);
                 ProcessModel? target = null;
                 var targetSummary = summaries.FirstOrDefault(item => item.Id.Equals(element.LinkedProcessId, StringComparison.OrdinalIgnoreCase));
                 if (targetSummary is not null && (targetSummary.Status != "Draft" || includeDrafts))
@@ -127,9 +126,13 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                     element.Name,
                     element.LinkedProcessId!,
                     target?.Name,
-                    targetHierarchy?.Level,
+                    target?.Passport?.Level,
                     missingBoundaries.Count == 0,
-                    missingBoundaries));
+                    missingBoundaries,
+                    source.Version,
+                    includeDrafts && (summary.HasDraft || summary.Status == "Draft"),
+                    target?.Version,
+                    target is not null && includeDrafts && (targetSummary!.HasDraft || targetSummary.Status == "Draft")));
             }
         }
         return new(hierarchy, links.OrderBy(item => item.SourceLevel).ThenBy(item => item.SourceProcessName).ThenBy(item => item.ElementName).ToArray());
