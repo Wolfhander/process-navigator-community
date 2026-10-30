@@ -34,6 +34,16 @@ test('demo distinguishes system processing, human work and financial receipt', (
   assert.match(context.elements.Task_SystemNotice.description, /подтверждается вручную/);
 });
 
+test('demo regeneration is byte-reproducible and document IDs resolve in its registry',()=>{
+  const first=createDemoContour(),second=createDemoContour();
+  assert.deepEqual([...first.files],[...second.files]);
+  const ids=new Set(JSON.parse(first.files.get('InformationObjects/registry.json')).map(item=>item.id));
+  for(const model of first.models){
+    const context=JSON.parse(first.files.get(model.id+'.context.json'));
+    for(const element of Object.values(context.elements))for(const binding of element.informationObjects??[])assert.ok(ids.has(binding.objectId),binding.objectId);
+  }
+});
+
 test('reset previews, backs up old data and removes process history without changing users or keys', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pn-demo-reset-'));
   const data = path.join(root, 'backend', 'ProcessNavigator.Api', 'Data');
@@ -42,12 +52,18 @@ test('reset previews, backs up old data and removes process history without chan
   fs.mkdirSync(path.join(data, 'Keys'));
   fs.mkdirSync(path.join(data, 'SchedulePlans'));
   fs.writeFileSync(path.join(data, 'SchedulePlans', 'example.json'), 'plan-history');
+  for(const name of ['ScheduleArchive','PortfolioHistory']){
+    fs.mkdirSync(path.join(data,name));fs.writeFileSync(path.join(data,name,'old.json'),'old-history');
+  }
   fs.writeFileSync(path.join(data, '..', 'ProcessNavigator.Api.csproj'), '<Project/>');
   fs.writeFileSync(path.join(data, 'organization.json'), '{"name":"old"}');
   fs.writeFileSync(path.join(data, 'old.bpmn'), '<old/>');
   fs.writeFileSync(path.join(data, 'Drafts', 'old.context.json'), '{}');
   fs.writeFileSync(path.join(data, 'Users', 'users.json'), 'users');
   fs.writeFileSync(path.join(data, 'Keys', 'key.xml'), 'key');
+  for(const name of ['Integrations','Templates','Backups']){
+    fs.mkdirSync(path.join(data,name));fs.writeFileSync(path.join(data,name,'preserved.marker'),'keep-'+name);
+  }
   try {
     assert.equal(resetDemoContour(root).preview, true);
     assert.ok(fs.existsSync(path.join(data, 'old.bpmn')));
@@ -56,9 +72,14 @@ test('reset previews, backs up old data and removes process history without chan
     assert.ok(!fs.existsSync(path.join(data, 'old.bpmn')));
     assert.ok(!fs.existsSync(path.join(data, 'Drafts')));
     assert.ok(!fs.existsSync(path.join(data, 'SchedulePlans')));
+    for(const name of ['ScheduleArchive','PortfolioHistory']){
+      assert.ok(!fs.existsSync(path.join(data,name)));
+      assert.equal(fs.readFileSync(path.join(result.backup,name,'old.json'),'utf8'),'old-history');
+    }
     assert.equal(fs.readFileSync(path.join(result.backup, 'SchedulePlans', 'example.json'), 'utf8'), 'plan-history');
     assert.equal(fs.readFileSync(path.join(data, 'Users', 'users.json'), 'utf8'), 'users');
     assert.equal(fs.readFileSync(path.join(data, 'Keys', 'key.xml'), 'utf8'), 'key');
+    for(const name of ['Integrations','Templates','Backups'])assert.equal(fs.readFileSync(path.join(data,name,'preserved.marker'),'utf8'),'keep-'+name);
     assert.equal(fs.readdirSync(data).filter(file => file.endsWith('.bpmn')).length, 10);
     resetDemoContour(root, true);
     assert.equal(fs.readdirSync(data).filter(file => file.endsWith('.bpmn')).length, 10);
