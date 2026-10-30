@@ -1,7 +1,7 @@
 import {readProcessLocation} from './process-location.ts';
 import {analyticsViews,type AnalyticsView} from './analytics-views.ts';
 
-export const appSections=['home','map','settings','version','roadmap','analytics','import','importHistory','help','catalog','catalogAudit','evidenceRegister','informationObjects','schedule','organization','users','directions','auditLog'] as const;
+export const appSections=['home','map','settings','version','roadmap','demonstrations','analytics','import','importHistory','help','catalog','catalogAudit','evidenceRegister','informationObjects','schedule','organization','users','directions','auditLog'] as const;
 export type AppSection=typeof appSections[number];
 export type HomeSection=Exclude<AppSection,'analytics'>;
 const sectionPermissions:Partial<Record<AppSection,readonly string[]>>={analytics:['analytics.view'],organization:['system.manage'],directions:['system.manage'],auditLog:['system.manage'],users:['users.manage'],import:['process.import'],importHistory:['process.import'],catalogAudit:['process.diagram.edit','process.context.edit','process.publish']};

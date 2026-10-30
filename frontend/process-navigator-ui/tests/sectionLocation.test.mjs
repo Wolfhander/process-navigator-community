@@ -8,7 +8,7 @@ import {analyticsViews} from '../src/analytics-views.ts';
 test('every primary section roundtrips through a stable local hash; home retains legacy empty address',()=>{
   assert.equal(sectionLocationHash('home'),'');
   for(const section of appSections)assert.equal(readSectionLocation(sectionLocationHash(section)),section);
-  assert.equal(appSections.length,18);
+  assert.equal(appSections.length,19);
 });
 test('legacy process links take precedence and preserve edition, element and representation',()=>{
   const hash='#page=analytics&process=demo&step=task-1&edition=draft&view=instruction';
@@ -24,7 +24,7 @@ test('all analytics tabs survive F5 and invalid tab values fall back to overview
 });
 test('direct page URLs mirror existing card permissions and do not grant administrator UI access',()=>{
   for(const section of ['organization','directions','auditLog','users','analytics','import','importHistory','catalogAudit'])assert.equal(isSectionAvailable(section,['process.view']),false);
-  for(const section of ['home','settings','version','roadmap','map','catalog','informationObjects','help','schedule','evidenceRegister'])assert.equal(isSectionAvailable(section,['process.view']),true);
+  for(const section of ['home','settings','version','roadmap','demonstrations','map','catalog','informationObjects','help','schedule','evidenceRegister'])assert.equal(isSectionAvailable(section,['process.view']),true);
   assert.equal(isSectionAvailable('catalogAudit',['process.context.edit']),true);assert.equal(isSectionAvailable('organization',['system.manage']),true);
 });
 test('App restores section identity, lazy organization data and protects history while BPMN editor is open',()=>{

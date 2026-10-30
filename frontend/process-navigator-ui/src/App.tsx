@@ -38,6 +38,7 @@ import type { InformationObjectOccurrence, OrganizationMap, ProcessAssignments, 
 import './workflow-fixes.css';
 
 const BpmnEditor = lazy(() => import('./BpmnEditor').then(module => ({ default: module.BpmnEditor })));
+const DemonstrationsPage = lazy(() => import('./DemonstrationsPage').then(module => ({ default: module.DemonstrationsPage })));
 const CatalogAuditDialog = lazy(() => import('./CatalogAuditDialog').then(module => ({ default: module.CatalogAuditDialog })));
 const PublicationValidationDialog = lazy(() => import('./PublicationValidationDialog').then(module => ({ default: module.PublicationValidationDialog })));
 const HelpDialog = lazy(() => import('./HelpDialog').then(module => ({ default: module.HelpDialog })));
@@ -550,7 +551,8 @@ export default function App() {
     {oneCOpen && <OneCIntegrationDialog onClose={() => setOneCOpen(false)}/>}
     {deploymentOpen && <DeploymentDialog onClose={() => setDeploymentOpen(false)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && (homeSection === 'home' || homeSection === 'settings') && <WorkspaceHome settings={homeSection === 'settings'} groupName={organizationIdentity?.name ?? 'Группа компаний'} catalog={catalog} can={can} onAction={homeAction}><PersonalProcesses key={session.currentUser.id} catalog={catalog} preferences={personalWorkspace.data} storageFailed={personalWorkspace.storageFailed} canOpenDraft={can('process.diagram.edit') || can('process.context.edit') || can('process.publish')} onOpen={openProcess} onFavorite={personalWorkspace.favorite} onFilter={personalWorkspace.filter} onClearRecent={personalWorkspace.clearRecent}/></WorkspaceHome>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'version' && <AppVersionPage onBack={() => navigateSection('settings')} onRoadmap={() => navigateSection('roadmap')}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'version' && <AppVersionPage onBack={() => navigateSection('settings')} onRoadmap={() => navigateSection('roadmap')} onDemonstrations={()=>navigateSection('demonstrations')}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'demonstrations' && <DemonstrationsPage catalog={catalog} permissions={session.currentUser.permissions} onBack={()=>navigateSection('version')} onSection={navigateSection} onProcess={id=>openProcess(id)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'roadmap' && <DevelopmentRoadmapPage onBack={() => navigateSection('version')}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'importHistory' && <ProcessTableImportHistoryPage canManage={can('system.manage')} onBack={() => navigateSection('settings')}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'import' && <ImportDialog page catalog={catalog} initialExportProcessId={processId} onClose={() => navigateSection('home')}
