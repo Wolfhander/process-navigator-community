@@ -11,4 +11,6 @@
 .transfer-table table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .transfer-table th, .transfer-table td { text-align: left; vertical-align: top; padding: 1rem; border: 1px solid #d9e2dc; overflow-wrap: anywhere; }
 .transfer-table button { white-space: normal; text-align: left; max-width: 100%; }
+.transfer-controls,.transfer-pagination{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0}.transfer-controls label{display:grid;gap:6px;flex:1;min-width:180px}.transfer-controls input,.transfer-controls select{width:100%;min-width:0;box-sizing:border-box;padding:10px}.transfer-pagination{align-items:center}.transfer-table code{overflow-wrap:anywhere;white-space:normal}
+.transfer-controls>button,.transfer-pagination button{padding:10px 14px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);cursor:pointer}.transfer-controls>button:disabled,.transfer-pagination button:disabled{opacity:.5;cursor:default}
 @media (max-width: 700px) { .transfer-table table { min-width: 650px; } }

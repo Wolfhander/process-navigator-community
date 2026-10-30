@@ -1,7 +1,8 @@
 import type { InformationObject, InformationObjectOccurrence } from './types';
+export type InformationTransfer = { object: InformationObject; source?: InformationObjectOccurrence; target?: InformationObjectOccurrence };
 
 export function informationTransfers(objects: InformationObject[], limit = 1000) {
-  const rows: { object: InformationObject; source?: InformationObjectOccurrence; target?: InformationObjectOccurrence }[] = [];
+  const rows: InformationTransfer[] = [];
   let limited = false;
   outer: for (const object of objects) {
     const sources = object.producers.length ? object.producers : [undefined];

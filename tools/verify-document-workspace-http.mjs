@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {informationTransfers} from '../frontend/process-navigator-ui/src/information-transfers.ts';
+import {filterTransfers,summarizeTransfers,transferFacts,transferCsv} from '../frontend/process-navigator-ui/src/information-transfer-report.ts';
+import {informationObjectVersions} from '../frontend/process-navigator-ui/src/information-object-detail.ts';
+const origin=process.argv[2];
+assert.equal(origin,'http://127.0.0.1:5087','Use the isolated master-data server.');
+async function read(route){const r=await fetch(origin+route,{headers:{'X-Process-Navigator-User':'demo-superadministrator'}});assert.equal(r.status,200,route);return r.json();}
+const registry=await read('/api/information-objects');
+assert.equal(registry.objects.length,5);
+const rows=informationTransfers(registry.objects).rows;
+assert.equal(rows.length,20);
+const models={};
+for(const id of new Set(rows.flatMap(r=>[r.source?.processId,r.target?.processId]).filter(Boolean)))models[id]=await read('/api/processes/'+encodeURIComponent(id));
+const facts=transferFacts(rows,models,await read('/api/organization'));
+const packageObject=registry.objects.find(o=>o.id==='md-source-package');
+assert.deepEqual(informationObjectVersions(packageObject),['1.0']);
+const pair=rows.find(r=>r.object.id==='md-source-package');
+assert.equal(pair.source.elementId,'task-1');assert.equal(pair.target.elementId,'task-2');
+assert.equal(facts.get(pair.source).responsibility,'Планирование · Учебная организация А');
+assert.equal(facts.get(pair.target).responsibility,'Разработка · Учебная организация Б');
+assert.deepEqual(facts.get(pair.source).systems,['Учебная PLM']);
+assert.equal(filterTransfers(rows,'md-source-package',facts).length,1);
+// Seven task inputs + seven task outputs + the explicit source-package pair.
+assert.equal(filterTransfers(rows,'Учебная PLM',facts).length,15);
+const summary=summarizeTransfers(rows);
+assert.deepEqual(summary.map(g=>g.pairs).sort((a,b)=>a-b),[1,5,7,7]);
+assert.equal(summary.filter(g=>g.missingSource).length,1);assert.equal(summary.filter(g=>g.missingTarget).length,2);
+const partial=transferFacts(rows,Object.fromEntries(Object.entries(models).filter(([id])=>id!=='md-order')));
+assert.equal(partial.get(pair.source).available,false);
+const csv=transferCsv(rows,facts,{generatedAt:new Date().toISOString(),registryGeneratedAt:registry.generatedAt,query:'',built:20,limited:false,modelLimit:false,failures:[]});
+fs.mkdirSync(new URL('../artifacts/document-workspace/',import.meta.url),{recursive:true});
+fs.writeFileSync(new URL('../artifacts/document-workspace/expected.csv',import.meta.url),csv);
+console.log('[document-workspace] PASS: 5 objects, 20 pairs, four groups; exact lane responsibilities, partial enrichment and all-row CSV.');

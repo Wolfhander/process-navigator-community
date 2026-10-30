@@ -99,7 +99,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
   };
   const detail = registry?.objects.find(item => item.id === detailId);
   if (reconciliation && registry) return <InformationReconciliationPage objects={registry.objects} onBack={() => setReconciliation(false)} onOpen={id => { setReconciliation(false); setDetailId(id); }}/>;
-  if (transfers) return <InformationTransferPage objects={objects} onBack={() => setTransfers(false)} onOpen={onOpen}/>;
+  if (transfers) return <InformationTransferPage objects={objects} registryGeneratedAt={registry?.generatedAt} onBack={() => setTransfers(false)} onOpen={onOpen}/>;
   if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} objects={registry!.objects} onOpenObject={setDetailId} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Документы и результаты</strong></nav>
