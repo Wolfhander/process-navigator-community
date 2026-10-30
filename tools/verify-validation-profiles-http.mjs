@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {profileQuality,profileIssues} from '../frontend/process-navigator-ui/src/validation-profiles.ts';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const folder=path.join(root,'artifacts/profile-acceptance-20261030');
+assert.equal(process.argv[2],'http://127.0.0.1:5087','Use the isolated master server only.');
+async function call(route,method='GET'){
+  const response=await fetch(process.argv[2]+route,{method,headers:{'X-Process-Navigator-User':'demo-superadministrator'}});
+  assert.equal(response.status,200,route);return response.json();
+}
+assert.deepEqual((await call('/api/processes')).map(p=>p.id).sort(),['md-design','md-documentation','md-drawing','md-engineering','md-order']);
+await call('/api/processes/md-order/draft','POST');
+const contextPath=path.join(folder,'Data/Drafts/md-order.context.json');
+const context=JSON.parse(fs.readFileSync(contextPath,'utf8'));
+context.elements['task-1'].description='';
+fs.writeFileSync(contextPath,JSON.stringify(context,null,2));
+const warningReport=await call('/api/processes/md-order/draft/validation');
+assert.equal(warningReport.errorCount,0);assert.ok(warningReport.warningCount>0);assert.equal(warningReport.canPublish,true);
+assert.equal(profileQuality(warningReport,'minimum'),'Ready');assert.equal(profileQuality(warningReport,'recommended'),'Incomplete');assert.equal(profileQuality(warningReport,'publication'),'Ready');
+assert.ok(profileIssues(warningReport.issues,'minimum').every(i=>i.severity==='Error'));
+const bpmnPath=path.join(folder,'Data/Drafts/md-order.bpmn');
+const bpmn=fs.readFileSync(bpmnPath,'utf8');
+assert.ok(bpmn.includes('<b:endEvent id="end" name="Готово"/>'));
+fs.writeFileSync(bpmnPath,bpmn.replace('<b:endEvent id="end" name="Готово"/>','<b:startEvent id="end" name="Ошибочно заданное начало"/>'));
+const blocked=await call('/api/processes/md-order/draft/validation');
+assert.ok(blocked.errorCount>0);assert.equal(blocked.canPublish,false);assert.ok(blocked.issues.some(i=>i.code==='missing-end'));
+for(const profile of ['minimum','recommended','publication'])assert.equal(profileQuality(blocked,profile),'Blocked');
+const audit=await call('/api/processes/audit');
+const draft=audit.items.find(i=>i.processId==='md-order'&&i.edition==='Draft');
+assert.ok(draft&&draft.errorCount>0);
+fs.writeFileSync(path.join(folder,'profile-reports.json'),JSON.stringify({warningReport,blocked,audit},null,2));
+console.log('Profile HTTP acceptance passed: recommendation-only report, canonical publication gate, deliberately broken draft and complete catalog diagnostics.');

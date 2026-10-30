@@ -23,13 +23,11 @@ import { CreateProcessDialog } from './CreateProcessDialog';
 import { EvidenceRegisterPage } from './EvidenceRegisterPage';
 import { ProcessCatalogDialog } from './ProcessCatalogDialog';
 import { ProcessPropertiesDialog } from './ProcessPropertiesDialog';
-import { PublicationValidationDialog } from './PublicationValidationDialog';
 import { AuditLogDialog } from './AuditLogDialog';
 import { WorkspaceHome, type HomeAction } from './WorkspaceHome';
 import { AppVersionPage } from './AppVersionPage';
 import { DraftLaneSyncDialog } from './DraftLaneSyncDialog';
 import { ProcessDirectionMatrixDialog } from './ProcessDirectionMatrixDialog';
-import { CatalogAuditDialog } from './CatalogAuditDialog';
 import { PersonalProcesses } from './PersonalProcesses';
 import { usePersonalWorkspace } from './usePersonalWorkspace';
 import { buildExecutionGuidance, buildReturnStepOptions } from './process-execution-flow';
@@ -40,6 +38,8 @@ import type { InformationObjectOccurrence, OrganizationMap, ProcessAssignments, 
 import './workflow-fixes.css';
 
 const BpmnEditor = lazy(() => import('./BpmnEditor').then(module => ({ default: module.BpmnEditor })));
+const CatalogAuditDialog = lazy(() => import('./CatalogAuditDialog').then(module => ({ default: module.CatalogAuditDialog })));
+const PublicationValidationDialog = lazy(() => import('./PublicationValidationDialog').then(module => ({ default: module.PublicationValidationDialog })));
 const HelpDialog = lazy(() => import('./HelpDialog').then(module => ({ default: module.HelpDialog })));
 const ImportDialog = lazy(() => import('./ImportDialog').then(module => ({ default: module.ImportDialog })));
 const UserAdminDialog = lazy(() => import('./UserAdminDialog').then(module => ({ default: module.UserAdminDialog })));

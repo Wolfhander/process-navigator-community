@@ -406,8 +406,8 @@ export async function publishDraft(id: string): Promise<ProcessSummary> {
   return response.json() as Promise<ProcessSummary>;
 }
 
-export async function validateDraft(id: string): Promise<ProcessValidationReport> {
-  const response = await fetch(`/api/processes/${encodeURIComponent(id)}/draft/validation`, { headers: roleHeaders() });
+export async function validateDraft(id: string, signal?:AbortSignal): Promise<ProcessValidationReport> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(id)}/draft/validation`, { headers: roleHeaders(),signal });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось проверить редакцию.'));
   return response.json() as Promise<ProcessValidationReport>;
 }

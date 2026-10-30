@@ -4,6 +4,8 @@ import { auditProcessCatalog, exportProcessCatalogAudit } from './api';
 import type { CatalogAuditItem, CatalogAuditReport, ProcessValidationIssue } from './types';
 import { auditWorkItemsCsv, buildCatalogAuditWorkItems, matchesAuditIssue } from './catalog-audit-worklist';
 import './catalog-audit.css';
+import {ValidationProfilePanel} from './ValidationProfilePanel';
+import {validationProfiles,profileIssues,profileQuality,profileResult,type ValidationProfile} from './validation-profiles';
 
 type StatusFilter = 'problems' | 'errors' | 'ready' | 'all';
 type EditionFilter = '' | 'Published' | 'Draft';
@@ -19,10 +21,6 @@ type Props = {
 };
 
 const itemKey = (item: CatalogAuditItem) => `${item.edition}:${item.fileName}`;
-const qualityLabel = (item: CatalogAuditItem) => item.qualityStatus === 'Blocked'
-  ? `${item.errorCount} ошибок`
-  : item.qualityStatus === 'Incomplete' ? `${item.warningCount} рекомендаций` : 'Готово к работе';
-
 export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, page = false, backLabel = 'Рабочее пространство' }: Props) {
   const [report, setReport] = useState<CatalogAuditReport>();
   const [selectedKey, setSelectedKey] = useState('');
@@ -35,6 +33,7 @@ export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, pag
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [fixing, setFixing] = useState(false);
+  const [profile,setProfile]=useState<ValidationProfile>('recommended');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,18 +47,19 @@ export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, pag
   }, [reload]);
 
   const visible = useMemo(() => (report?.items ?? []).filter(item => {
-    const matchesStatus = status === 'all' || (status === 'errors' ? item.errorCount > 0 : status === 'ready' ? item.qualityStatus === 'Ready' : item.qualityStatus !== 'Ready');
+    const quality=profileQuality(item,profile);
+    const matchesStatus = status === 'all' || (status === 'errors' ? quality === 'Blocked' : status === 'ready' ? quality === 'Ready' : quality !== 'Ready');
     const matchesEdition = !edition || item.edition === edition;
     const matchesCategory = (!category && status !== 'errors') || item.issues.some(issue => matchesAuditIssue(item, issue, category, status === 'errors', query));
     const haystack = [item.processName, item.processId, item.fileName, ...item.issues.flatMap(issue => [issue.code, issue.message, issue.elementName ?? ''])].join(' ').toLocaleLowerCase();
     return matchesStatus && matchesEdition && matchesCategory && haystack.includes(query.trim().toLocaleLowerCase());
-  }), [report, status, edition, category, query]);
+  }), [report, status, edition, category, query,profile]);
   const selected = visible.find(item => itemKey(item) === selectedKey) ?? visible[0];
-  const selectedIssues = selected?.issues.filter(issue => matchesAuditIssue(selected, issue, category, status === 'errors', query)) ?? [];
-  const workItems = useMemo(() => buildCatalogAuditWorkItems(visible, category, status === 'errors', query), [visible, category, status, query]);
+  const selectedIssues = selected?profileIssues(selected.issues,profile).filter(issue => matchesAuditIssue(selected, issue, category, status === 'errors', query)):[];
+  const workItems = useMemo(() => buildCatalogAuditWorkItems(visible, category, status === 'errors', query).filter(row=>profile!=='minimum'||row.issue.severity==='Error'), [visible, category, status, query,profile]);
   const mayFix = selected?.openable && (selected.edition === 'Draft' || selected.hasDraft || canCreateDraft);
   const exportVisibleIssues = () => {
-    const url = URL.createObjectURL(new Blob([auditWorkItemsCsv(workItems)], { type: 'text/csv;charset=utf-8' }));
+    const url = URL.createObjectURL(new Blob([auditWorkItemsCsv(workItems,validationProfiles[profile].label)], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = 'process-correction-worklist.csv'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -82,19 +82,21 @@ export function CatalogAuditDialog({ onClose, onOpen, onFix, canCreateDraft, pag
     {error && <div className="catalog-audit-error" role="alert"><AlertTriangle size={17}/>{error}<button onClick={() => setReload(value => value + 1)}>Повторить проверку</button></div>}
     {!report && !error && <div className="catalog-audit-loading"><div className="loader"/>Проверяем схемы и оргпривязки…</div>}
     {report && <>
+      <ValidationProfilePanel profile={profile} onChange={setProfile} input={selected} inputLabel={selected?selected.processName+' · '+(selected.edition==='Draft'?'Черновик':'Действующая')+' '+(selected.version??''):undefined}/>
+      <p className="catalog-profile-note">Сводка и категории ниже относятся к полному серверному отчёту. Каталог дополнительно проверяет реестр документов: его ошибки не равны обязательному серверному допуску публикации. Фильтр «Соответствуют профилю», карточки и выбранная выгрузка используют текущий профиль. Полный CSV не ограничен профилем. Проверка не разрешает автоматически выполнять или публиковать процесс.</p>
       <div className="catalog-audit-summary"><span><strong>{report.processCount}</strong> процессов</span><span><strong>{report.editionCount}</strong> редакций</span><span className="is-ready"><strong>{report.readyEditionCount}</strong> готовы</span><span className="is-warning"><strong>{report.incompleteEditionCount}</strong> требуют уточнений</span><span className="is-error"><strong>{report.blockedEditionCount}</strong> заблокированы</span></div>
       {report.categories.length > 0 && <div className="catalog-audit-categories" aria-label="Категории замечаний"><button className={!category ? 'active' : ''} onClick={() => setCategory('')}>Все категории <b>{report.errorCount + report.warningCount}</b></button>{report.categories.map(item => <button key={item.id} className={category === item.id ? 'active' : ''} onClick={() => setCategory(current => current === item.id ? '' : item.id)}>{item.name} <b>{item.errorCount + item.warningCount}</b></button>)}</div>}
       <div className="catalog-audit-view-tabs"><button className={viewMode === 'issues' ? 'active' : ''} onClick={() => setViewMode('issues')}><ListTodo size={15}/>Рабочий список <b>{workItems.length}</b></button><button className={viewMode === 'processes' ? 'active' : ''} onClick={() => setViewMode('processes')}><Layers3 size={15}/>По процессам <b>{visible.length}</b></button></div>
       <div className="catalog-audit-filters">
         <button onClick={exportVisibleIssues} disabled={!workItems.length}><Download size={15}/>Выгрузить выбранные замечания ({workItems.length})</button>
         <input aria-label="Поиск в проверке" placeholder="Процесс, файл, элемент или текст замечания" value={query} onChange={event => setQuery(event.target.value)}/>
-        <select aria-label="Статус качества" value={status} onChange={event => setStatus(event.target.value as StatusFilter)}><option value="problems">Требуют внимания</option><option value="errors">Только ошибки</option><option value="ready">Готовы к работе</option><option value="all">Все редакции</option></select>
+        <select aria-label="Статус качества" value={status} onChange={event => setStatus(event.target.value as StatusFilter)}><option value="problems">Требуют внимания</option><option value="errors">Только ошибки</option><option value="ready">Соответствуют профилю</option><option value="all">Все редакции</option></select>
         <select aria-label="Тип редакции" value={edition} onChange={event => setEdition(event.target.value as EditionFilter)}><option value="">Все редакции</option><option value="Published">Действующие</option><option value="Draft">Черновики</option></select>
-        <button onClick={() => setReload(value => value + 1)}><RefreshCw size={15}/>Обновить</button><button onClick={exportReport} disabled={exporting}><Download size={15}/>{exporting ? 'Выгружаем…' : 'Отчёт CSV'}</button>
+        <button onClick={() => setReload(value => value + 1)}><RefreshCw size={15}/>Обновить</button><button onClick={exportReport} disabled={exporting}><Download size={15}/>{exporting ? 'Выгружаем…' : 'Полный отчёт CSV'}</button>
       </div>
       {viewMode === 'issues' ? <div className="catalog-audit-work-list">{workItems.map(({ item, issue }, index) => { const fixable = item.openable && (item.edition === 'Draft' || item.hasDraft || canCreateDraft); return <article key={`${itemKey(item)}:${issue.code}:${issue.elementId ?? index}`} className={issue.severity === 'Error' ? 'is-error' : 'is-warning'}><AlertTriangle size={17}/><div><header><span className="catalog-audit-category">{report.categories.find(categoryItem => categoryItem.id === issue.category)?.name ?? 'Прочее'}</span><em>{issue.severity === 'Error' ? 'Ошибка' : 'Нужно дополнить'}</em></header><strong>{item.processName}</strong><p>{issue.message}</p>{issue.elementName && <small>{issue.elementName}</small>}<footer><span>{item.edition === 'Draft' ? 'Черновик' : 'Действующая редакция'} · {item.version ?? item.fileName}</span>{item.openable && issue.elementId && <button onClick={() => onOpen(item, issue)}>Показать на схеме</button>}{fixable && <button disabled={fixing} onClick={() => fix(item, issue)}><FilePenLine size={12}/>Исправить</button>}</footer></div></article>; })}{!workItems.length && <div className="empty-collection">По заданным условиям замечаний нет.</div>}</div> :
-      <div className="catalog-audit-main"><div className="catalog-audit-list">{visible.map(item => <button key={itemKey(item)} className={selected && itemKey(selected) === itemKey(item) ? 'active' : ''} onClick={() => setSelectedKey(itemKey(item))}><span><strong>{item.processName}</strong><small>{item.edition === 'Draft' ? 'Черновик' : 'Действующая редакция'} · {item.version ?? item.fileName}</small></span><em className={item.qualityStatus === 'Blocked' ? 'is-error' : item.qualityStatus === 'Incomplete' ? 'is-warning' : 'is-ready'}>{qualityLabel(item)}</em></button>)}{visible.length === 0 && <p>По заданным условиям редакций нет.</p>}</div>
-        <aside>{selected ? <><div className={`catalog-audit-quality is-${selected.qualityStatus.toLowerCase()}`}><strong>{selected.qualityStatus === 'Blocked' ? 'Использование заблокировано' : selected.qualityStatus === 'Incomplete' ? 'Требует уточнений' : 'Редакция готова к работе'}</strong><span>{selected.qualityStatus === 'Blocked' ? 'Исправьте ошибки в черновике и запустите проверку повторно.' : selected.qualityStatus === 'Incomplete' ? 'Схема связна, но некоторые данные рекомендуется дополнить.' : 'Обязательные проверки пройдены.'}</span></div><h3>{selected.processName}</h3><p>{selected.fileName} · {selected.edition === 'Draft' ? 'Черновик' : 'Действующая редакция'}</p><div className="catalog-audit-issues">{selectedIssues.map((issue, index) => <article key={`${issue.code}:${issue.elementId ?? index}`} className={issue.severity === 'Error' ? 'is-error' : 'is-warning'}><AlertTriangle size={16}/><span><small className="catalog-audit-category">{report.categories.find(item => item.id === issue.category)?.name ?? 'Прочее'}</small>{issue.message}{issue.elementName && <small>{issue.elementName}</small>}<span className="catalog-audit-issue-actions">{selected.openable && issue.elementId && <button className="catalog-audit-jump" onClick={() => onOpen(selected, issue)}>Показать</button>}{mayFix && <button className="catalog-audit-jump" disabled={fixing} onClick={() => fix(selected, issue)}><FilePenLine size={12}/>Исправить в черновике</button>}</span></span></article>)}{selectedIssues.length === 0 && <p>Замечаний в выбранной категории нет.</p>}</div><div className="catalog-audit-actions">{selected.openable && <button className="catalog-audit-secondary" onClick={() => onOpen(selected)}>Открыть редакцию</button>}{mayFix && selected.qualityStatus !== 'Ready' && <button className="catalog-audit-open" disabled={fixing} onClick={() => fix(selected)}><FilePenLine size={15}/>{fixing ? 'Открываем…' : selected.edition === 'Draft' || selected.hasDraft ? 'Открыть черновик' : 'Создать черновик и исправить'}</button>}</div></> : <p>Выберите редакцию слева, чтобы увидеть замечания.</p>}</aside></div>
+      <div className="catalog-audit-main"><div className="catalog-audit-list">{visible.map(item => <button key={itemKey(item)} className={selected && itemKey(selected) === itemKey(item) ? 'active' : ''} onClick={() => setSelectedKey(itemKey(item))}><span><strong>{item.processName}</strong><small>{item.edition === 'Draft' ? 'Черновик' : 'Действующая редакция'} · {item.version ?? item.fileName}</small></span><em className={profileQuality(item,profile) === 'Blocked' ? 'is-error' : profileQuality(item,profile) === 'Incomplete' ? 'is-warning' : 'is-ready'}>{profileResult(item,profile)}</em></button>)}{visible.length === 0 && <p>По заданным условиям редакций нет.</p>}</div>
+        <aside>{selected ? <><div className={`catalog-audit-quality is-${profileQuality(selected,profile).toLowerCase()}`}><strong>{profileQuality(selected,profile) === 'Blocked' ? 'Критерий профиля не пройден' : profileQuality(selected,profile) === 'Incomplete' ? 'Требует уточнений' : 'Критерий профиля пройден'}</strong><span>{profileQuality(selected,profile) === 'Blocked' ? 'Исправьте ошибки в черновике и запустите проверку повторно.' : profileQuality(selected,profile) === 'Incomplete' ? 'Критических ошибок не найдено, но описание рекомендуется дополнить.' : 'Обязательные проверки пройдены.'}</span></div><h3>{selected.processName}</h3><p>{selected.fileName} · {selected.edition === 'Draft' ? 'Черновик' : 'Действующая редакция'}</p><div className="catalog-audit-issues">{selectedIssues.map((issue, index) => <article key={`${issue.code}:${issue.elementId ?? index}`} className={issue.severity === 'Error' ? 'is-error' : 'is-warning'}><AlertTriangle size={16}/><span><small className="catalog-audit-category">{report.categories.find(item => item.id === issue.category)?.name ?? 'Прочее'}</small>{issue.message}{issue.elementName && <small>{issue.elementName}</small>}<span className="catalog-audit-issue-actions">{selected.openable && issue.elementId && <button className="catalog-audit-jump" onClick={() => onOpen(selected, issue)}>Показать</button>}{mayFix && <button className="catalog-audit-jump" disabled={fixing} onClick={() => fix(selected, issue)}><FilePenLine size={12}/>Исправить в черновике</button>}</span></span></article>)}{selectedIssues.length === 0 && <p>Замечаний в выбранной категории нет.</p>}</div><div className="catalog-audit-actions">{selected.openable && <button className="catalog-audit-secondary" onClick={() => onOpen(selected)}>Открыть редакцию</button>}{mayFix && selected.qualityStatus !== 'Ready' && <button className="catalog-audit-open" disabled={fixing} onClick={() => fix(selected)}><FilePenLine size={15}/>{fixing ? 'Открываем…' : selected.edition === 'Draft' || selected.hasDraft ? 'Открыть черновик' : 'Создать черновик и исправить'}</button>}</div></> : <p>Выберите редакцию слева, чтобы увидеть замечания.</p>}</aside></div>
       }
     </>}
     <footer><span>Проверка не изменяет процессы. Исправления выполняются только в черновиках.</span>{!page && <button onClick={onClose}>Закрыть</button>}</footer>

@@ -2,13 +2,14 @@ import type { CatalogAuditItem, ProcessValidationIssue } from './types';
 
 export type CatalogAuditWorkItem = { item: CatalogAuditItem; issue: ProcessValidationIssue };
 
-export function auditWorkItemsCsv(items: CatalogAuditWorkItem[]): string {
+export function auditWorkItemsCsv(items: CatalogAuditWorkItem[], profileLabel?:string): string {
   const cell = (value: string) => {
     const safe = /^[\s]*[=+@-]/.test(value) ? `'${value}` : value;
     return `"${safe.replaceAll('"', '""')}"`;
   };
   const rows = [['Процесс', 'ID процесса', 'Редакция', 'Категория', 'Важность', 'Код', 'Элемент', 'ID элемента', 'Замечание'],
     ...items.map(({ item, issue }) => [item.processName, item.processId, item.edition, issue.category, issue.severity, issue.code, issue.elementName ?? '', issue.elementId ?? '', issue.message])];
+  if(profileLabel!==undefined){rows[0].push('Профиль проверки');for(const row of rows.slice(1))row.push(profileLabel);}
   return '\uFEFF' + rows.map(row => row.map(cell).join(';')).join('\r\n');
 }
 
