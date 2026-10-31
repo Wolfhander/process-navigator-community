@@ -1,0 +1,15 @@
+{
+  "schemaVersion":1,
+  "purpose":"Synthetic saved execution facts for analytics, not a proof of end-to-end business execution.",
+  "processId":"demo-showcase-l3-warehouse",
+  "sourceModel":"tools/reset-demo-contour.mjs",
+  "generator":"tools/verify-execution-portfolio-http.mjs prepare",
+  "timePolicy":"Base is UTC now minus five days. All offsets are minutes.",
+  "instance":{"status":"Completed","startOffset":0,"completionOffset":120,"returnEvents":1},
+  "attempts":[
+    {"iteration":1,"current":false,"startedOffset":20,"completedOffset":60,"queueMinutes":20,"workMinutes":40,"durationMinutes":60,"overdueMinutes":0},
+    {"iteration":2,"current":true,"startedOffset":75,"completedOffset":105,"queueMinutes":10,"workMinutes":30,"durationMinutes":40,"overdueMinutes":5}
+  ],
+  "expected":{"calendarCycleMinutes":120,"averageQueueMinutes":15,"measuredWorkMinutes":70,"knownQueueSamples":2,"knownWorkSamples":2,"overdueSamples":1,"returnEvents":1},
+  "negativeCases":["cancelled and paused are not completed cycles","old version has no current unit attribution","missing minutes remain unknown","duplicate iteration IDs excluded","invalid timestamps and negative facts diagnosed","corrupt journal does not erase healthy observations"]
+}

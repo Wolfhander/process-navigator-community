@@ -1,0 +1,9 @@
+.execution-analytics{padding:24px;min-width:0}.execution-analytics header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.execution-analytics p,.execution-analytics strong,.execution-analytics code,.execution-analytics summary{overflow-wrap:anywhere;line-height:1.6}
+.execution-filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end;margin:24px 0}.execution-filters label{display:grid;gap:6px;min-width:0;flex:1 1 180px}
+.execution-filters input,.execution-filters select{min-width:0;width:100%;box-sizing:border-box;padding:10px;border:1px solid #cbd9cf;border-radius:7px}
+.execution-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:14px}
+.execution-kpis article,.execution-analytics details,.execution-department{border:1px solid #d5dfd7;border-radius:9px;background:white;padding:16px;margin:12px 0;min-width:0}
+.execution-kpis span,.execution-kpis strong{display:block}.execution-kpis strong{margin-top:10px;font-size:20px}
+.execution-department{display:grid;gap:8px}.execution-department progress{width:100%;accent-color:#28533d}
+.execution-analytics button{padding:10px;background:white;border:1px solid #cbd9cf;border-radius:7px;color:#28533d;margin:4px;white-space:normal}.execution-analytics button:disabled{opacity:.5}.execution-analytics [role=alert]{color:#a43629}

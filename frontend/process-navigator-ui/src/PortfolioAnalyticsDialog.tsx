@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense, type CSSProperties } from 'react';
 import { Activity, AlertTriangle, BarChart3, Building2, CheckCircle2, Clock3, FileWarning, GitBranch, Layers3, MonitorCog, Search, ShieldCheck, RefreshCw } from 'lucide-react';
 import { loadPortfolioAnalytics } from './api';
 import type { PortfolioAnalytics } from './types';
@@ -14,6 +14,7 @@ import { analyticsCsv, defaultAnalyticsSelection, selectAnalyticsProcesses, type
 
 type Props = { profileId: string; onClose: () => void; onOpenProcess: (id: string) => void };
 type View = AnalyticsView;
+const ExecutionAnalyticsPanel=lazy(()=>import('./ExecutionAnalyticsPanel').then(m=>({default:m.ExecutionAnalyticsPanel})));
 
 function percent(value: number, total: number) { return total ? Math.round(value / total * 100) : 0; }
 function duration(value?: number) {
@@ -56,9 +57,10 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
     <section className="portfolio-dialog" aria-label="Аналитика портфеля процессов">
       <header className="portfolio-header">
         <div><span className="eyebrow">Корпоративная аналитика</span><h2>Портфель бизнес-процессов</h2><p>Охват, качество моделей, участие подразделений и фактическое выполнение.</p></div>
-        <button className="portfolio-refresh" onClick={() => void refresh()} disabled={refreshing}><RefreshCw size={16}/>{refreshing ? 'Обновление…' : 'Обновить данные'}</button>
+        {view!=='execution'&&<button className="portfolio-refresh" onClick={() => void refresh()} disabled={refreshing}><RefreshCw size={16}/>{refreshing ? 'Обновление…' : 'Обновить данные'}</button>}
       </header>
       <nav className="portfolio-tabs" aria-label="Разделы аналитики">
+        <button className={view==='execution'?'is-active':''} onClick={()=>setView('execution')}><Activity size={15}/>Исполнение</button>
         <button className={view === 'documents' ? 'is-active' : ''} onClick={() => setView('documents')}><FileWarning size={15}/>Документы и передачи</button>
         <button className={view === 'overview' ? 'is-active' : ''} onClick={() => setView('overview')}><BarChart3 size={15}/>Обзор</button>
         <button className={view === 'processes' ? 'is-active' : ''} onClick={() => setView('processes')}><Layers3 size={15}/>Процессы</button>
@@ -66,9 +68,10 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
         <button className={view === 'systems' ? 'is-active' : ''} onClick={() => setView('systems')}><MonitorCog size={15}/>Системы и уровни</button>
         <button className={view === 'history' ? 'is-active' : ''} onClick={() => setView('history')}><Clock3 size={15}/>История и сравнение</button>
       </nav>
-      {error && <div className="portfolio-error"><AlertTriangle size={17}/>{error}</div>}
-      {!data && !error && <div className="portfolio-loading"><div className="loader"/>Собираем показатели по всему репозиторию…</div>}
-      {data && <div className="portfolio-content">
+      {view==='execution'&&<Suspense fallback={<p role="status">Открываем исполнение…</p>}><ExecutionAnalyticsPanel onOpenProcess={onOpenProcess}/></Suspense>}
+      {view!=='execution'&&error && <div className="portfolio-error"><AlertTriangle size={17}/>{error}</div>}
+      {view!=='execution'&&!data && !error && <div className="portfolio-loading"><div className="loader"/>Собираем показатели по всему репозиторию…</div>}
+      {view!=='execution'&&data && <div className="portfolio-content">
         {error && <p role="status">Показаны ранее загруженные данные от {loadedAt}; обновление не удалось.</p>}
         <AnalyticsWorkspaceControls profileId={profileId} current={{ view, query, filter, metrics }} loadedAt={loadedAt} count={processes.length} total={data.processes.length} onChange={next => { setView(next.view); setQuery(next.query); setFilter(next.filter); setMetrics(next.metrics); }} onExport={exportCsv}/>
         {exportError && <p role="alert">{exportError}</p>}
@@ -119,7 +122,7 @@ export function PortfolioAnalyticsDialog({ profileId, onClose, onOpenProcess }: 
           ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}</section>
         </div>}
       </div>}
-      <footer className="portfolio-footer"><span><CheckCircle2 size={14}/>{view === 'history' ? 'Сохранённые наблюдения текущего профиля. Исторические схемы этим разделом не восстанавливаются.' : 'Текущий срез репозитория. Сохранить наблюдение можно в разделе «История и сравнение».'}</span><button onClick={onClose}>На главную</button></footer>
+      <footer className="portfolio-footer"><span><CheckCircle2 size={14}/>{view === 'execution' ? 'Срез исполнения можно выгрузить в CSV; в историю портфеля он автоматически не записывается.' : view === 'history' ? 'Сохранённые наблюдения текущего профиля. Исторические схемы этим разделом не восстанавливаются.' : 'Текущий срез репозитория. Сохранить наблюдение можно в разделе «История и сравнение».'}</span><button onClick={onClose}>На главную</button></footer>
     </section>
   </main>;
 }

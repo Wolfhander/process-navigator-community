@@ -146,6 +146,11 @@ export async function draftRepairCall<T>(suffix:string,body?:unknown,signal?:Abo
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось подготовить или применить исправления.'));
   return response.json();
 }
+export async function loadExecutionPortfolio(signal?:AbortSignal):Promise<import('./execution-portfolio').ExecutionReport>{
+  const response=await fetch('/api/analytics/execution',{headers:roleHeaders(),signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось прочитать аналитику исполнения.'));
+  return response.json();
+}
 export async function previewDraftLaneNames(signal?:AbortSignal):Promise<LanePlan>{
   const response=await fetch('/api/admin/organization/sync-draft-lanes',{headers:roleHeaders(),signal});
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось подготовить план.'));

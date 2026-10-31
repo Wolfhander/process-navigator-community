@@ -30,6 +30,7 @@ builder.Services.AddSingleton<SourceMaterialService>();
 builder.Services.AddSingleton<ImportRecipeService>();
 builder.Services.AddSingleton<DraftLanePlanService>();
 builder.Services.AddSingleton<DraftRepairService>();
+builder.Services.AddSingleton<ExecutionPortfolioService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -232,6 +233,13 @@ app.MapPost("/api/admin/organization/sync-draft-lanes", async (LanePlanApply req
 
 app.MapGet("/api/session", (HttpContext context, AccessControlService access) => Results.Ok(access.Session(context)));
 app.MapDraftRepairs();
+app.MapGet("/api/analytics/execution",async(HttpContext c,ExecutionPortfolioService service,AccessControlService access,CancellationToken ct)=>{
+    c.Response.Headers["Cache-Control"]="no-store";
+    if(!access.Has(c,ProcessPermissions.ViewAnalytics))return Forbidden(ProcessPermissions.ViewAnalytics);
+    try{return Results.Ok(await service.BuildAsync(ct));}
+    catch(Exception e)when(e is InvalidDataException or JsonException){return Results.Problem(e.Message,statusCode:422);}
+    catch(Exception e)when(e is IOException or UnauthorizedAccessException){return Results.Problem("Не удалось прочитать данные выполнения.",statusCode:503);}
+});
 
 app.MapGet("/api/notifications", async (HttpContext context, NotificationService notifications,
     AccessControlService access, CancellationToken cancellationToken) =>
