@@ -8,14 +8,16 @@ type Props = { processId: string; processName: string; onClose: () => void; onSe
 function duration(value?: number) {
   if (value == null) return '—';
   if (value < 60) return `${Math.round(value)} мин`;
-  if (value < 480) return `${(value / 60).toFixed(1)} ч`;
-  return `${(value / 480).toFixed(1)} раб. дн.`;
+  return `${(value / 60).toFixed(1)} ч`;
 }
 
 export function AnalyticsDialog({ processId, processName, onClose, onSelectStep }: Props) {
   const [data, setData] = useState<ProcessAnalytics>();
   const [error, setError] = useState('');
-  useEffect(() => { loadProcessAnalytics(processId).then(setData).catch(reason => setError(reason.message)); }, [processId]);
+  useEffect(() => {const controller=new AbortController();setData(undefined);setError('');
+    loadProcessAnalytics(processId,controller.signal).then(value=>{if(!controller.signal.aborted)setData(value);}).catch(reason=>{if(!controller.signal.aborted)setError(reason.message);});
+    return()=>controller.abort();
+  }, [processId]);
   const steps = useMemo(() => data?.steps.slice().sort((a, b) => (b.overdueCount - a.overdueCount) || ((b.averageMinutes ?? -1) - (a.averageMinutes ?? -1))) ?? [], [data]);
   const maximum = Math.max(1, ...steps.map(step => step.averageMinutes ?? 0));
 
@@ -24,9 +26,11 @@ export function AnalyticsDialog({ processId, processName, onClose, onSelectStep 
       <button className="portfolio-refresh" onClick={onClose}><ArrowLeft size={17}/>К процессу</button>
       <span className="eyebrow">Аналитика выполнения · {processName}</span><h2>Время и узкие места</h2>
       <p>Фактические показатели рассчитываются по сохранённым экземплярам процесса. Выберите шаг, чтобы перейти к нему на схеме.</p>
+      <p>Время шага — очередь и работа без пауз экземпляра, в календарных минутах; это не рабочий календарь и не базовый план. Просрочка учитывает доступную очередь и заморожена при отмене; при отсутствии норматива не вычисляется. Средний цикл экземпляра — календарное время от запуска до завершения, включая паузы. После обновления страницы формируется новый серверный срез.</p>
       {error && <div className="import-message is-error"><AlertTriangle size={17}/><span>{error}</span></div>}
       {!data && !error && <div className="version-loading"><div className="loader"/>Собираем показатели…</div>}
       {data && <>
+        <p>Серверный срез UTC: {data.capturedAt||'время не передано старым сервером'}.</p>
         <div className="analytics-summary">
           <article><Activity size={17}/><span>Всего прохождений<strong>{data.totalInstances}</strong></span></article>
           <article><Clock3 size={17}/><span>Активных<strong>{data.activeInstances}</strong></span></article>

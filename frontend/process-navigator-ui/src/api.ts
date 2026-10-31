@@ -172,8 +172,8 @@ export async function saveProcessProperties(processId: string, update: ProcessPr
   return response.json() as Promise<ProcessModel>;
 }
 
-export async function loadProcessAnalytics(processId: string): Promise<ProcessAnalytics> {
-  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/analytics`, { headers: roleHeaders() });
+export async function loadProcessAnalytics(processId: string,signal?:AbortSignal): Promise<ProcessAnalytics> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/analytics`, { signal, headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить аналитику процесса.'));
   return response.json() as Promise<ProcessAnalytics>;
 }

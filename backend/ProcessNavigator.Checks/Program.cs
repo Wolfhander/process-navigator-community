@@ -10,6 +10,7 @@ count += TransferAnalyticsChecks.Run();
 count += TransferRouteChecks.Run();
 count += NestedTransferChecks.Run();
 count += BoundaryRouteChecks.Run();
+count += await ExecutionTimingChecks.RunAsync();
 count += OrganizationHeatmapChecks.Run();
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); count++; }
 var input = new InformationObjectBindingModel("request", "Заявка", "Input", Version: "1");

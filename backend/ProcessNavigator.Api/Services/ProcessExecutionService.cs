@@ -3,8 +3,9 @@ using ProcessNavigator.Api.Models;
 
 namespace ProcessNavigator.Api.Services;
 
-public sealed class ProcessExecutionService(IWebHostEnvironment environment)
+public sealed class ProcessExecutionService(IWebHostEnvironment environment,TimeProvider? timeProvider=null)
 {
+    private DateTimeOffset Now=>(timeProvider??TimeProvider.System).GetUtcNow();
     private readonly string root = Path.Combine(environment.ContentRootPath, "Data", "Executions");
     private readonly SemaphoreSlim writeLock = new(1, 1);
 
@@ -13,30 +14,30 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
 
     public async Task<ProcessAnalyticsModel> AnalyticsAsync(ProcessModel process, CancellationToken cancellationToken)
     {
-        var instances = await ReadAsync(process.Id, cancellationToken); var now = DateTimeOffset.UtcNow;
-        var completedCycles = instances.Where(item => item.CompletedAt.HasValue).Select(item => (item.CompletedAt!.Value - item.StartedAt).TotalMinutes).ToArray();
+        var instances = await ReadAsync(process.Id, cancellationToken); var now = Now;
+        var completedCycles = instances.Where(item => item.Status=="Completed"&&item.CompletedAt.HasValue&&item.CompletedAt>=item.StartedAt).Select(item => (item.CompletedAt!.Value - item.StartedAt).TotalMinutes).ToArray();
         var lanes = process.Lanes.ToDictionary(lane => lane.Id, lane => lane.Name);
         var steps = process.Nodes.Where(node => node.Type == "task").Select(node =>
         {
             var facts = instances.SelectMany(instance => instance.Steps).Where(step => step.ElementId == node.Id).ToArray();
-            var durations = facts.Where(step => step.StartedAt.HasValue && step.CompletedAt.HasValue)
-                .Select(step => step.ActualDurationMinutes ?? (step.CompletedAt!.Value - step.StartedAt!.Value).TotalMinutes).ToArray();
+            var durations=instances.SelectMany(i=>i.Steps.Where(s=>s.ElementId==node.Id&&s.Status=="Completed")
+                .Select(s=>ExecutionTiming.Measure(i,s,now).Total)).Where(v=>v.HasValue).Select(v=>v!.Value).ToArray();
             var norm = ParseNormMinutes(node.Duration);
-            var overdue = facts.Count(step => (step.OverdueMinutes ?? 0) > 0 ||
-                (step.Status == "InProgress" && step.PlannedCompletedAt.HasValue && step.PlannedCompletedAt.Value < now));
+            var overdue = instances.Sum(instance=>instance.Steps.Count(step=>step.ElementId==node.Id&&
+                (ExecutionTiming.Measure(instance,step,now).Overdue??0)>0));
             return new StepAnalyticsModel(node.Id, node.Name, lanes.GetValueOrDefault(node.LaneId, node.Responsible ?? "Без дорожки"), node.Duration,
-                facts.Count(step => step.Status == "Completed"), facts.Count(step => step.Status == "InProgress"),
+                facts.Count(step => step.Status == "Completed"), instances.Where(i=>i.Status is "Active" or "Paused").Sum(i=>i.Steps.Count(s=>s.ElementId==node.Id&&s.Status=="InProgress")),
                 durations.Length > 0 ? Math.Round(durations.Average(), 1) : null, durations.Length > 0 ? Math.Round(durations.Max(), 1) : null, overdue);
         }).ToArray();
         return new(process.Id, instances.Count, instances.Count(item => item.Status == "Active"), instances.Count(item => item.Status == "Completed"),
-            completedCycles.Length > 0 ? Math.Round(completedCycles.Average(), 1) : null, steps);
+            completedCycles.Length > 0 ? Math.Round(completedCycles.Average(), 1) : null, steps,now);
     }
 
     public async Task<ProcessInstanceModel> StartAsync(ProcessModel process, string userId, string? name, CancellationToken cancellationToken)
     {
-        var startedAt = DateTimeOffset.UtcNow;
+        var startedAt = Now;
         var instance = new ProcessInstanceModel(Guid.NewGuid().ToString("N"), process.Id, process.Version,
-            string.IsNullOrWhiteSpace(name) ? $"Выполнение от {DateTimeOffset.Now:dd.MM.yyyy HH:mm}" : name.Trim(), "Active",
+            string.IsNullOrWhiteSpace(name) ? $"Выполнение от {Now.ToLocalTime():dd.MM.yyyy HH:mm}" : name.Trim(), "Active",
             startedAt, null, userId, process.Nodes.Where(node => node.Type == "task")
                 .Select(node => new StepExecutionModel(node.Id, "NotStarted", null, null, null)).ToArray());
         instance = RefreshAvailablePlans(process, instance, startedAt);
@@ -81,7 +82,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
             if (missing.Length > 0)
                 throw new InvalidDataException($"Перед завершением зафиксируйте обязательные результаты: {string.Join(", ", missing)}.");
         }
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var branchChoice = currentStep.Status == "NotStarted"
             ? ResolveBranchChoices(process, current, elementId, userId, now)
             : new BranchChoiceResult([], []);
@@ -143,7 +144,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
         if (!affected.Any(step => step.ElementId == targetElementId) || !affected.Any(step => step.ElementId == fromElementId))
             throw new InvalidDataException("Не удалось определить участок маршрута для повторного прохода.");
 
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var cleanReason = reason.Trim();
         var resetIds = affected.Select(step => step.ElementId).ToHashSet(StringComparer.Ordinal);
         var steps = current.Steps.Select(step => !resetIds.Contains(step.ElementId) ? step : step with
@@ -219,7 +220,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
         EnsureEditable(current);
         var step = current.Steps.FirstOrDefault(item => item.ElementId == elementId) ?? throw new KeyNotFoundException("Instance step");
         if (step.Status != "InProgress") throw new InvalidDataException("Фактический результат можно записать только для шага в работе.");
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var resultObjects = selectedIds.Select(id => new StepExecutionResultObjectModel(id, available[id].Name, now, userId)).ToArray();
         var updatedStep = step with { ResultText = cleanText, ResultRecordedAt = now, ResultRecordedBy = userId, ResultObjects = resultObjects };
         var updated = current with { Steps = current.Steps.Select(item => item.ElementId == elementId ? updatedStep : item).ToArray() };
@@ -241,7 +242,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
         if (step.Status != "InProgress") throw new InvalidDataException("Вложение можно добавить только к шагу в работе.");
         if ((step.Attachments?.Count ?? 0) >= 20) throw new InvalidDataException("К одному проходу шага можно прикрепить не более 20 файлов.");
         var attachment = new StepExecutionAttachmentModel(artifact.Id, artifact.Name, artifact.Kind, artifact.Version,
-            artifact.Reference, Path.GetFileName(fileName), size, DateTimeOffset.UtcNow, userId);
+            artifact.Reference, Path.GetFileName(fileName), size, Now, userId);
         var updatedStep = step with { Attachments = (step.Attachments ?? []).Append(attachment).ToArray() };
         var updated = current with { Steps = current.Steps.Select(item => item.ElementId == elementId ? updatedStep : item).ToArray() };
         instances[index] = updated;
@@ -275,7 +276,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
             throw new InvalidDataException("Этот сотрудник уже назначен исполнителем шага.");
 
         var users = assignments.Users.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var assignmentEvent = new StepAssignmentEventModel(node.Id, node.Name, step.AssignedUserId,
             step.AssignedUserId is not null && users.TryGetValue(step.AssignedUserId, out var previous) ? previous.DisplayName : null,
             target.Id, target.DisplayName, cleanReason, now, assignedBy);
@@ -399,7 +400,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
             "resume" => throw new InvalidDataException("Возобновить можно только приостановленный экземпляр."),
             _ => throw new InvalidDataException("Отменить можно только активный или приостановленный экземпляр.")
         };
-        var now = DateTimeOffset.UtcNow;
+        var now = Now;
         var lifecycleEvent = new ProcessLifecycleEventModel(normalized, current.Status, nextStatus, cleanReason, now, userId);
         var steps = current.Steps;
         if (normalized == "resume")
@@ -590,41 +591,8 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment)
     private static StepExecutionModel CompleteTiming(ProcessInstanceModel instance, StepExecutionModel step,
         DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
-        var availableAt = step.AvailableAt ?? startedAt;
-        var queue = ActiveMinutes(instance, availableAt, startedAt);
-        var work = ActiveMinutes(instance, startedAt, completedAt);
-        var actual = queue + work;
-        double? overdue = step.PlannedDurationMinutes.HasValue ? Math.Max(0, actual - step.PlannedDurationMinutes.Value) : null;
-        return step with
-        {
-            ActualQueueMinutes = Math.Round(queue, 2),
-            ActualWorkMinutes = Math.Round(work, 2),
-            ActualDurationMinutes = Math.Round(actual, 2),
-            OverdueMinutes = overdue.HasValue ? Math.Round(overdue.Value, 2) : null
-        };
-    }
-
-    private static double ActiveMinutes(ProcessInstanceModel instance, DateTimeOffset from, DateTimeOffset to)
-    {
-        if (to <= from) return 0;
-        var paused = TimeSpan.Zero;
-        DateTimeOffset? pausedAt = null;
-        foreach (var item in (instance.LifecycleEvents ?? []).OrderBy(item => item.OccurredAt))
-        {
-            if (item.ToStatus == "Paused") pausedAt = item.OccurredAt;
-            if (item.FromStatus != "Paused" || !pausedAt.HasValue) continue;
-            paused += Overlap(pausedAt.Value, item.OccurredAt, from, to);
-            pausedAt = null;
-        }
-        if (pausedAt.HasValue) paused += Overlap(pausedAt.Value, to, from, to);
-        return Math.Max(0, (to - from - paused).TotalMinutes);
-    }
-
-    private static TimeSpan Overlap(DateTimeOffset firstStart, DateTimeOffset firstEnd, DateTimeOffset secondStart, DateTimeOffset secondEnd)
-    {
-        var start = firstStart > secondStart ? firstStart : secondStart;
-        var end = firstEnd < secondEnd ? firstEnd : secondEnd;
-        return end > start ? end - start : TimeSpan.Zero;
+        var timing=ExecutionTiming.Measure(instance,step with{Status="Completed",StartedAt=startedAt,CompletedAt=completedAt},completedAt);
+        return step with{ActualQueueMinutes=timing.Queue,ActualWorkMinutes=timing.Work,ActualDurationMinutes=timing.Total,OverdueMinutes=timing.Overdue};
     }
 
     private static string LifecycleTitle(string action) => action switch

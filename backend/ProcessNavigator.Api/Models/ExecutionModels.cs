@@ -43,4 +43,4 @@ public sealed record ExecutionTimelineModel(string ProcessId, string InstanceId,
 public sealed record StepAnalyticsModel(string ElementId, string Name, string LaneName, string? Norm,
     int CompletedCount, int InProgressCount, double? AverageMinutes, double? MaximumMinutes, int OverdueCount);
 public sealed record ProcessAnalyticsModel(string ProcessId, int TotalInstances, int ActiveInstances, int CompletedInstances,
-    double? AverageCycleMinutes, IReadOnlyList<StepAnalyticsModel> Steps);
+    double? AverageCycleMinutes, IReadOnlyList<StepAnalyticsModel> Steps,DateTimeOffset? CapturedAt=null);
