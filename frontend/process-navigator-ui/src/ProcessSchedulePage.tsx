@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect,useMemo, useState } from 'react';
+import type {ObjectScheduleSeed} from './object-route-scenario';
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, CalendarX2, CheckCircle2, Clock3, Download, Gauge, Milestone, Network, Play, Plus, RotateCcw, Settings2, Trash2 } from 'lucide-react';
 import { calculateProcessSchedule } from './api';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
@@ -11,15 +12,18 @@ import type { ScheduleSnapshot } from './schedule-snapshots';
 import type { ProcessSchedule, ProcessScheduleRequest, ProcessSummary, ScheduleCalendar, ScheduleRepetition } from './types';
 import './process-schedule.css';
 
-type Props = { userId: string; canAssign?: boolean; catalog: ProcessSummary[]; onBack: () => void; onOpen: (processId: string) => void };
+type Props = { userId: string; canAssign?: boolean; catalog: ProcessSummary[]; onBack: () => void; onOpen: (processId: string) => void;initialScenario?:ObjectScheduleSeed;onSeedConsumed?:()=>void };
 const week = [{ id: 1, short: 'Пн' }, { id: 2, short: 'Вт' }, { id: 3, short: 'Ср' }, { id: 4, short: 'Чт' }, { id: 5, short: 'Пт' }, { id: 6, short: 'Сб' }, { id: 0, short: 'Вс' }];
 
 function localInputValue(value: Date | string) { const date = value instanceof Date ? value : new Date(value); const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
 function displayDate(value: string) { return new Date(value).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function displayHours(value: number) { return `${Math.round(value * 10) / 10} ч`; }
 
-export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack, onOpen }: Props) {
-  const [rootProcessId, setRootProcessId] = useState(catalog[0]?.id ?? '');
+export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack, onOpen,initialScenario,onSeedConsumed }: Props) {
+  const [seed]=useState(initialScenario);
+  useEffect(()=>{onSeedConsumed?.();},[]);
+  const seedAvailable=!!seed&&catalog.some(p=>p.id===seed.processId);
+  const [rootProcessId, setRootProcessId] = useState(seed?(seedAvailable?seed.processId:''):catalog[0]?.id ?? '');
   const [direction, setDirection] = useState<'Forward' | 'Backward'>('Forward');
   const [anchorDate, setAnchorDate] = useState(localInputValue(new Date()));
   const [includeWaitTime, setIncludeWaitTime] = useState(true);
@@ -34,7 +38,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
   const [checkpoints, setCheckpoints] = useState<Record<string, string>>({});
   const [utcOffsetMinutes, setUtcOffsetMinutes] = useState(-new Date().getTimezoneOffset());
   const [processCalendars, setProcessCalendars] = useState<Record<string, ScheduleCalendar>>({});
-  const [processBranches, setProcessBranches] = useState<Record<string, Record<string, string>>>({});
+  const [processBranches, setProcessBranches] = useState<Record<string, Record<string, string>>>(seed&&seedAvailable?{[seed.processId]:{...seed.choices}}:{});
   const [processRepetitions, setProcessRepetitions] = useState<Record<string, ScheduleRepetition>>({});
   const [lastRequest, setLastRequest] = useState<ProcessScheduleRequest>();
   const [scenarioDirty, setScenarioDirty] = useState(false);
@@ -86,6 +90,8 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
   };
 
   return <main className="feature-page schedule-page"><div className="feature-page-shell">
+    {seed&&<p role="status">Параметры исходов перенесены из карточки объекта: {seed.processId}, {seed.status} {seed.version}. Расчёт не запущен автоматически и использует доступные сейчас модели; перепроверьте исходы и редакции перед запуском.</p>}
+    {seed&&!seedAvailable&&<p role="alert">Исходный процесс отсутствует в доступном каталоге. Его исходы не применены; выберите процесс явно.</p>}
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Расчёт сроков</strong></nav>
     <header className="schedule-heading"><div><span className="eyebrow">Цепочка процессов и документов</span><h1>Калькулятор сроков</h1><p>Прямой и обратный расчёт по нормам шагов, передачам документов и рабочему календарю. Сценарий позволяет менять отдельные ветви и контролировать обязательные даты.</p></div><div className="schedule-heading-actions">{result && <button onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button>}<CalendarClock size={42}/></div></header>
     <fieldset disabled={busy} className="schedule-controls"><section className="schedule-form">

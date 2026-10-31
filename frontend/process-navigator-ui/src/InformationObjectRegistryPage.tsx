@@ -8,8 +8,9 @@ import { InformationObjectCompositionEditor } from './InformationObjectCompositi
 import { InformationTransferPage } from './InformationTransferPage';
 import { InformationReconciliationPage } from './InformationReconciliationPage';
 import './information-object-registry.css';
+import type {ObjectScheduleSeed} from './object-route-scenario';
 
-type Props = { canManage: boolean; onBack: () => void; onOpen: (occurrence: InformationObjectOccurrence) => void };
+type Props = { canManage: boolean; onBack: () => void; onOpen: (occurrence: InformationObjectOccurrence) => void;onSchedule?:(seed:ObjectScheduleSeed)=>void };
 type Filter = 'all' | 'broken' | InformationObjectIssue['code'];
 type UpstreamItem = { object: InformationObject; depth: number; viaProcesses: string[] };
 
@@ -37,7 +38,7 @@ function upstreamFor(root: InformationObject, objects: InformationObject[]) {
   return result;
 }
 
-export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Props) {
+export function InformationObjectRegistryPage({ canManage, onBack, onOpen,onSchedule }: Props) {
   const [registry, setRegistry] = useState<InformationObjectRegistry>();
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
@@ -100,7 +101,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen }: Pro
   const detail = registry?.objects.find(item => item.id === detailId);
   if (reconciliation && registry) return <InformationReconciliationPage objects={registry.objects} onBack={() => setReconciliation(false)} onOpen={id => { setReconciliation(false); setDetailId(id); }}/>;
   if (transfers) return <InformationTransferPage objects={objects} registryGeneratedAt={registry?.generatedAt} onBack={() => setTransfers(false)} onOpen={onOpen}/>;
-  if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} objects={registry!.objects} onOpenObject={setDetailId} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen}/>;
+  if (detail) return <InformationObjectDetailPage key={detail.id} item={detail} objects={registry!.objects} onOpenObject={setDetailId} issues={issuesByObject.get(detail.id) ?? []} onBack={() => setDetailId(undefined)} onOpen={onOpen} onSchedule={onSchedule}/>;
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Документы и результаты</strong></nav>
     <header className="registry-heading"><div><span className="eyebrow">Сквозные зависимости</span><h1>Документы и результаты</h1><p>Автоматический реестр входов и выходов всех доступных процессов. Он показывает, где объект создаётся, кто его получает и где цепочка обрывается.</p></div><div className="registry-heading-actions"><button disabled={!registry} onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button><button onClick={refresh}><RefreshCw size={16}/>Пересчитать</button></div></header>

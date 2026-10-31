@@ -14,3 +14,9 @@
 .transfer-controls,.transfer-pagination{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:16px 0}.transfer-controls label{display:grid;gap:6px;flex:1;min-width:180px}.transfer-controls input,.transfer-controls select{width:100%;min-width:0;box-sizing:border-box;padding:10px}.transfer-pagination{align-items:center}.transfer-table code{overflow-wrap:anywhere;white-space:normal}
 .transfer-controls>button,.transfer-pagination button{padding:10px 14px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);cursor:pointer}.transfer-controls>button:disabled,.transfer-pagination button:disabled{opacity:.5;cursor:default}
 @media (max-width: 700px) { .transfer-table table { min-width: 650px; } }
+.object-route-scenario{min-width:0;overflow-wrap:anywhere;margin:24px 0}
+.object-route-scenario>article{padding:16px;border:1px solid var(--line);border-radius:8px;margin:12px 0}
+.object-route-scenario label{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;align-items:center}
+.object-route-scenario select{min-width:0;max-width:100%;padding:8px;flex:1}
+.object-route-scenario button,.object-route-scenario summary{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.object-route-scenario details{padding:8px;border-left:2px solid var(--line);margin:8px 0}

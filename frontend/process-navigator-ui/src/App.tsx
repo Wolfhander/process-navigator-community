@@ -89,6 +89,7 @@ export default function App() {
   const [enterpriseOpen, setEnterpriseOpen] = useState(!initialLocation);
   useEffect(() => { setProcessView('diagram'); }, [enterpriseOpen, session?.currentUser.id]);
   const [homeSection, setHomeSection] = useState<HomeSection>(initialSection && initialSection !== 'analytics' ? initialSection : 'home');
+  const [objectScheduleSeed,setObjectScheduleSeed]=useState<{owner:string;value:import('./object-route-scenario').ObjectScheduleSeed}>();
   const [organizationIdentity, setOrganizationIdentity] = useState<OrganizationMap>();
   const [organizationEditor, setOrganizationEditor] = useState<OrganizationMap>();
   const [laneOrganizationEditor, setLaneOrganizationEditor] = useState<{ organization: OrganizationMap; process: ProcessModel }>();
@@ -599,7 +600,7 @@ export default function App() {
         notify(item.edition !== 'Draft' && !item.hasDraft ? 'Создан черновик для исправления' : 'Открыт черновик для исправления');
       }}/>
     }
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'informationObjects' && <InformationObjectRegistryPage canManage={can('process.context.edit')} onBack={() => navigateSection('home')} onOpen={openInformationOccurrence}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'informationObjects' && <InformationObjectRegistryPage key={session.currentUser.id} canManage={can('process.context.edit')} onBack={() => navigateSection('home')} onOpen={openInformationOccurrence} onSchedule={value=>{setObjectScheduleSeed({owner:session.currentUser.id,value});navigateSection('schedule');}}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'evidenceRegister' && <EvidenceRegisterPage key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} catalog={catalog} canReview={can('process.context.edit')} onBack={() => navigateSection('home')} onOpen={entry => {
       openProcess(entry.processId);
       setProcess(undefined);
@@ -612,7 +613,7 @@ export default function App() {
       setArchivedVersion(!target.draft&&catalog.find(p=>p.id===target.processId)?.version!==target.processVersion?target.processVersion:undefined);
       setReloadKey(v=>v+1);setPendingAuditTarget(target.elementId?{processId:target.processId,elementId:target.elementId}:undefined);
     }}/>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage key={session.currentUser.id} userId={session.currentUser.id} canAssign={can('process.execute')} catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage key={session.currentUser.id} userId={session.currentUser.id} canAssign={can('process.execute')} catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess} initialScenario={objectScheduleSeed?.owner===session.currentUser.id?objectScheduleSeed.value:undefined} onSeedConsumed={()=>setObjectScheduleSeed(undefined)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'organization' && (organizationEditor ? <OrganizationAdminDialog page
       organization={organizationEditor}
       catalog={catalog}

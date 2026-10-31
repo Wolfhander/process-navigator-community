@@ -1,0 +1,26 @@
+import fs from 'node:fs';import path from 'node:path';import net from 'node:net';import assert from 'node:assert/strict';import {spawn} from 'node:child_process';import {fileURLToPath} from 'node:url';import {createDemoContour} from './reset-demo-contour.mjs';
+import {objectRouteScenario} from '../frontend/process-navigator-ui/src/object-route-scenario.ts';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),folder=fs.mkdtempSync(path.join(root,'artifacts','object-route-http-')),data=path.join(folder,'Data');
+for(const [name,text]of createDemoContour().files){const p=path.join(data,name);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,text);}
+const spec=JSON.parse(fs.readFileSync(path.join(root,'master-data','object-route-scenario-fixture.json'),'utf8'));
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+const nodes=spec.nodes,edges=spec.edges;
+const shapes=['lane',...nodes.map(n=>n.id)].map((n,i)=>'<bpmndi:BPMNShape id="shape_'+esc(n)+'" bpmnElement="'+esc(n)+'"><dc:Bounds x="'+(i*180)+'" y="0" width="160" height="100"/></bpmndi:BPMNShape>').join('');
+const xml='<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" targetNamespace="urn:synthetic:object-route"><bpmn:process id="'+spec.id+'" name="Учебные альтернативные результаты"><bpmn:laneSet id="ls"><bpmn:lane id="lane">'+nodes.map(n=>'<bpmn:flowNodeRef>'+esc(n.id)+'</bpmn:flowNodeRef>').join('')+'</bpmn:lane></bpmn:laneSet>'+nodes.map(n=>'<bpmn:'+n.type+' id="'+n.id+'" name="'+esc(n.name??n.id)+'"/>').join('')+edges.map(e=>'<bpmn:sequenceFlow id="'+e.id+'" sourceRef="'+e.sourceId+'" targetRef="'+e.targetId+'" name="'+esc(e.label??'')+'"/>').join('')+'</bpmn:process><bpmndi:BPMNDiagram id="d"><bpmndi:BPMNPlane id="pl" bpmnElement="'+spec.id+'">'+shapes+edges.map(e=>'<bpmndi:BPMNEdge id="di_'+e.id+'" bpmnElement="'+e.id+'"><di:waypoint x="0" y="0"/><di:waypoint x="180" y="0"/></bpmndi:BPMNEdge>').join('')+'</bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn:definitions>';
+const original=Buffer.from(xml),context={version:'1.0',owner:'Учебное подразделение',status:'Published',elements:Object.fromEntries(nodes.filter(n=>n.type==='task').map(n=>[n.id,{workDuration:'1 час',informationObjects:n.id==='make'||n.id==='use'?[{objectId:'scenario-route-document',name:'Учебный чертёж',role:n.id==='make'?'Output':'Input',required:true}]:[]}]))};
+fs.writeFileSync(path.join(data,spec.id+'.bpmn'),original);fs.writeFileSync(path.join(data,spec.id+'.context.json'),JSON.stringify(context));
+const probe=net.createServer();await new Promise((r,j)=>{probe.once('error',j);probe.listen(0,'127.0.0.1',r);});const port=probe.address().port;await new Promise(r=>probe.close(r));const origin='http://127.0.0.1:'+port;
+const dll=path.join(root,'backend','ProcessNavigator.Api','bin','Release','net9.0','ProcessNavigator.Api.dll'),fd=fs.openSync(path.join(folder,'server.log'),'wx');assert.ok(fs.existsSync(dll));
+const server=spawn('dotnet',[dll,'--contentRoot',folder,'--urls',origin],{cwd:folder,windowsHide:true,stdio:['ignore',fd,fd],env:{...process.env,ASPNETCORE_ENVIRONMENT:'Development'}});fs.closeSync(fd);let checks=0;
+try{
+ let ready=false;for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error('Own server exited');try{if((await fetch(origin+'/api/session')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,200));}assert.ok(ready);
+ async function call(url,body){const res=await fetch(origin+url,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-Process-Navigator-User':'demo-superadministrator'},body:body?JSON.stringify(body):undefined});assert.equal(res.status,200,url);checks++;return res.json();}
+ const model=await call('/api/processes/'+spec.id);
+ for(const c of spec.cases){const report=objectRouteScenario({processId:spec.id,scope:'Step',elementId:c.target},model,c.choices);assert.equal(report.status,c.status);assert.equal(report.alternatives.length,c.alternatives);checks++;}
+ for(const [choices,hours,missing]of [[{g1:'yes',g2:'check'},2,false],[{g1:'yes',g2:'skip'},1,true],[{g1:'no'},2,true]]){
+   const result=await call('/api/processes/schedule',{rootProcessId:spec.id,direction:'Forward',anchorDate:'2026-10-19T06:00:00Z',utcOffsetMinutes:180,processBranches:{[spec.id]:choices}});
+   assert.equal(result.processes.find(p=>p.processId===spec.id).durationHours,hours);assert.equal(result.issues.some(i=>i.code==='missing-producer'&&i.objectId==='scenario-route-document'),missing);checks++;
+ }
+ assert.deepEqual(fs.readFileSync(path.join(data,spec.id+'.bpmn')),original);assert.deepEqual(JSON.parse(fs.readFileSync(path.join(data,spec.id+'.context.json'),'utf8')),context);checks++;
+ fs.writeFileSync(path.join(folder,'report.json'),JSON.stringify({checks,paths:true,selectedDurations:[2,1,2],missingProducerPreserved:true,modelsUnchanged:true},null,2));console.log('Object route HTTP checks passed: '+checks+'; '+folder);
+}finally{server.kill();await Promise.race([new Promise(r=>server.once('exit',r)),new Promise(r=>setTimeout(r,3000))]);}

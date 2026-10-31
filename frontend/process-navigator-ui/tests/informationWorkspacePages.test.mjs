@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createElement,Fragment} from 'react';
+import {createElement,Fragment,useState as realUseState} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {transformWithOxc} from 'vite';
 import {informationObjectVersions,occurrenceDetails} from '../src/information-object-detail.ts';
-import {informationObjectRoute} from '../src/information-object-route.ts';
+import {objectRouteScenario} from '../src/object-route-scenario.ts';
 import {informationTransfers} from '../src/information-transfers.ts';
 import * as report from '../src/information-transfer-report.ts';
 const code=async name=>(await transformWithOxc(readFileSync(new URL('../src/'+name+'.tsx',import.meta.url),'utf8'),name+'.tsx',{jsx:{runtime:'classic'}})).code.replace(/^import [^\n]+;$/gm,'').replace('export function ','function ');
@@ -16,9 +16,10 @@ function makePage(body,name,params){
   return new Function(...Object.keys(params),body+';return '+name+';')(...Object.values(params));
 }
 const noop=()=>{};
+const ObjectRouteScenarioPanel=makePage(await code('ObjectRouteScenarioPanel'),'ObjectRouteScenarioPanel',{React:{createElement,Fragment},useState:realUseState,objectRouteScenario});
 test('object card displays version, state, aliases, missing parties and unavailable model without inventing transfer facts',()=>{
   const states=[{},undefined,false,[]];
-  const Page=makePage(detailCode,'InformationObjectDetailPage',{React:{createElement,Fragment},useState:()=>[states.shift(),noop],useEffect:noop,ArrowLeft:()=>null,ArrowRight:()=>null,informationObjectVersions,occurrenceDetails,informationObjectRoute});
+  const Page=makePage(detailCode,'InformationObjectDetailPage',{React:{createElement,Fragment},useState:()=>[states.shift(),noop],useEffect:noop,ArrowLeft:()=>null,ArrowRight:()=>null,informationObjectVersions,occurrenceDetails,ObjectRouteScenarioPanel});
   const html=renderToStaticMarkup(createElement(Page,{item,objects:[item],issues:[{code:'missing-consumer',message:'Нет получателя'}],onBack:noop,onOpen:noop,onOpenObject:noop}));
   for(const text of ['Карточка объекта','Действующий','Модель','Версия реестра: 2','Создают','Получают','Не найдены в доступных моделях','Сведения этапа недоступны','не хранилище файлов'])assert.ok(html.includes(text),text);
   assert.doesNotMatch(html,/undefined|NaN/);

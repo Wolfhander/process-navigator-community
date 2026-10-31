@@ -1,0 +1,12 @@
+{
+  "synthetic": true,
+  "id": "object-route-master",
+  "nodes": [{"id":"s","type":"startEvent"},{"id":"g1","type":"exclusiveGateway","name":"Нужен чертёж?"},{"id":"g2","type":"exclusiveGateway","name":"Нужна проверка?"},{"id":"make","type":"task"},{"id":"bypass","type":"task"},{"id":"use","type":"task"},{"id":"z","type":"endEvent"}],
+  "edges": [{"id":"sg","sourceId":"s","targetId":"g1"},{"id":"yes","sourceId":"g1","targetId":"g2","label":"Да"},{"id":"no","sourceId":"g1","targetId":"bypass","label":"Нет"},{"id":"check","sourceId":"g2","targetId":"make","label":"С проверкой"},{"id":"skip","sourceId":"g2","targetId":"use","label":"Без проверки"},{"id":"mu","sourceId":"make","targetId":"use"},{"id":"bu","sourceId":"bypass","targetId":"use"},{"id":"uz","sourceId":"use","targetId":"z"}],
+  "cases": [
+    {"target":"make","choices":{},"status":"Reachable","alternatives":1,"conditions":2},
+    {"target":"use","choices":{},"status":"Reachable","alternatives":3,"conditions":null},
+    {"target":"make","choices":{"g1":"no"},"status":"Unreachable","alternatives":0,"conditions":null},
+    {"target":"use","choices":{"g1":"yes","g2":"skip"},"status":"Reachable","alternatives":1,"conditions":2}
+  ]
+}
