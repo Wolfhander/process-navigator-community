@@ -56,6 +56,7 @@ Check(InformationObjectPolicy.AffectedConsumers(versionRecipients, "version-sour
 count += await RegistryLifecycleChecks.RunAsync();
 count += await WorkRulesChecks.RunAsync();
 count += await PackageContextChecks.RunAsync();
+count += await EvidenceReviewChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();

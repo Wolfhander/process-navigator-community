@@ -5,8 +5,10 @@ import type { ProcessSummary } from './types';
 import { collectEvidence, evidenceReportCsv, filterEvidence } from './evidence-register';
 import type { EvidenceEntry } from './evidence-register';
 import './evidence-register.css';
+import { EvidenceReviewPage } from './EvidenceReviewPage';
 
-export function EvidenceRegisterPage({ catalog, onBack, onOpen }: { catalog: ProcessSummary[]; onBack: () => void; onOpen: (entry: EvidenceEntry) => void }) {
+export function EvidenceRegisterPage({ catalog, onBack, onOpen, canReview=false }: { catalog: ProcessSummary[]; onBack: () => void; onOpen: (entry: EvidenceEntry) => void; canReview?: boolean }) {
+  const [review,setReview]=useState<EvidenceEntry>();
   const [entries, setEntries] = useState<EvidenceEntry[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(true);
@@ -53,6 +55,7 @@ export function EvidenceRegisterPage({ catalog, onBack, onOpen }: { catalog: Pro
     link.href = url; link.download = 'process-evidence-report.csv'; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
+  if(review)return <EvidenceReviewPage entry={review} canReview={canReview} onBack={()=>setReview(undefined)}/>;
   return <main className="evidence-register"><header><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><button disabled={busy} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16}/>Обновить</button></header>
     <span className="eyebrow">Качество описания</span><h1>Источники и вопросы</h1>
     <p>Записи шагов действующих моделей и черновиков. Это отдельные редакции: одинаковый вопрос может встречаться в обеих. Архивные версии не включены.</p>
@@ -72,6 +75,7 @@ export function EvidenceRegisterPage({ catalog, onBack, onOpen }: { catalog: Pro
       <h2>{entry.processName}</h2><h3>{entry.elementName}</h3><p className="evidence-statement">{entry.statement}</p>
       {entry.source && <p>Источник: {entry.source}</p>}{entry.locator && <p>Место: {entry.locator}</p>}{entry.author && <p>Автор сведений: {entry.author}</p>}
       <button onClick={() => onOpen(entry)}>Открыть {entry.elementId ? 'элемент' : 'процесс'} {entry.edition === 'Draft' ? 'черновика' : 'действующей модели'}</button>
+      {entry.elementId&&['fact','assumption','question','missing'].includes(entry.status)&&<button onClick={()=>setReview(entry)}>История проверки основания</button>}
     </article>)}</div>
   </main>;
 }

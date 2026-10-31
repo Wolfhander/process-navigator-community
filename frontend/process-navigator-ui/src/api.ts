@@ -495,6 +495,14 @@ export async function importProcess(bpmnFile: File, contextFile?: File): Promise
   return response.json() as Promise<ProcessImportResult>;
 }
 
+export type EvidenceReviewEvent={id:string;elementId:string;index:number;version:string;draft:boolean;fingerprint:string;action:'review'|'withdraw';reason:string;actorId:string;actorName:string;recordedAt:string;evidence:import('./types').StepEvidence};
+export type EvidenceReviewReport={processId:string;elementId:string;version:string;draft:boolean;entries:{index:number;fingerprint:string;evidence:import('./types').StepEvidence;state:'unreviewed'|'reviewed'|'stale'|'withdrawn'}[];history:EvidenceReviewEvent[]};
+export async function evidenceReviewCall(processId:string,elementId:string,draft:boolean,body?:{index:number;expectedVersion:string;expectedFingerprint:string;action:'review'|'withdraw';reason:string},signal?:AbortSignal):Promise<EvidenceReviewReport>{
+  const response=await fetch('/api/processes/'+encodeURIComponent(processId)+'/elements/'+encodeURIComponent(elementId)+'/evidence-reviews?draft='+draft,{method:body?'POST':'GET',headers:{...roleHeaders(),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось загрузить или записать проверку основания.'));
+  return response.json();
+}
+
 export function downloadProcessPackage(processId: string, draft: boolean) {
   return downloadAdminFile('/api/processes/'+encodeURIComponent(processId)+'/package-export?draft='+draft,processId+'.zip');
 }

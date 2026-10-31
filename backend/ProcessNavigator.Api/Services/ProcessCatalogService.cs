@@ -888,6 +888,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             Path.Combine(loader.DataRoot, "Assignments", $"{processId}.json"),
             Path.Combine(loader.DataRoot, "Executions", $"{processId}.json"),
             Path.Combine(loader.DataRoot, "Comments", $"{processId}.json"),
+            Path.Combine(loader.DataRoot, "EvidenceReviews", EvidenceReviewService.FileNameFor(processId)),
             Path.Combine(loader.DataRoot, "Commands", $"{processId}.json")
         };
         if (!knownFiles.Any(File.Exists) && !Directory.Exists(archive)) throw new FileNotFoundException();

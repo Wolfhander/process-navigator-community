@@ -20,7 +20,7 @@ import { EnterpriseMap } from './EnterpriseMap';
 import { LaneOrganizationDialog } from './LaneOrganizationDialog';
 import { DeploymentDialog } from './DeploymentDialog';
 import { CreateProcessDialog } from './CreateProcessDialog';
-import { EvidenceRegisterPage } from './EvidenceRegisterPage';
+const EvidenceRegisterPage=lazy(()=>import('./EvidenceRegisterPage').then(m=>({default:m.EvidenceRegisterPage})));
 import { ProcessCatalogDialog } from './ProcessCatalogDialog';
 import { ProcessPropertiesDialog } from './ProcessPropertiesDialog';
 import { AuditLogDialog } from './AuditLogDialog';
@@ -594,7 +594,7 @@ export default function App() {
       }}/>
     }
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'informationObjects' && <InformationObjectRegistryPage canManage={can('process.context.edit')} onBack={() => navigateSection('home')} onOpen={openInformationOccurrence}/>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'evidenceRegister' && <EvidenceRegisterPage catalog={catalog} onBack={() => navigateSection('home')} onOpen={entry => {
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'evidenceRegister' && <EvidenceRegisterPage key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} catalog={catalog} canReview={can('process.context.edit')} onBack={() => navigateSection('home')} onOpen={entry => {
       openProcess(entry.processId);
       setProcess(undefined);
       setDraftView(entry.edition === 'Draft');

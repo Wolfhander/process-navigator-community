@@ -25,6 +25,7 @@ builder.Services.AddSingleton<PortfolioAnalyticsService>();
 builder.Services.AddSingleton<TransferAnalyticsService>();
 builder.Services.AddSingleton<OrganizationHeatmapService>();
 builder.Services.AddSingleton<PortfolioHistoryService>();
+builder.Services.AddSingleton<EvidenceReviewService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -1062,6 +1063,27 @@ app.MapDelete("/api/processes/table-selection-sets/{id}", async (string id, Http
     if (!access.Has(context, ProcessPermissions.Import)) return Forbidden(ProcessPermissions.Import);
     try { return await selectionSets.DeleteAsync(access.CurrentUser(context).Id, id, cancellationToken) ? Results.NoContent() : Results.NotFound(); }
     catch (InvalidDataException exception) { return Results.BadRequest(new { message = exception.Message }); }
+});
+
+app.MapGet("/api/processes/{processId}/elements/{elementId}/evidence-reviews", async (string processId,string elementId,bool? draft,
+    HttpContext context,EvidenceReviewService reviews,AccessControlService access,CancellationToken ct) =>
+{
+    if(!access.Has(context,ProcessPermissions.View))return Forbidden(ProcessPermissions.View);
+    if(draft==true&&!CanOpenDraft(context,access))return Forbidden("process.draft.view");
+    try{return Results.Ok(await reviews.LoadAsync(processId,elementId,draft==true,ct));}
+    catch(Exception e) when(e is FileNotFoundException or KeyNotFoundException){return Results.NotFound(new{message="Модель или элемент не найдены."});}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422);}
+});
+app.MapPost("/api/processes/{processId}/elements/{elementId}/evidence-reviews", async (string processId,string elementId,bool? draft,
+    EvidenceReviewRequest request,HttpContext context,EvidenceReviewService reviews,AccessControlService access,CancellationToken ct) =>
+{
+    if(!access.Has(context,ProcessPermissions.View))return Forbidden(ProcessPermissions.View);
+    if(!access.Has(context,ProcessPermissions.EditContext))return Forbidden(ProcessPermissions.EditContext);
+    if(draft==true&&!CanOpenDraft(context,access))return Forbidden("process.draft.view");
+    var user=access.CurrentUser(context);
+    try{return Results.Ok(await reviews.RecordAsync(processId,elementId,draft==true,request,user.Id,user.DisplayName,ct));}
+    catch(Exception e) when(e is FileNotFoundException or KeyNotFoundException){return Results.NotFound(new{message="Модель или элемент не найдены."});}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422);}
 });
 
 app.MapGet("/api/processes/{processId}/package-export", async (string processId, bool? draft, HttpContext context,
