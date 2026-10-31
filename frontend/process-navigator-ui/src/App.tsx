@@ -26,7 +26,7 @@ import { ProcessCatalogDialog } from './ProcessCatalogDialog';
 import { ProcessPropertiesDialog } from './ProcessPropertiesDialog';
 import { AuditLogDialog } from './AuditLogDialog';
 import { WorkspaceHome, type HomeAction } from './WorkspaceHome';
-import { AppVersionPage } from './AppVersionPage';
+const AppVersionPage=lazy(()=>import('./AppVersionPage').then(m=>({default:m.AppVersionPage})));
 const DraftLaneSyncDialog=lazy(()=>import('./DraftLaneSyncDialog').then(m=>({default:m.DraftLaneSyncDialog})));
 import { ProcessDirectionMatrixDialog } from './ProcessDirectionMatrixDialog';
 import { PersonalProcesses } from './PersonalProcesses';

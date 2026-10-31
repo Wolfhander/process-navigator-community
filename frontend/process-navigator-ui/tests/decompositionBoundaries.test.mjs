@@ -45,4 +45,12 @@ test('boundary cards page at fifty without hiding full diagnostics or allowing H
   const html=renderToStaticMarkup(Page({data:{processes:[],links:Array.from({length:51},(_,i)=>link('task-'+i,{elementName:'<script>alert(1)</script>',missingBoundaries:['<b>Не совпали документы</b>'],boundaryReady:false}))},query:'',loadedAt:'2026-10-30'}));
   assert.equal((html.match(/<article>/g)??[]).length,50);assert.match(html,/Найдено 51 из 51/);assert.match(html,/Страница 1 из 2/);
   assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/&lt;b&gt;Не совпали документы/);assert.match(html,/edition=draft/);
+  assert.match(html,/Поздний, необязательный или условный производитель не гарантирует вход/);assert.match(html,/не фактическое наличие файлов/);assert.match(html,/текстовых условий/);
+});
+
+test('route availability warnings remain searchable and exported with their child anchors',()=>{
+  const message='Обязательный вход [doc] не подтверждён до этапа [use]';
+  const model={processes:[],links:[link('call',{boundaryReady:false,missingBoundaries:[message]})]};
+  assert.equal(selectBoundaries(model,'[use]','review').length,1);
+  assert.ok(boundariesCsv(model,'[use]','review','2026-10-31').includes(message));
 });

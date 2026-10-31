@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "document": "doc",
+  "cases": [
+    {"id":"serial-ready","nodes":["s|startEvent","make|task","use|task","z|endEvent"],"edges":[["s","make"],["make","use"],["use","z"]],"unavailable":false},
+    {"id":"late-producer","nodes":["s|startEvent","make|task","use|task","z|endEvent"],"edges":[["s","use"],["use","make"],["make","z"]],"unavailable":true},
+    {"id":"xor-bypass","nodes":["s|startEvent","f|exclusiveGateway","make|task","b|task","j|exclusiveGateway","use|task","z|endEvent"],"edges":[["s","f"],["f","make"],["f","b"],["make","j"],["b","j"],["j","use"],["use","z"]],"unavailable":true},
+    {"id":"and-supply","nodes":["s|startEvent","f|parallelGateway","make|task","b|task","j|parallelGateway","use|task","z|endEvent"],"edges":[["s","f"],["f","make"],["f","b"],["make","j"],["b","j"],["j","use"],["use","z"]],"unavailable":false}
+  ]
+}

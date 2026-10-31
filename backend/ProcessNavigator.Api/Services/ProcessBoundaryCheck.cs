@@ -33,7 +33,7 @@ public static class ProcessBoundaryCheck
                 Warn("version", $"Для объекта «{binding.Name}» [{binding.ObjectId}] на границе указана версия «{binding.Version}», но в соответствующих задачах «{child.Name}» такая версия не указана. Проверьте версии и условия передачи.", binding.ObjectId);
         }
         // A missing producer is a structural indication, not proof of an external source.
-        // If a producer exists, route/branch analysis is deliberately left to later checks.
+        // Producer presence alone is insufficient; BoundaryRouteCheck handles order/branches below.
         foreach (var input in nested.Where(item => item.Role == "Input" && item.Required))
         {
             if (nested.Any(item => item.Role == "Output" && item.ObjectId.Equals(input.ObjectId, StringComparison.OrdinalIgnoreCase))) continue;
@@ -47,6 +47,7 @@ public static class ProcessBoundaryCheck
             if (candidates.Length > 0 && !string.IsNullOrWhiteSpace(input.Version) && !candidates.Any(item => item.Version == input.Version))
                 Warn("version", $"Детальный процесс «{child.Name}» требует объект «{input.Name}» [{input.ObjectId}] версии «{input.Version}», но такая версия не указана среди входов родительского этапа. Проверьте передачу и условия ветвей.", input.ObjectId);
         }
+        issues.AddRange(BoundaryRouteCheck.Compare(parent,child));
         return issues;
     }
 }
