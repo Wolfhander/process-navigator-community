@@ -31,6 +31,7 @@ builder.Services.AddSingleton<ImportRecipeService>();
 builder.Services.AddSingleton<DraftLanePlanService>();
 builder.Services.AddSingleton<DraftRepairService>();
 builder.Services.AddSingleton<ExecutionPortfolioService>();
+builder.Services.AddSingleton<RequestDiagnostics>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -53,6 +54,9 @@ builder.Services.AddHttpClient("one-c", client => client.DefaultRequestHeaders.U
 builder.Services.AddSingleton<OneCIntegrationService>();
 
 var app = builder.Build();
+app.UseMiddleware<RequestDiagnosticsMiddleware>();
+app.UseRouting();
+app.MapRequestDiagnostics();
 
 var servesWebApplication = Directory.Exists(app.Environment.WebRootPath)
     && File.Exists(Path.Combine(app.Environment.WebRootPath, "index.html"));
@@ -72,9 +76,11 @@ app.Use(async (context, next) =>
         var access = context.RequestServices.GetRequiredService<AccessControlService>();
         await audit.RecordAsync(access.CurrentUser(context), context.Request.Method, context.Request.Path.Value ?? string.Empty, context.RequestAborted);
     }
-    catch (Exception exception)
+    catch (Exception)
     {
-        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("AuditLog").LogError(exception, "Audit entry could not be persisted.");
+        RequestDiagnostics.AuditFailure(context);
+        context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("AuditLog")
+            .LogError("Audit entry could not be persisted; operation {OperationId}.",context.TraceIdentifier);
     }
 });
 

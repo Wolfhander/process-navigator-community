@@ -1,10 +1,10 @@
 import {readProcessLocation} from './process-location.ts';
 import {analyticsViews,type AnalyticsView} from './analytics-views.ts';
 
-export const appSections=['home','map','settings','version','roadmap','demonstrations','analytics','import','importHistory','help','catalog','catalogAudit','evidenceRegister','sourceMaterials','informationObjects','schedule','organization','users','directions','auditLog','laneSync','draftRepairs'] as const;
+export const appSections=['home','map','settings','version','roadmap','demonstrations','analytics','import','importHistory','help','catalog','catalogAudit','evidenceRegister','sourceMaterials','informationObjects','schedule','organization','users','directions','auditLog','laneSync','draftRepairs','diagnostics'] as const;
 export type AppSection=typeof appSections[number];
 export type HomeSection=Exclude<AppSection,'analytics'>;
-const sectionPermissions:Partial<Record<AppSection,readonly string[]>>={analytics:['analytics.view'],organization:['system.manage'],directions:['system.manage'],auditLog:['system.manage'],laneSync:['system.manage'],draftRepairs:['system.manage'],users:['users.manage'],import:['process.import'],importHistory:['process.import'],catalogAudit:['process.diagram.edit','process.context.edit','process.publish']};
+const sectionPermissions:Partial<Record<AppSection,readonly string[]>>={analytics:['analytics.view'],organization:['system.manage'],directions:['system.manage'],auditLog:['system.manage'],laneSync:['system.manage'],draftRepairs:['system.manage'],diagnostics:['system.manage'],users:['users.manage'],import:['process.import'],importHistory:['process.import'],catalogAudit:['process.diagram.edit','process.context.edit','process.publish']};
 // Mirrors existing navigation cards; API authorization remains authoritative.
 export function isSectionAvailable(section:AppSection,permissions:readonly string[]) {
   return !sectionPermissions[section]||sectionPermissions[section]!.some(permission=>permissions.includes(permission));

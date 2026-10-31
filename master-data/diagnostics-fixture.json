@@ -1,0 +1,9 @@
+{
+  "schemaVersion":1,
+  "purpose":"Privacy canaries and operation-correlation acceptance; all markers are invented, not credentials.",
+  "canaries":["CANARY_PRIVATE_TOKEN","C:/PRIVATE/PATH","name@example.invalid","private-item"],
+  "inputLocations":["request path","query","authorization header","cookie header","request body","exception message","unknown JSON properties"],
+  "allowedEventFields":["at","operationId","method","category","status","elapsedMilliseconds","failure"],
+  "expected":{"serverGeneratedId":true,"canariesInPacket":false,"canariesInOwnStructuredErrorLog":false,"unhandledStatus":500,"storageStatus":503,"window":1000,"after1005Requests":{"retained":1000,"discarded":5},"newJournalRequests":0},
+  "generator":"tools/verify-request-diagnostics-http.mjs prepare"
+}

@@ -2,10 +2,11 @@ import { ArrowRight, BarChart3, BookOpen, Building2, CalendarClock, ClipboardLis
 import type { LucideIcon } from 'lucide-react';
 import type { ProcessSummary } from './types';
 import type { ReactNode } from 'react';
-export type HomeAction = 'map' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'sourceMaterials' | 'informationObjects' | 'schedule' | 'analytics' | 'settings' | 'version' | 'syncLanes' | 'directionMatrix' | 'create' | 'import' | 'importHistory' | 'organization' | 'users' | 'audit' | 'deployment' | 'integration' | 'help';
+export type HomeAction = 'diagnostics' | 'map' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'sourceMaterials' | 'informationObjects' | 'schedule' | 'analytics' | 'settings' | 'version' | 'syncLanes' | 'directionMatrix' | 'create' | 'import' | 'importHistory' | 'organization' | 'users' | 'audit' | 'deployment' | 'integration' | 'help';
 type Props = { settings: boolean; groupName: string; catalog: ProcessSummary[]; can: (permission: string) => boolean; onAction: (action: HomeAction) => void; children?: ReactNode };
 export function WorkspaceHome({ settings, groupName, catalog, can, onAction, children }: Props) {
   const cards: { action: HomeAction; title: string; description: string; icon: LucideIcon; permission?: string }[] = settings ? [
+    {action:'diagnostics',title:'Диагностика и коды операций',description:'Краткий технический журнал и безопасный пакет для разбора сбоев.',icon:ListChecks,permission:'system.manage'},
     { action: 'organization', title: 'Группа и оргструктура', description: 'Юридические лица, подразделения, направления и название группы.', icon: Building2, permission: 'system.manage' },
     { action: 'directionMatrix', title: 'Распределение процессов', description: 'Назначить направления нескольким процессам в общей таблице.', icon: ClipboardList, permission: 'system.manage' },
     { action: 'syncLanes', title: 'Обновить дорожки черновиков', description: 'Привести названия дорожек к актуальным подразделениям после изменения оргструктуры.', icon: Network, permission: 'system.manage' },

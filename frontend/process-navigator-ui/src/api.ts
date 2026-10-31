@@ -1,5 +1,6 @@
 import type { CatalogAuditReport, CommandExecution, DeploymentProfile, DraftLaneSyncReport, ElementComment, ElementContextUpdate, ExecutionTimeline, InformationObjectRegistry, InformationObjectUpdate, LaneOrganization, OneCConnectionStatus, OneCIntegrationSettings, OneCIntegrationUpdate, OrganizationMap, PortfolioAnalytics, ProcessAnalytics, ProcessAssignments, ProcessImportResult, ProcessPackageImportResult, ProcessSchedule, ProcessScheduleRequest, ProcessTableImportCleanupResult, ProcessTableImportHistoryItem, ProcessTableImportReport, ProcessTableImportResult, ProcessTableImportRetentionPolicy, ProcessTablePreview, ProcessTableSelectionSet, ProcessInstance, ProcessModel, ProcessNode, ProcessPropertiesUpdate, ProcessSummary, ProcessValidationReport, ProcessVersion, RepositoryArtifact, RepositoryArtifactUpload, SearchResult, Session, UserDirectory, UserNotification, UserProfile, UserUpdate } from './types';
 import { readHostContext } from './host';
+import {withOperationId} from './request-diagnostics';
 import type { PortfolioSnapshot, PortfolioSnapshotSummary } from './portfolio-history';
 import type { TransferReport } from './transfer-analytics';
 import type { DepartmentReport } from './department-heatmap';
@@ -374,12 +375,17 @@ export async function uploadStepAttachment(processId: string, instanceId: string
 }
 
 async function errorMessage(response: Response, fallback: string) {
+  let message=fallback;
   try {
     const payload = await response.json() as { message?: string; detail?: string; title?: string };
-    return payload.message ?? payload.detail ?? payload.title ?? fallback;
-  } catch {
-    return fallback;
-  }
+    message=[payload.message,payload.detail,payload.title].find(value=>typeof value==='string'&&value.trim())??fallback;
+  } catch {}
+  return withOperationId(message,response.headers.get('X-Process-Navigator-Operation-Id'));
+}
+export async function loadDiagnostics(signal?:AbortSignal):Promise<import('./request-diagnostics').DiagnosticPackage>{
+  const response=await fetch('/api/admin/diagnostics',{headers:roleHeaders(),signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось загрузить диагностику.'));
+  return response.json();
 }
 
 export async function loadProcess(id: string, signal?: AbortSignal, draft = false): Promise<ProcessModel> {

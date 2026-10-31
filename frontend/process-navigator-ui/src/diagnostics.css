@@ -1,0 +1,6 @@
+.app-shell>.diagnostics-page{grid-row:2/-1;min-height:0;overflow:auto;background:#f5f8f4}
+.diagnostics-content{max-width:1450px;margin:auto;padding:26px clamp(16px,3vw,46px)}.diagnostics-content h1{font:600 clamp(28px,3vw,40px) Georgia,serif}
+.diagnostics-content p,.diagnostics-content code{overflow-wrap:anywhere;line-height:1.6}.diagnostics-content article{background:white;padding:18px;border:1px solid #cbd9cf;border-radius:9px;margin:14px 0}
+.diagnostics-content button{padding:11px;margin:4px;border:1px solid #cbd9cf;border-radius:7px;background:white;color:#28533d;white-space:normal}.diagnostics-content button:disabled{opacity:.5}
+.diagnostics-filters{display:flex;flex-wrap:wrap;gap:20px;margin:20px 0;align-items:end}.diagnostics-filters label{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.diagnostics-filters input:not([type=checkbox]){padding:10px;max-width:100%;box-sizing:border-box;min-width:0}
+.diagnostics-content [role=alert]{color:#a43629}
