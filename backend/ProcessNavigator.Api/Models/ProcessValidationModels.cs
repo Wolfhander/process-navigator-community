@@ -13,4 +13,5 @@ public sealed record ProcessValidationReportModel(
     bool CanPublish,
     int ErrorCount,
     int WarningCount,
-    IReadOnlyList<ProcessValidationIssueModel> Issues);
+    IReadOnlyList<ProcessValidationIssueModel> Issues,
+    RouteTopologyReport? Topology = null);

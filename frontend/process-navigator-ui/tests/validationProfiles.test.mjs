@@ -54,7 +54,8 @@ test('publication button remains governed by server, even if recommended profile
   async function render(report,profile){
     const state=[report,'',0,profile];
     const icons=Object.fromEntries(['AlertTriangle','CheckCircle2','RefreshCw','Rocket','X','XCircle'].map(k=>[k,'span']));
-    const Dialog=await compile('PublicationValidationDialog',{...profiles,...icons,ValidationProfilePanel:Panel,useState:()=>[state.shift(),()=>{}],useEffect(){}});
+    const RouteTopologySummary=await compile('RouteTopologySummary',{});
+    const Dialog=await compile('PublicationValidationDialog',{...profiles,...icons,RouteTopologySummary,ValidationProfilePanel:Panel,useState:()=>[state.shift(),()=>{}],useEffect(){}});
     return renderToStaticMarkup(createElement(Dialog,{processId:'demo',version:'1.1',busy:false,onClose(){},onPublish(){},onSelectElement(){}}));
   }
   const recommended=await render(input([warning]),'recommended');

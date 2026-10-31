@@ -1,0 +1,9 @@
+{
+  "synthetic": true,
+  "cases": [
+    {"id":"and-pair","nodes":["s|startEvent","f|parallelGateway","a|task","b|task","j|parallelGateway","z|endEvent"],"edges":[["s","f",""],["f","a",""],["f","b",""],["a","j",""],["b","j",""],["j","z",""]],"pairs":1,"cycles":0,"errors":0},
+    {"id":"separate-ends","nodes":["s|startEvent","f|parallelGateway","a|endEvent","b|endEvent"],"edges":[["s","f",""],["f","a",""],["f","b",""]],"pairs":0,"cycles":0,"errors":0},
+    {"id":"controlled-repeat","nodes":["a|task","x|exclusiveGateway","z|endEvent"],"edges":[["a","x",""],["x","a","Повторить"],["x","z","Готово"]],"pairs":0,"cycles":1,"errors":0},
+    {"id":"closed-repeat","nodes":["a|task","b|task"],"edges":[["a","b",""],["b","a",""]],"pairs":0,"cycles":1,"errors":1}
+  ]
+}

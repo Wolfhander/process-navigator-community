@@ -64,6 +64,7 @@ count += await DraftLanePlanChecks.RunAsync();
 count += await DraftRepairChecks.RunAsync();
 count += await ExecutionPortfolioChecks.RunAsync();
 count += await RequestDiagnosticsChecks.RunAsync();
+count += await RouteTopologyChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();

@@ -52,19 +52,8 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
         var reachableFromStart = Traverse(starts.Select(node => node.Id), outgoing, edge => edge.TargetId);
         var canReachEnd = Traverse(ends.Select(node => node.Id), incoming, edge => edge.SourceId);
 
-        foreach (var cycle in FindCycles(process.Nodes.Select(node => node.Id), outgoing))
-        {
-            var cycleNames = cycle.Select(id => process.Nodes.FirstOrDefault(node => node.Id == id)?.Name ?? id).ToArray();
-            var controlledExit = cycle.SelectMany(id => outgoing.GetValueOrDefault(id) ?? [])
-                .Any(edge => !cycle.Contains(edge.TargetId) && !string.IsNullOrWhiteSpace(edge.Label) &&
-                    process.Nodes.Any(node => node.Id == edge.SourceId && node.Type == "exclusiveGateway"));
-            var elementId = cycle.OrderBy(id => id, StringComparer.Ordinal).First();
-            var elementName = process.Nodes.FirstOrDefault(node => node.Id == elementId)?.Name;
-            if (controlledExit)
-                Warning("route-cycle-controlled", $"Маршрут содержит управляемый повтор: {string.Join(" → ", cycleNames)}. Проверьте условие выхода и допустимое число повторов.", elementId, elementName);
-            else
-                Error("route-cycle-without-exit", $"Обнаружен цикл без подписанного выхода через исключающую развилку: {string.Join(" → ", cycleNames)}.", elementId, elementName);
-        }
+        var topology=RouteTopologyCheck.Analyze(process,cancellationToken);
+        issues.AddRange(topology.Issues);
 
         foreach (var node in process.Nodes)
         {
@@ -83,8 +72,8 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
             if (node.Type == "exclusiveGateway")
             {
                 var branches = outgoing.GetValueOrDefault(node.Id) ?? [];
-                if (branches.Length < 2) Error("gateway-branches", $"Шлюз «{node.Name}» должен иметь не менее двух исходящих ветвей.", node.Id, node.Name);
-                foreach (var edge in branches.Where(edge => string.IsNullOrWhiteSpace(edge.Label)))
+                if (branches.Length < 2 && (incoming.GetValueOrDefault(node.Id)?.Length ?? 0) < 2) Error("gateway-branches", $"Шлюз «{node.Name}» должен разделять либо объединять не менее двух ветвей.", node.Id, node.Name);
+                foreach (var edge in branches.Where(edge => branches.Length >= 2 && string.IsNullOrWhiteSpace(edge.Label)))
                     Error("gateway-label", $"У шлюза «{node.Name}» есть неподписанная исходящая ветвь.", node.Id, node.Name);
             }
 
@@ -202,7 +191,7 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
 
         var ordered = issues.OrderBy(issue => issue.Severity == "Error" ? 0 : 1).ThenBy(issue => issue.Message).ToArray();
         var errorCount = ordered.Count(issue => issue.Severity == "Error");
-        return new(processId, errorCount == 0, errorCount, ordered.Length - errorCount, ordered);
+        return new(processId, errorCount == 0, errorCount, ordered.Length - errorCount, ordered, topology);
     }
 
     private async Task<bool> CanReachProcessAsync(
@@ -239,42 +228,6 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
             foreach (var edge in adjacency.GetValueOrDefault(id) ?? []) queue.Enqueue(next(edge));
         }
         return visited;
-    }
-
-    private static IReadOnlyList<HashSet<string>> FindCycles(IEnumerable<string> nodeIds,
-        IReadOnlyDictionary<string, EdgeModel[]> outgoing)
-    {
-        var index = 0;
-        var indices = new Dictionary<string, int>(StringComparer.Ordinal);
-        var lowLinks = new Dictionary<string, int>(StringComparer.Ordinal);
-        var stack = new Stack<string>();
-        var onStack = new HashSet<string>(StringComparer.Ordinal);
-        var result = new List<HashSet<string>>();
-
-        void Visit(string id)
-        {
-            indices[id] = lowLinks[id] = index++;
-            stack.Push(id);
-            onStack.Add(id);
-            foreach (var edge in outgoing.GetValueOrDefault(id) ?? [])
-            {
-                if (!indices.ContainsKey(edge.TargetId))
-                {
-                    Visit(edge.TargetId);
-                    lowLinks[id] = Math.Min(lowLinks[id], lowLinks[edge.TargetId]);
-                }
-                else if (onStack.Contains(edge.TargetId)) lowLinks[id] = Math.Min(lowLinks[id], indices[edge.TargetId]);
-            }
-            if (lowLinks[id] != indices[id]) return;
-            var component = new HashSet<string>(StringComparer.Ordinal);
-            string current;
-            do { current = stack.Pop(); onStack.Remove(current); component.Add(current); } while (current != id);
-            var selfLoop = component.Count == 1 && (outgoing.GetValueOrDefault(id) ?? []).Any(edge => edge.TargetId == id);
-            if (component.Count > 1 || selfLoop) result.Add(component);
-        }
-
-        foreach (var id in nodeIds) if (!indices.ContainsKey(id)) Visit(id);
-        return result;
     }
 
     private static string Category(string code)
