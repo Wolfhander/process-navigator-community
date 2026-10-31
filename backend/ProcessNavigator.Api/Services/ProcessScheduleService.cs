@@ -6,7 +6,38 @@ namespace ProcessNavigator.Api.Services;
 
 public sealed partial class ProcessScheduleService(ProcessCatalogService catalog, InformationObjectRegistryService registry)
 {
-    public async Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
+    public const string Algorithm = "schedule-v3-route-scenario";
+    public Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
+        CancellationToken cancellationToken = default) => CalculateCoreAsync(request,includeDrafts,null,cancellationToken);
+
+    public Task<ProcessScheduleModel> ReplayAsync(ProcessScheduleRequestModel request,ScheduleSourceSnapshotModel source,
+        CancellationToken cancellationToken=default)
+    {
+        if(source.Algorithm!=Algorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
+        if(source.Processes is null||source.Objects is null||source.Processes.Count is <1 or >200||source.Objects.Count>10000||
+            source.Processes.Any(p=>p is null||string.IsNullOrWhiteSpace(p.Id)||p.Nodes is null||p.Edges is null||p.Lanes is null||p.Nodes.Count>10000||p.Edges.Count>20000)||
+            source.Processes.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=source.Processes.Count||
+            source.Objects.Any(o=>o is null||string.IsNullOrWhiteSpace(o.Id)||o.Producers is null||o.Consumers is null||o.References is null)||
+            source.Objects.Select(o=>o.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=source.Objects.Count||
+            source.Objects.Sum(o=>(long)o.Producers.Count+o.Consumers.Count+o.References.Count)>100000||
+            source.Objects.Sum(o=>(long)o.Producers.Count*o.Consumers.Count)>200000)
+            throw new InvalidDataException("Сохранённые исходники неполны, неоднозначны или превышают предел повторного расчёта.");
+        cancellationToken.ThrowIfCancellationRequested();
+        if(!source.Processes.Any(p=>p.Id.Equals(request.RootProcessId,StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidDataException("Исходный процесс отсутствует в сохранённом снимке.");
+        foreach(var model in source.Processes){
+            var ids=model.Nodes.Where(n=>n is not null).Select(n=>n.Id).ToHashSet(StringComparer.Ordinal);
+            if(model.Nodes.Any(n=>n is null||string.IsNullOrWhiteSpace(n.Id))||ids.Count!=model.Nodes.Count||
+                model.Edges.Any(e=>e is null||!ids.Contains(e.SourceId)||!ids.Contains(e.TargetId))||
+                model.Edges.Select(e=>e.Id).Distinct(StringComparer.Ordinal).Count()!=model.Edges.Count)
+                throw new InvalidDataException("Неоднозначные элементы или обрывы в сохранённой модели.");
+        }
+        if(source.Objects.Any(o=>o.Producers.Concat(o.Consumers).Concat(o.References).Any(v=>v is null||string.IsNullOrWhiteSpace(v.ProcessId))))
+            throw new InvalidDataException("Повреждены участники передачи сохранённого объекта.");
+        return CalculateCoreAsync(request,false,source,cancellationToken);
+    }
+
+    private async Task<ProcessScheduleModel> CalculateCoreAsync(ProcessScheduleRequestModel request, bool includeDrafts,ScheduleSourceSnapshotModel? frozen,
         CancellationToken cancellationToken = default)
     {
         var direction = request.Direction?.Equals("Backward", StringComparison.OrdinalIgnoreCase) == true ? "Backward"
@@ -20,12 +51,14 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         if (request.TransferDelayHours is < 0 or > 10000) throw new InvalidDataException("Задержка передачи должна быть от 0 до 10 000 часов.");
         var durationFactor = request.DurationScalePercent / 100d;
 
-        var summaries = await catalog.ListAsync(cancellationToken);
+        var summaries = frozen is null ? await catalog.ListAsync(cancellationToken) :
+            frozen.Processes.Select(p=>new ProcessSummaryModel(p.Id,p.Name,p.Version,p.Owner,p.Status,p.Nodes.Count,p.Lanes.Count)).ToArray();
         var summaryById = summaries.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
         if (!summaryById.ContainsKey(request.RootProcessId)) throw new FileNotFoundException("Процесс не найден.");
         request = request with { RootProcessId = summaryById[request.RootProcessId].Id };
 
-        var originalRegistry = await registry.BuildAsync(includeDrafts, cancellationToken);
+        var originalRegistry = frozen is null ? await registry.BuildAsync(includeDrafts, cancellationToken) :
+            new InformationObjectRegistryModel(frozen.CapturedAt,frozen.Processes.Count,frozen.Objects.Count,0,0,0,0,0,0,frozen.Objects,InformationObjectRegistryService.Diagnose(frozen.Objects));
         var allDependencies = BuildDependencies(originalRegistry);
         var candidateIds = Traverse(request.RootProcessId, allDependencies, direction);
         if (candidateIds.Count > 200 || allDependencies.Count(item => candidateIds.Contains(item.SourceProcessId) && candidateIds.Contains(item.TargetProcessId)) > 5000)
@@ -42,10 +75,12 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             try
             {
                 var summary = summaryById.TryGetValue(id, out var known) ? known : throw new InvalidDataException("Каталог изменён во время расчёта. Повторите запрос.");
-                process = await catalog.LoadAsync(id, summary.Status == "Draft" || (includeDrafts && summary.HasDraft), cancellationToken);
+                process = frozen is null ? await catalog.LoadAsync(id, summary.Status == "Draft" || (includeDrafts && summary.HasDraft), cancellationToken) :
+                    frozen.Processes.Single(p=>p.Id.Equals(id,StringComparison.OrdinalIgnoreCase));
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException or System.Xml.XmlException or System.Text.Json.JsonException)
             {
+                if(frozen is not null)throw new InvalidDataException("Снимок не содержит прочитанных исходников всей расчётной цепочки: "+id+". Повторение не выполнено.",exception);
                 if (branches.ContainsKey(id) || repetitions.ContainsKey(id)) throw new InvalidDataException($"Невозможно проверить сценарий непрочитанного процесса «{id}».");
                 failures[id] = exception.Message;
                 continue;
@@ -194,7 +229,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             Math.Round(items.Sum(item => item.DurationHours), 2), Math.Round(critical.DurationHours, 2),
             uncertaintyReasons.Values.All(value => value.Count == 0) && !issues.Any(item => item.Severity == "Error" || item.Code == "internal-cycle"), assumptions,
             items, dependencies, issues.DistinctBy(item => $"{item.Code}:{item.ProcessId}:{item.ElementId}:{item.ObjectId}").ToArray(),
-            new("schedule-v3-route-scenario", DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
+            new(Algorithm, frozen?.CapturedAt??DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
                 originalRegistry.Objects.Where(item => item.Producers.Concat(item.Consumers).Any(value => candidateIds.Contains(value.ProcessId))).ToArray()),
             maximumSchedule.Min(item => item.StartAt), maximumSchedule.Max(item => item.EndAt));
     }

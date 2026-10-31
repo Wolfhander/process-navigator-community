@@ -55,6 +55,52 @@ internal static class ScheduleChecks
             Check(archiveCheck.Status == "Current" && archiveCheck.CurrentResult is not null && archiveCheck.Baseline.Id == archived.Id,
                 "Unchanged archive can be compared without treating capture timestamps as drift");
             Check((await File.ReadAllBytesAsync(ownerArchivePath)).SequenceEqual(archiveBytes), "Archive check never rewrites saved snapshot");
+            var detached=new ProcessScheduleService(null!,null!);
+            string Stable(ProcessScheduleModel value)=>JsonSerializer.Serialize(value with{Sources=value.Sources! with{CapturedAt=DateTimeOffset.UnixEpoch}});
+            var sourceBytes=JsonSerializer.Serialize(result.Sources);
+            var reproduced=await detached.ReplayAsync(request,result.Sources!);
+            Check(Stable(reproduced)==Stable(result),"Frozen calculation has no catalog or registry dependency");
+            Check(JsonSerializer.Serialize(result.Sources)==sourceBytes,"Frozen inputs remain immutable");
+            foreach(var variant in new[]{
+                request with{RootProcessId="target",Direction="Backward",TransferDelayHours=2},
+                request with{DurationScalePercent=150,TransferDelayHours=2,NonWorkingDates=["2026-10-20"],
+                    ProcessCalendars=new Dictionary<string,ScheduleCalendarModel>{["source"]=new("10:00","16:00",[1,2,3,4,5],[],120)}}
+            }){
+                var expected=await service.CalculateAsync(variant,false);
+                Check(Stable(await detached.ReplayAsync(variant,expected.Sources!))==Stable(expected),"Frozen direct/reverse scenario calendars, delays, and scaling");
+            }
+            Check((await archives.ReplayAsync("archive-owner",archived.Id,false)).Status=="Reproduced","Owner archive reproduces");
+            Check((await File.ReadAllBytesAsync(ownerArchivePath)).SequenceEqual(archiveBytes),"Replay never rewrites archive");
+            var sourceFile=Path.Combine(data,"source.context.json");var originalContext=await File.ReadAllBytesAsync(sourceFile);
+            try{
+                await File.WriteAllTextAsync(sourceFile,"{broken-current-source");
+                Check((await archives.ReplayAsync("archive-owner",archived.Id,false)).Status=="Reproduced","Broken live files cannot affect frozen replay");
+                Check((await archives.CheckAsync("archive-owner",archived.Id,false)).Status=="Unavailable","Current freshness check remains separate");
+            }finally{await File.WriteAllBytesAsync(sourceFile,originalContext);}
+            async Task RejectReplay(ScheduleSourceSnapshotModel value,string label){
+                bool rejected=false;try{await detached.ReplayAsync(request,value);}catch(InvalidDataException){rejected=true;}Check(rejected,label);
+            }
+            await RejectReplay(result.Sources! with{Algorithm="unknown-engine"},"Unknown algorithm is not silently substituted");
+            await RejectReplay(result.Sources! with{Processes=[]},"Empty frozen sources rejected");
+            var dense=result.Sources!.Objects[0];
+            await RejectReplay(result.Sources with{Objects=[dense with{Producers=Enumerable.Repeat(dense.Producers[0],501).ToArray(),Consumers=Enumerable.Repeat(dense.Consumers[0],501).ToArray()}]},"Excessive producer-consumer combinations rejected before graph construction");
+            await RejectReplay(result.Sources! with{Processes=[result.Sources.Processes[0],result.Sources.Processes[0]]},"Duplicate sources rejected");
+            await RejectReplay(result.Sources! with{Processes=result.Sources.Processes.Where(p=>p.Id=="source").ToArray()},"Incomplete frozen dependency chain rejected");
+            using(var cancellation=new CancellationTokenSource()){
+                cancellation.Cancel();bool cancelled=false;try{await detached.ReplayAsync(request,result.Sources!,cancellation.Token);}catch(OperationCanceledException){cancelled=true;}
+                Check(cancelled,"Frozen replay honors cancellation");
+            }
+            var edited=System.Text.Json.Nodes.JsonNode.Parse(archiveBytes)!;
+            try{
+                edited["snapshots"]![0]!["result"]!["durationHours"]=999d;
+                await File.WriteAllTextAsync(ownerArchivePath,edited.ToJsonString());
+                Check((await archives.ReplayAsync("archive-owner",archived.Id,false)).Status=="Different","Stored mismatched result is never declared reproduced");
+                edited["snapshots"]![0]!["result"]!["sources"]!["algorithm"]="unsupported";
+                await File.WriteAllTextAsync(ownerArchivePath,edited.ToJsonString());
+                Check((await archives.ReplayAsync("archive-owner",archived.Id,false)).Status=="Unavailable","Unsupported archived algorithm remains readable but cannot replay");
+            }finally{await File.WriteAllBytesAsync(ownerArchivePath,archiveBytes);}
+            bool replayHidden=false;try{await archives.ReplayAsync("other-owner",archived.Id,false);}catch(KeyNotFoundException){replayHidden=true;}
+            Check(replayHidden,"Replay preserves owner isolation");
             Check((await archives.ListAsync("archive-owner", false)).Count == 1 && (await archives.ListAsync("other-owner", false)).Count == 0,
                 "Server archive is private to its owner");
             var readArchive = await new ScheduleArchiveService(env, service).LoadAsync("archive-owner", archived.Id, false);
@@ -105,6 +151,8 @@ internal static class ScheduleChecks
             var draftCheckHidden = false;
             try { await archives.CheckAsync("draft-owner", draftArchive.Id, false); } catch (KeyNotFoundException) { draftCheckHidden = true; }
             Check(draftCheckHidden, "Draft archive cannot be checked without edit access");
+            bool draftReplayHidden=false;try{await archives.ReplayAsync("draft-owner",draftArchive.Id,false);}catch(KeyNotFoundException){draftReplayHidden=true;}
+            Check(draftReplayHidden&&(await archives.ReplayAsync("draft-owner",draftArchive.Id,true)).Status=="Reproduced","Replay preserves draft visibility");
             Check((await archives.ListAsync("draft-owner", false)).Count == 0 && (await archives.ListAsync("draft-owner", true)).Count == 1,
                 "Draft archive hidden when edit permission is absent");
             var draftHidden = false;

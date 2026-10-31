@@ -7,3 +7,5 @@ public sealed record ScheduleArchiveSummaryModel(string Id, string Name, DateTim
     string RootProcessId, int ProcessCount, DateTimeOffset StartAt, DateTimeOffset EndAt, bool Complete);
 public sealed record ScheduleArchiveCheckModel(ScheduleArchiveSnapshotModel Baseline, DateTimeOffset CheckedAt,
     string Status, IReadOnlyList<string> Changes, ProcessScheduleModel? CurrentResult = null);
+public sealed record ScheduleArchiveReplayModel(string SnapshotId,DateTimeOffset CheckedAt,string Status,
+    IReadOnlyList<string> Messages,ProcessScheduleModel? ReplayedResult=null);

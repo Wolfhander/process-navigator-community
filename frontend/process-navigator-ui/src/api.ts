@@ -109,6 +109,8 @@ async function scheduleArchiveCall(path: string, method = 'GET', body?: unknown)
 export const listServerSchedules = (): Promise<ServerScheduleSummary[]> => scheduleArchiveCall('');
 export const loadServerSchedule = (id: string): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('/' + encodeURIComponent(id));
 export const checkServerSchedule = (id: string): Promise<ServerScheduleCheck> => scheduleArchiveCall('/' + encodeURIComponent(id) + '/check');
+export type ServerScheduleReplay={snapshotId:string;checkedAt:string;status:'Reproduced'|'Different'|'Unavailable';messages:string[];replayedResult?:ProcessSchedule|null};
+export const replayServerSchedule=(id:string):Promise<ServerScheduleReplay>=>scheduleArchiveCall('/'+encodeURIComponent(id)+'/replay');
 export const saveServerSchedule = (name: string, request: ProcessScheduleRequest, expectedResult: ProcessSchedule): Promise<import('./schedule-snapshots').ScheduleSnapshot> => scheduleArchiveCall('', 'POST', { name, request, expectedResult });
 export const deleteServerSchedule = (id: string): Promise<void> => scheduleArchiveCall('/' + encodeURIComponent(id), 'DELETE');
 

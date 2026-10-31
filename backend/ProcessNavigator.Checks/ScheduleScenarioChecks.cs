@@ -50,6 +50,7 @@ internal static class ScheduleScenarioChecks
             var request = new ProcessScheduleRequestModel("route", "Forward", DateTimeOffset.Parse("2026-10-19T06:00Z"), UtcOffsetMinutes: 180,
                 ProcessBranches: new Dictionary<string, IReadOnlyDictionary<string, string>> { ["route"] = chosen });
             var fast = await service.CalculateAsync(request, false);
+            Check(JsonSerializer.Serialize(await new ProcessScheduleService(null!,null!).ReplayAsync(request,fast.Sources!))==JsonSerializer.Serialize(fast),"Frozen replay preserves excluded branch and original candidate sources");
             Check(fast.Processes.Count == 1 && fast.DurationHours == 2 && fast.Dependencies.Count == 0, "Excluded output branch removes downstream transfer and process");
             Check(fast.Sources!.Processes.Count == 2 && fast.Sources.Objects.Single().Producers.Count == 1, "Original candidate models and object graph remain in snapshot");
             var defaults = await service.CalculateAsync(request with { ProcessBranches = null }, false);
@@ -70,6 +71,7 @@ internal static class ScheduleScenarioChecks
             await Write(root, loop);
             var repeatRequest = request with { ProcessBranches = null, ProcessRepetitions = new Dictionary<string, ScheduleRepetitionModel> { ["route"] = repeat } };
             var plan = await service.CalculateAsync(repeatRequest, false);
+            Check(JsonSerializer.Serialize(await new ProcessScheduleService(null!,null!).ReplayAsync(repeatRequest,plan.Sources!))==JsonSerializer.Serialize(plan),"Frozen replay preserves planned and maximum iterations");
             var step = plan.Processes.Single(item => item.ProcessId == "route");
             Check(step.BaseDurationHours == 4 && step.DurationHours == 8 && step.MaximumDurationHours == 12, "Repeats add section work, not the whole process");
             Check(!step.HasInternalCycle && plan.Issues.Any(issue => issue.Code == "repeat-assumption"), "Supported bounded repeat is explicit, not an unresolved cycle");

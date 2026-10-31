@@ -58,6 +58,20 @@ public sealed class ScheduleArchiveService(IWebHostEnvironment environment, Proc
         return new(baseline, DateTimeOffset.UtcNow, same ? "Current" : "Changed", changes, current);
     }
 
+    public async Task<ScheduleArchiveReplayModel> ReplayAsync(string userId,string id,bool includeDrafts,CancellationToken ct=default)
+    {
+        var baseline=await LoadAsync(userId,id,includeDrafts,ct);
+        ProcessScheduleModel replayed;
+        try{replayed=await schedule.ReplayAsync(baseline.Request,baseline.Result.Sources!,ct);}
+        catch(InvalidDataException exception){return new(id,DateTimeOffset.UtcNow,"Unavailable",[exception.Message]);}
+        try{await LoadAsync(userId,id,includeDrafts,ct);}
+        catch(KeyNotFoundException){return new(id,DateTimeOffset.UtcNow,"Unavailable",["Архивная запись удалена во время повторения."]);}
+        var same=SameResult(baseline.Result,replayed);
+        return new(id,DateTimeOffset.UtcNow,same?"Reproduced":"Different",
+            [same?"Результат воспроизведён по сохранённым моделям, объектам и параметрам. Текущий каталог и реестр не читались.":
+                "Повторение по сохранённым исходникам отличается от записанного результата. Архив не изменён; требуется проверка совместимости алгоритма или целостности снимка."],replayed);
+    }
+
     public async Task<ScheduleArchiveSnapshotModel> SaveAsync(string userId, ScheduleArchiveSaveModel update,
         bool includeDrafts, CancellationToken ct = default)
     {

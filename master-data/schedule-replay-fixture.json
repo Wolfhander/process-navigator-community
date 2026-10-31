@@ -1,0 +1,7 @@
+{
+  "synthetic": true,
+  "requests": [
+    {"rootProcessId":"demo-showcase-l4-drawing","direction":"Forward","anchorDate":"2026-10-19T06:00:00Z","utcOffsetMinutes":180,"transferDelayHours":2},
+    {"rootProcessId":"demo-showcase-l4-drawing","direction":"Backward","anchorDate":"2026-11-20T14:00:00Z","utcOffsetMinutes":180,"durationScalePercent":150}
+  ]
+}
