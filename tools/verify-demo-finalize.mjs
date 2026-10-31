@@ -17,7 +17,7 @@ function preserved(){
 assert.equal(fs.readdirSync(path.join(data,'Drafts')).filter(n=>n.endsWith('.bpmn')).length,10);
 const before=preserved(),result=resetDemoContour(repo,true);
 assert.deepEqual(preserved(),before);
-for(const dir of ['Drafts','ImportReports','Executions','ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials'])assert.equal(fs.existsSync(path.join(data,dir)),false,dir);
+for(const dir of ['Drafts','ImportReports','Executions','ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials','ImportRecipes'])assert.equal(fs.existsSync(path.join(data,dir)),false,dir);
 for(const [file,content]of createDemoContour().files)assert.equal(fs.readFileSync(path.join(data,file),'utf8'),content,file);
 assert.ok(fs.existsSync(path.join(result.backup,'Drafts')));
 assert.ok(fs.existsSync(path.join(result.backup,'ImportReports')));

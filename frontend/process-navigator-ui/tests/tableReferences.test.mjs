@@ -11,7 +11,7 @@ const code=out.code.replace(/^import [^\n]+;$/gm,'').replace('export function ',
 const group={id:'g',kind:'unit',value:'ghost',scope:'plant',canKeep:false,cells:[{sheet:'Шаги',cell:'I5',column:'Подразделение ID',row:5,token:0,processId:'process-a',stepId:'step-a',relatedCell:null}]};
 const report={fingerprint:'hash',choices:[{kind:'unit',id:'1',name:'Склад',scope:'plant'},{kind:'unit',id:'1',name:'Другой склад',scope:'other'}],groups:[group]};
 function render({data=report,rules={},busy=false,error='',search='',kind='',acknowledged=[],candidateSearch={}}={}) {
-  const values=[{name:'references.xlsx',size:100},data,rules,acknowledged,busy,error,kind,search,0,0,candidateSearch];
+  const values=[{name:'references.xlsx',size:100},data,rules,acknowledged,busy,error,kind,search,0,0,candidateSearch,[],'',''];
   const icons=['ArrowLeft','Download','RefreshCw'];
   const Page=new Function('React','useState','useEffect','referenceChoices','referenceGroups','referenceLabels',...icons,code+';return TableReferencesPage;')({createElement,Fragment},()=>[values.shift(),()=>{}],()=>{},referenceChoices,referenceGroups,referenceLabels,...icons.map(()=>'span'));
   return renderToStaticMarkup(createElement(Page,{file:values[0],onBack(){},onResolved(){}}));

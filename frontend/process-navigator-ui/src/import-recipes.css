@@ -1,0 +1,7 @@
+.app-shell>.import-recipes{grid-row:2/-1;min-height:0;overflow:auto;background:#f5f8f4}
+.recipe-shell{max-width:1450px;margin:auto;padding:26px clamp(16px,3vw,46px)}.recipe-shell nav{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.recipe-shell h1{font-family:Georgia,serif;font-size:clamp(28px,3vw,40px)}.recipe-shell p,.recipe-shell li,.recipe-shell h2{overflow-wrap:anywhere;line-height:1.5}
+.recipe-shell label{display:grid;gap:6px;min-width:0;margin:18px 0}.recipe-shell select,.recipe-shell input{width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:11px;border:1px solid #cbd9cf;border-radius:7px}
+.recipe-shell button{display:inline-flex;align-items:center;gap:7px;padding:10px;border:1px solid #cbd9cf;border-radius:7px;background:white;color:#28533d;white-space:normal;margin:4px 8px 4px 0}.recipe-shell button:disabled{opacity:.5}
+.recipe-card{background:white;border:1px solid #d5dfd7;border-radius:12px;padding:22px;margin:20px 0;min-width:0}.recipe-error{color:#a43629;background:#fff0eb;padding:12px}.recipe-shell summary{cursor:pointer}
+@media(max-width:760px){.recipe-card{padding:16px}}

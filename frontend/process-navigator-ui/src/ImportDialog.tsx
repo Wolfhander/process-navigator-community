@@ -4,6 +4,7 @@ import { deleteProcessTableSelectionSet, downloadProcessTableExport, downloadPro
 import type { ProcessImportResult, ProcessPackageImportResult, ProcessSummary, ProcessTableImportResult, ProcessTablePreview, ProcessTablePreviewItem, ProcessTableSelectionSet, ProcessTableStepIdMapping } from './types';
 
 const TableReferencesPage=lazy(()=>import('./TableReferencesPage').then(m=>({default:m.TableReferencesPage})));
+const ImportRecipesPage=lazy(()=>import('./ImportRecipesPage').then(m=>({default:m.ImportRecipesPage})));
 type Props = {
   onClose: () => void;
   onImported: (result: ProcessImportResult) => void;
@@ -18,6 +19,7 @@ type Props = {
 export function ImportDialog({ onClose, onImported, onPackageImported, onTableImported, processId, initialExportProcessId, catalog, page = false }: Props) {
   const [mode, setMode] = useState<'single' | 'package' | 'table'>('single');
   const [referencesOpen,setReferencesOpen]=useState(false);
+  const [recipesOpen,setRecipesOpen]=useState(false);
   const [packageDraft, setPackageDraft] = useState(false);
   const [bpmnFile, setBpmnFile] = useState<File>();
   const [contextFile, setContextFile] = useState<File>();
@@ -112,10 +114,16 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
     try{const preview=await previewProcessTable(corrected);setTablePreview(preview);setSelectedProcessIds(preview.processes.filter(p=>!p.errorCount).map(p=>p.id));}
     catch(e){setError(e instanceof Error?e.message:'Не удалось проверить исправленную копию.');}finally{setBusy(false);}
   }}/></Suspense>;
+  if(recipesOpen)return <Suspense fallback={<main className="state-page">Открываем регламенты…</main>}><ImportRecipesPage onBack={()=>setRecipesOpen(false)} onPrepared={async corrected=>{
+    setRecipesOpen(false);setMode('table');setTableFile(corrected);setTablePreview(undefined);setSelectedProcessIds([]);setConfirmedRemovalIds([]);setAcceptedRenameKeys([]);setBusy(true);setError('');
+    try{const preview=await previewProcessTable(corrected);setTablePreview(preview);setSelectedProcessIds(preview.processes.filter(p=>!p.errorCount).map(p=>p.id));}
+    catch(e){setError(e instanceof Error?e.message:'Не удалось проверить копию регламента.');}finally{setBusy(false);}
+  }}/></Suspense>;
   const content = <section className={`import-dialog${page ? ' import-page-content' : ''}`} role={page ? 'region' : 'dialog'} aria-modal={page ? undefined : true} aria-labelledby="import-title">
       {!page && <button className="icon-button dialog-close" onClick={onClose} aria-label="Закрыть"><X size={18}/></button>}
       <span className="eyebrow">Репозиторий процессов</span>
       <h2 id="import-title">{processId ? 'Заменить BPMN черновика' : 'Импортировать процессы'}</h2>
+      {page&&<button className="secondary-button" disabled={busy} onClick={()=>setRecipesOpen(true)}>Регламенты повторной загрузки</button>}
       <p>{mode === 'package' ? 'Пакет будет проверен, а все новые процессы сохранены как черновики. Существующие процессы останутся без изменений.' : mode === 'table' ? 'Заполните процессы, шаги, связи, оргпривязки и каналы в едином шаблоне Excel.' : 'Схема проверяется и сохраняется только при отсутствии критических ошибок.'}</p>
 
       {!processId && !completed && <div className="import-mode-tabs">

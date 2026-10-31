@@ -8,6 +8,28 @@ const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+export async function importRecipeCall<T>(suffix='',options:RequestInit={}):Promise<T>{
+  const response=await fetch('/api/import-recipes'+suffix,{...options,headers:{...roleHeaders(),...options.headers}});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось обработать регламент.'));
+  return response.json() as Promise<T>;
+}
+export function saveImportRecipe(name:string,rules:import('./import-recipes').RecipeRule[],files:File[]) {
+  const form=new FormData();form.set('config',JSON.stringify({name,rules}));for(const file of files)form.append('files',file);
+  return importRecipeCall<import('./import-recipes').ImportRecipe>('',{method:'POST',body:form});
+}
+export function addRecipeBatch(recipe:import('./import-recipes').ImportRecipe,files:File[]) {
+  const form=new FormData();form.set('expectedRevision',String(recipe.revision));for(const file of files)form.append('files',file);
+  return importRecipeCall<import('./import-recipes').ImportRecipe>('/'+encodeURIComponent(recipe.id)+'/batches',{method:'POST',body:form});
+}
+export function previewRecipe(recipe:import('./import-recipes').ImportRecipe,batchId:string) {
+  return importRecipeCall<import('./import-recipes').RecipePreview>('/'+encodeURIComponent(recipe.id)+'/batches/'+encodeURIComponent(batchId)+'/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedRevision:recipe.revision})});
+}
+export async function recipeFile(recipe:import('./import-recipes').ImportRecipe,batchId:string,fileId:string,proof?:string) {
+  const url='/api/import-recipes/'+encodeURIComponent(recipe.id)+'/batches/'+encodeURIComponent(batchId)+'/files/'+encodeURIComponent(fileId);
+  const response=await fetch(url+(proof?'/prepared':''),{method:proof?'POST':'GET',headers:{...roleHeaders(),...(proof?{'Content-Type':'application/json'}:{})},body:proof?JSON.stringify({expectedRevision:recipe.revision,fingerprint:proof}):undefined});
+  if(!response.ok)throw new Error(await errorMessage(response,'Файл не выдан. Повторите проверку.'));
+  return response.blob();
+}
 export async function tableReferences(file:File,resolution?:{fingerprint:string;rules:import('./table-references').ReferenceRule[]},signal?:AbortSignal) {
   const form=new FormData();form.set('tableFile',file);if(resolution)form.set('resolution',JSON.stringify(resolution));
   const response=await fetch('/api/processes/table-references'+(resolution?'/resolve':''),{method:'POST',headers:roleHeaders(),body:form,signal});

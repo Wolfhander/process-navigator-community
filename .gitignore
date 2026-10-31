@@ -34,6 +34,7 @@ backend/ProcessNavigator.Api/Data/Keys/
 backend/ProcessNavigator.Api/Data/Integrations/
 backend/ProcessNavigator.Api/Data/ImportReports/
 backend/ProcessNavigator.Api/Data/ImportSelectionSets/
+backend/ProcessNavigator.Api/Data/ImportRecipes/
 backend/ProcessNavigator.Api/Data/Backups/
 backend/ProcessNavigator.Api/Data/Drafts/
 backend/ProcessNavigator.Api/Data/Versions/

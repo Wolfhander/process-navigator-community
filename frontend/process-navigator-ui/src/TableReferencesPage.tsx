@@ -1,12 +1,14 @@
 import {useEffect,useState} from 'react';
 import {ArrowLeft,Download,RefreshCw} from 'lucide-react';
-import {tableReferences} from './api';
+import {saveImportRecipe,tableReferences} from './api';
+import {mergeRecipeRules,type RecipeRule} from './import-recipes';
 import {referenceChoices,referenceGroups,referenceLabels,referenceOccurrencesCsv,type ReferenceReport,type ReferenceRule} from './table-references';
 import './table-references.css';
 type Props={file:File;onBack:()=>void;onResolved:(file:File)=>void};
 export function TableReferencesPage({file,onBack,onResolved}:Props) {
   const [working,setWorking]=useState(file),[report,setReport]=useState<ReferenceReport>(),[rules,setRules]=useState<Record<string,ReferenceRule>>({}),[acknowledged,setAcknowledged]=useState<string[]>([]);
   const [busy,setBusy]=useState(true),[error,setError]=useState(''),[kind,setKind]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(0),[generation,setGeneration]=useState(0),[candidateSearch,setCandidateSearch]=useState<Record<string,string>>({});
+  const [recipeRules,setRecipeRules]=useState<RecipeRule[]>([]),[recipeName,setRecipeName]=useState(''),[recipeNotice,setRecipeNotice]=useState('');
   useEffect(()=>{const c=new AbortController();setBusy(true);setError('');setReport(undefined);setRules({});tableReferences(working,undefined,c.signal).then(setReport).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();},[working,generation]);
   const groups=referenceGroups(report,kind,search),pages=Math.max(1,Math.ceil(groups.length/20)),current=Math.min(page,pages-1);
   const selected=Object.values(rules);
@@ -14,6 +16,7 @@ export function TableReferencesPage({file,onBack,onResolved}:Props) {
   async function apply(){
     if(!report||!selected.length)return;setBusy(true);setError('');
     try{const blob=await tableReferences(working,{fingerprint:report.fingerprint,rules:selected}) as Blob;
+      setRecipeRules(previous=>mergeRecipeRules(previous,selected.map(rule=>{const group=report.groups.find(g=>g.id===rule.groupId)!;return {kind:group.kind,value:group.value,scope:group.scope,targetId:rule.targetId,keepNew:!!rule.keepNew};})));
       setAcknowledged(v=>[...new Set([...v,...selected.filter(r=>r.keepNew).map(r=>r.groupId)])]);
       setWorking(new File([blob],'resolved.xlsx',{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));setPage(0);setRules({});setCandidateSearch({});
     }catch(e){setError(e instanceof Error?e.message:'Исправление не выполнено.');}finally{setBusy(false);}
@@ -28,6 +31,10 @@ export function TableReferencesPage({file,onBack,onResolved}:Props) {
       <button disabled={busy||!report||selected.length>0} onClick={()=>onResolved(working)}>Проверить копию перед импортом</button></div>
     <button disabled={busy||!report} onClick={()=>{if(!report)return;const url=URL.createObjectURL(new Blob([referenceOccurrencesCsv(report)],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='reference-queue-all.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Выгрузить все координаты CSV</button>
     <p>Выбранные решения меняют копию только после нажатия «Применить». Действие относится ко всей книге, включая скрытые фильтром группы.</p>
+    <details className="reference-help"><summary>Сохранить регламент повторной загрузки</summary><p>Сохраняются первоначальный исходник этой сессии и {recipeRules.length} применённых правил, включая последующие сопоставления подразделений. Правила неизменяемы; новая настройка сохраняется отдельным регламентом. Доступ — только текущему профилю с правом импорта.</p>
+      <label>Название регламента<input aria-label="Название регламента" maxLength={120} disabled={busy} value={recipeName} onChange={e=>setRecipeName(e.target.value)}/></label>
+      <button disabled={busy||!report||selected.length>0||!recipeName.trim()} onClick={async()=>{setBusy(true);setError('');setRecipeNotice('');try{const saved=await saveImportRecipe(recipeName,recipeRules,[file]);setRecipeNotice('Регламент «'+saved.name+'» сохранён вместе с исходником. Следующие наборы доступны в импорте → Регламенты повторной загрузки.');}catch(e){setError(e instanceof Error?e.message:'Не удалось сохранить регламент.');}finally{setBusy(false);}}}>Сохранить исходник и правила</button>{recipeNotice&&<p role="status">{recipeNotice}</p>}
+    </details>
     <details className="reference-help"><summary>Порядок сопоставления и границы изменений</summary>
     <p>Сначала сопоставьте организацию, затем повторно разберите копию для выбора её подразделений. Решение заменяет все перечисленные в группе вхождения. При замене ID объекта обновляется и его парное название. Другие ячейки, стили и формулы не меняются; формулу в исправляемой ячейке нужно изменить в Excel.</p>
     <p>«Оставить новым» — явное решение этой сессии, а не создание записи справочника. Оно доступно только системам и документам; после закрытия страницы потребуется новый разбор. Формулы не пересчитываются на сервере.</p>

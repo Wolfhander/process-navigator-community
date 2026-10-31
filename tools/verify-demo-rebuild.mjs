@@ -12,7 +12,7 @@ const repo=path.join(folder,'repository'),data=path.join(repo,'backend/ProcessNa
 fs.mkdirSync(data,{recursive:true});fs.writeFileSync(path.join(data,'../ProcessNavigator.Api.csproj'),'<Project/>');
 const expected=createDemoContour();
 const first=resetDemoContour(repo,true);
-const histories=['Drafts','Versions','Passports','Assignments','Executions','SchedulePlans','ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials','Commands','Comments','Notifications','ImportReports','ImportSelectionSets','Artifacts','Audit'];
+const histories=['Drafts','Versions','Passports','Assignments','Executions','SchedulePlans','ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials','ImportRecipes','Commands','Comments','Notifications','ImportReports','ImportSelectionSets','Artifacts','Audit'];
 for(const name of histories){fs.mkdirSync(path.join(data,name),{recursive:true});fs.writeFileSync(path.join(data,name,'old-marker.json'),'{"synthetic":true}');}
 fs.writeFileSync(path.join(data,'old-process.bpmn'),'<old/>');
 const second=resetDemoContour(repo,true);
