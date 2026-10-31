@@ -141,6 +141,11 @@ export async function saveProcessLaneOrganizations(processId: string, lanes: Lan
 }
 
 export type LanePlan={organizationRevision:string;items:{processId:string;processName:string;fingerprint?:string;reason?:string;changes:{laneId:string;before:string;after:string}[]}[]};
+export async function draftRepairCall<T>(suffix:string,body?:unknown,signal?:AbortSignal):Promise<T>{
+  const response=await fetch('/api/admin/draft-repairs'+suffix,{method:body===undefined?'GET':'POST',headers:{...roleHeaders(),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось подготовить или применить исправления.'));
+  return response.json();
+}
 export async function previewDraftLaneNames(signal?:AbortSignal):Promise<LanePlan>{
   const response=await fetch('/api/admin/organization/sync-draft-lanes',{headers:roleHeaders(),signal});
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось подготовить план.'));

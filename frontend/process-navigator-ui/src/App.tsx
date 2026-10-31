@@ -40,6 +40,7 @@ import './workflow-fixes.css';
 
 const BpmnEditor = lazy(() => import('./BpmnEditor').then(module => ({ default: module.BpmnEditor })));
 const DemonstrationsPage = lazy(() => import('./DemonstrationsPage').then(module => ({ default: module.DemonstrationsPage })));
+const DraftRepairPage = lazy(() => import('./DraftRepairPage').then(module => ({default:module.DraftRepairPage})));
 const CatalogAuditDialog = lazy(() => import('./CatalogAuditDialog').then(module => ({ default: module.CatalogAuditDialog })));
 const PublicationValidationDialog = lazy(() => import('./PublicationValidationDialog').then(module => ({ default: module.PublicationValidationDialog })));
 const HelpDialog = lazy(() => import('./HelpDialog').then(module => ({ default: module.HelpDialog })));
@@ -483,7 +484,7 @@ export default function App() {
 
   return <div className="app-shell">
     <header className="workspace-header"><button className="brand app-home-button" onClick={() => navigateSection('home')} aria-label="Главная"><span className="brand-mark">PN</span><span>Process Navigator</span></button>
-      <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory', 'laneSync'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
+      <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory', 'laneSync', 'draftRepairs'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
       <button className="header-action notification-button" onClick={() => setNotificationsOpen(true)} aria-label="Уведомления" title="Уведомления"><Bell size={17}/>{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><UserMenu session={session} onChange={changeUser}/><button className="search" onClick={() => setSearchOpen(true)} aria-label="Поиск" title="Поиск"><Search size={17}/></button>
     </header>
     <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
@@ -517,7 +518,8 @@ export default function App() {
     {versionsOpen && process && (
       <VersionDialog processId={processId} processName={process.name} onClose={() => setVersionsOpen(false)} onOpen={version => { setVersionsOpen(false); setSelected(undefined); if (version.status === 'Archived') { setDraftView(false); setArchivedVersion(version.version); } else { setArchivedVersion(undefined); setDraftView(version.status === 'Draft'); } }}/>
     )}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'laneSync' && can('system.manage') && <DraftLaneSyncDialog key={session.currentUser.id} onClose={() => navigateSection('settings')} onSynced={() => { setReloadKey(value => value + 1); void refreshCatalog(); }}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'laneSync' && can('system.manage') && <DraftLaneSyncDialog onMetadata={() => navigateSection('draftRepairs')} key={session.currentUser.id} onClose={() => navigateSection('settings')} onSynced={() => { setReloadKey(value => value + 1); void refreshCatalog(); }}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'draftRepairs' && can('system.manage') && <DraftRepairPage key={session.currentUser.id} onBack={() => navigateSection('laneSync')} onSaved={() => {setReloadKey(v => v+1);void refreshCatalog();}}/>}
     {assignmentsOpen && assignments && <AssignmentDialog assignments={assignments}
       onClose={() => setAssignmentsOpen(false)}
       onSaved={updated => { setAssignments(updated); setAssignmentsOpen(false); notify('Ответственные по дорожкам сохранены'); }}

@@ -29,6 +29,7 @@ builder.Services.AddSingleton<EvidenceReviewService>();
 builder.Services.AddSingleton<SourceMaterialService>();
 builder.Services.AddSingleton<ImportRecipeService>();
 builder.Services.AddSingleton<DraftLanePlanService>();
+builder.Services.AddSingleton<DraftRepairService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -230,6 +231,7 @@ app.MapPost("/api/admin/organization/sync-draft-lanes", async (LanePlanApply req
 });
 
 app.MapGet("/api/session", (HttpContext context, AccessControlService access) => Results.Ok(access.Session(context)));
+app.MapDraftRepairs();
 
 app.MapGet("/api/notifications", async (HttpContext context, NotificationService notifications,
     AccessControlService access, CancellationToken cancellationToken) =>

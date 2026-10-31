@@ -5,3 +5,4 @@
 .draft-lane-plan label{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.draft-lane-plan input{width:18px;height:18px}
 .draft-lane-plan button{display:inline-flex;align-items:center;gap:8px;border:1px solid #cbd9cf;background:white;color:#28533d;border-radius:7px;padding:12px;white-space:normal}
 .draft-lane-plan button:disabled{opacity:.5}.draft-lane-plan [role=alert]{color:#a43629}
+.draft-lane-plan select{width:100%;min-width:0;max-width:100%;padding:10px;box-sizing:border-box}.draft-lane-plan label{margin:16px 0}

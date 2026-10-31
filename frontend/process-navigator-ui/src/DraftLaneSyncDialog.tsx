@@ -3,7 +3,7 @@ import {ArrowLeft,RefreshCw} from 'lucide-react';
 import {previewDraftLaneNames,syncDraftLaneNames,type LanePlan} from './api';
 import type {DraftLaneSyncReport} from './types';
 import './draft-lane-sync.css';
-export function DraftLaneSyncDialog({onClose,onSynced}:{onClose:()=>void;onSynced:()=>void}){
+export function DraftLaneSyncDialog({onClose,onSynced,onMetadata}:{onClose:()=>void;onSynced:()=>void;onMetadata?:()=>void}){
   const [plan,setPlan]=useState<LanePlan>(),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[reload,setReload]=useState(0);
   const [result,setResult]=useState<{backupFileName:string;report:DraftLaneSyncReport}>();
   useEffect(()=>{const c=new AbortController();setBusy(true);setError('');setPlan(undefined);setSelected([]);
@@ -18,6 +18,7 @@ export function DraftLaneSyncDialog({onClose,onSynced}:{onClose:()=>void;onSynce
   return <section className="draft-lane-plan" aria-label="Обновление дорожек черновиков"><div className="draft-lane-plan-content">
     <nav><button disabled={busy} onClick={onClose}><ArrowLeft size={16}/>Назад к настройкам</button></nav>
     <h1>План обновления дорожек</h1>
+    {onMetadata&&<button disabled={busy} onClick={onMetadata}>Исправить владельцев и потерянные связи</button>}
     <p>Просмотрите точные изменения и выберите черновики. Владельцы, ссылки, опубликованные редакции, идентификаторы, переходы и координаты не изменяются.</p>
     <p>Перед применением создаётся резервная копия. Каждый черновик проверяется повторно; заблокированные и изменённые пропускаются. Пакет не является общей транзакцией: уже выполненные изменения сохраняются при последующей ошибке. Для восстановления используйте раздел резервных копий.</p>
     <button disabled={busy} onClick={()=>setReload(v=>v+1)}><RefreshCw size={15}/>Подготовить новый просмотр</button>

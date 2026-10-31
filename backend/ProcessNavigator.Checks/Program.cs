@@ -61,6 +61,7 @@ count += await SourceMaterialChecks.RunAsync();
 count += await TableReferenceChecks.RunAsync();
 count += await ImportRecipeChecks.RunAsync();
 count += await DraftLanePlanChecks.RunAsync();
+count += await DraftRepairChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();
