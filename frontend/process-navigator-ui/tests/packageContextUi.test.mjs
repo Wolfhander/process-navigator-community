@@ -10,7 +10,7 @@ const code=output.code.replace(/^import [^\n]+;$/gm,'').replace('export function
 test('ZIP page explicitly chooses a revision and discloses missing files, history and organizations',()=>{
   const noop=()=>{};
   const icons=['AlertTriangle','ArrowLeft','BookmarkPlus','CheckCircle2','Download','FileArchive','FileJson2','FileSpreadsheet','FileUp','Trash2','Upload','X'];
-  const params={React:{createElement,Fragment},useState:initial=>[typeof initial==='function'?initial():initial==='single'?'package':initial,noop],useEffect:noop,...Object.fromEntries(icons.map(name=>[name,()=>null]))};
+  const params={React:{createElement,Fragment},lazy:()=>()=>null,Suspense:Fragment,useState:initial=>[typeof initial==='function'?initial():initial==='single'?'package':initial,noop],useEffect:noop,...Object.fromEntries(icons.map(name=>[name,()=>null]))};
   const Page=new Function(...Object.keys(params),code+';return ImportDialog;')(...Object.values(params));
   const html=renderToStaticMarkup(createElement(Page,{catalog:[{id:'demo',name:'Демо'}],onClose:noop,page:true}));
   for(const phrase of ['Модель для ZIP','Выгрузить модель ZIP','черновик вместо действующей','черновик 0.1','история и согласования не включены','.pn-context.json','существующий ID не заменяется'])assert.ok(html.includes(phrase),phrase);

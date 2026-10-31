@@ -1067,6 +1067,7 @@ app.MapDelete("/api/processes/table-selection-sets/{id}", async (string id, Http
 });
 
 app.MapSourceMaterials(CanOpenDraft);
+app.MapTableReferences(CanOpenDraft);
 app.MapGet("/api/processes/{processId}/elements/{elementId}/evidence-reviews", async (string processId,string elementId,bool? draft,
     HttpContext context,EvidenceReviewService reviews,AccessControlService access,CancellationToken ct) =>
 {

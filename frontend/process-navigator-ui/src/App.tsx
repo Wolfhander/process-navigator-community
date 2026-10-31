@@ -510,7 +510,7 @@ export default function App() {
       onCreated={async result => { setCreateProcessOpen(false); setPortfolioAnalyticsOpen(false); await refreshCatalog(result.process.id); setProcessId(result.process.id); setEnterpriseOpen(false); setArchivedVersion(undefined); setDraftView(true); setSelected(undefined); setEditorOpen(true); notify(`Создан черновик «${result.process.name}»`); }}/>
     }
     {importOpen && (
-      <ImportDialog onClose={() => setImportOpen(false)} onImported={imported} processId={draftView ? processId : undefined}
+      <ImportDialog key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} onClose={() => setImportOpen(false)} onImported={imported} processId={draftView ? processId : undefined}
         initialExportProcessId={processId} catalog={catalog}
         onPackageImported={async result => { setImportOpen(false); setCatalog(await loadProcessCatalog()); navigateSection('catalog'); notify(`Импортировано процессов: ${result.imported}`); }}
         onTableImported={async result => { setImportOpen(false); setCatalog(await loadProcessCatalog()); navigateSection('catalog'); notify(`Черновики из таблицы: создано ${result.created}, обновлено ${result.updated}`); }}/>
@@ -557,7 +557,7 @@ export default function App() {
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'demonstrations' && <DemonstrationsPage catalog={catalog} permissions={session.currentUser.permissions} onBack={()=>navigateSection('version')} onSection={navigateSection} onProcess={id=>openProcess(id)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'roadmap' && <DevelopmentRoadmapPage onBack={() => navigateSection('version')}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'importHistory' && <ProcessTableImportHistoryPage canManage={can('system.manage')} onBack={() => navigateSection('settings')}/>}
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'import' && <ImportDialog page catalog={catalog} initialExportProcessId={processId} onClose={() => navigateSection('home')}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'import' && <ImportDialog key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} page catalog={catalog} initialExportProcessId={processId} onClose={() => navigateSection('home')}
       onImported={async result => { await refreshCatalog(result.process.id); openProcess(result.process.id); setDraftView(true); notify(`Импортирован процесс «${result.process.name}»`); }}
       onPackageImported={async result => { setCatalog(await loadProcessCatalog()); navigateSection('home'); notify(`Импортировано процессов: ${result.imported}`); }}
       onTableImported={async result => { setCatalog(await loadProcessCatalog()); navigateSection('home'); notify(`Черновики из таблицы: создано ${result.created}, обновлено ${result.updated}`); }}/>

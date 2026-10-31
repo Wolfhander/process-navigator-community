@@ -1,0 +1,10 @@
+.app-shell>.reference-queue{grid-row:2/-1;min-height:0;overflow:auto;background:#f5f8f4}
+.reference-shell{max-width:1500px;margin:auto;padding:26px clamp(16px,3vw,46px)}
+.reference-shell h1{font-family:Georgia,serif;font-size:clamp(28px,3vw,40px)}.reference-shell p,.reference-shell h2,.reference-shell li{overflow-wrap:anywhere;line-height:1.5}
+.reference-shell nav,.reference-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.reference-shell button{border:1px solid #c9d9ce;border-radius:7px;padding:10px;background:#fff;color:#28523e;display:inline-flex;gap:7px;align-items:center;white-space:normal}
+.reference-shell button:disabled{opacity:.5}.reference-filters,.reference-resolution{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+.reference-shell label{display:grid;gap:6px;min-width:0}.reference-shell input,.reference-shell select{min-width:0;max-width:100%;width:100%;padding:10px;border:1px solid #c9d9ce;border-radius:7px;box-sizing:border-box}
+.reference-group{padding:22px;background:white;border:1px solid #d3dfd6;border-radius:12px;margin:16px 0;min-width:0}.reference-group h2{font-size:20px;margin-top:0}
+.reference-error{color:#9b3228;background:#fff0eb;padding:12px}.reference-shell summary{cursor:pointer}
+@media(max-width:760px){.reference-filters,.reference-resolution{grid-template-columns:minmax(0,1fr)}.reference-group{padding:16px}}

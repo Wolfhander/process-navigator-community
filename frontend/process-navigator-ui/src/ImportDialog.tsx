@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, BookmarkPlus, CheckCircle2, Download, FileArchive, FileJson2, FileSpreadsheet, FileUp, Trash2, Upload, X } from 'lucide-react';
 import { deleteProcessTableSelectionSet, downloadProcessTableExport, downloadProcessPackage, downloadProcessTableImportReport, downloadProcessTableTemplate, importProcess, importProcessPackage, importProcessTable, loadProcessTableSelectionSets, previewProcessTable, replaceDraft, saveProcessTableSelectionSet } from './api';
 import type { ProcessImportResult, ProcessPackageImportResult, ProcessSummary, ProcessTableImportResult, ProcessTablePreview, ProcessTablePreviewItem, ProcessTableSelectionSet, ProcessTableStepIdMapping } from './types';
 
+const TableReferencesPage=lazy(()=>import('./TableReferencesPage').then(m=>({default:m.TableReferencesPage})));
 type Props = {
   onClose: () => void;
   onImported: (result: ProcessImportResult) => void;
@@ -16,6 +17,7 @@ type Props = {
 
 export function ImportDialog({ onClose, onImported, onPackageImported, onTableImported, processId, initialExportProcessId, catalog, page = false }: Props) {
   const [mode, setMode] = useState<'single' | 'package' | 'table'>('single');
+  const [referencesOpen,setReferencesOpen]=useState(false);
   const [packageDraft, setPackageDraft] = useState(false);
   const [bpmnFile, setBpmnFile] = useState<File>();
   const [contextFile, setContextFile] = useState<File>();
@@ -37,6 +39,9 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
   const [exportProcessId, setExportProcessId] = useState(
     initialExportProcessId && catalog.some(item => item.id === initialExportProcessId) ? initialExportProcessId : catalog[0]?.id ?? '');
   const [includeDescendants, setIncludeDescendants] = useState(true);
+  useEffect(()=>{
+    if(!exportProcessId&&catalog.length)setExportProcessId(initialExportProcessId&&catalog.some(p=>p.id===initialExportProcessId)?initialExportProcessId:catalog[0].id);
+  },[catalog,exportProcessId,initialExportProcessId]);
 
   useEffect(() => {
     if (processId) return;
@@ -102,6 +107,11 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось удалить набор.'); }
     finally { setBusy(false); }
   };
+  if(referencesOpen&&tableFile)return <Suspense fallback={<main className="state-page">Открываем разбор значений…</main>}><TableReferencesPage file={tableFile} onBack={()=>setReferencesOpen(false)} onResolved={async corrected=>{
+    setReferencesOpen(false);setTableFile(corrected);setTablePreview(undefined);setSelectedProcessIds([]);setConfirmedRemovalIds([]);setAcceptedRenameKeys([]);setBusy(true);setError('');
+    try{const preview=await previewProcessTable(corrected);setTablePreview(preview);setSelectedProcessIds(preview.processes.filter(p=>!p.errorCount).map(p=>p.id));}
+    catch(e){setError(e instanceof Error?e.message:'Не удалось проверить исправленную копию.');}finally{setBusy(false);}
+  }}/></Suspense>;
   const content = <section className={`import-dialog${page ? ' import-page-content' : ''}`} role={page ? 'region' : 'dialog'} aria-modal={page ? undefined : true} aria-labelledby="import-title">
       {!page && <button className="icon-button dialog-close" onClick={onClose} aria-label="Закрыть"><X size={18}/></button>}
       <span className="eyebrow">Репозиторий процессов</span>
@@ -136,6 +146,7 @@ export function ImportDialog({ onClose, onImported, onPackageImported, onTableIm
         </div>
         <label className="file-field table-file-field"><FileSpreadsheet size={21}/><span><strong>Заполненная таблица</strong><small>{tableFile?.name ?? 'Файл .xlsx, до 10 МБ'}</small></span><input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={event => { setTableFile(event.target.files?.[0]); setTablePreview(undefined); setSelectedProcessIds([]); setConfirmedRemovalIds([]); setAcceptedRenameKeys([]); setSelectionSetNotice(''); }}/></label>
         <button className="import-submit" disabled={!tableFile || busy} onClick={async () => { if (!tableFile) return; setBusy(true); setError(''); try { const preview = await previewProcessTable(tableFile); setTablePreview(preview); setSelectedProcessIds(preview.processes.filter(item => !item.errorCount).map(item => item.id)); setConfirmedRemovalIds([]); setAcceptedRenameKeys([]); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось проверить таблицу.'); } finally { setBusy(false); } }}><Upload size={18}/>{busy ? 'Проверяем…' : 'Проверить таблицу без загрузки'}</button>
+        {page&&tableFile&&<button className="secondary-button" disabled={busy} onClick={()=>setReferencesOpen(true)}>Разобрать несопоставленные значения</button>}
         {error && <div className="import-message is-error"><AlertTriangle size={18}/><span>{error}</span></div>}
         <small>Проверка не изменяет процессы. Программа покажет новые и существующие модели, пропущенные поля и ошибочные ссылки.</small>
         <small>Лист «Основания» переносит источники и вопросы шагов; лист «Сверка» — пункты исходного описания и их привязки. Каждый лист заменяет соответствующие сведения процессов книги, включая удаление отсутствующих. Чтобы сохранить прежние сведения без изменений, удалите соответствующий лист целиком.</small>

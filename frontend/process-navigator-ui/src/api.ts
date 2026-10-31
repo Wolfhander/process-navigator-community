@@ -8,6 +8,12 @@ const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+export async function tableReferences(file:File,resolution?:{fingerprint:string;rules:import('./table-references').ReferenceRule[]},signal?:AbortSignal) {
+  const form=new FormData();form.set('tableFile',file);if(resolution)form.set('resolution',JSON.stringify(resolution));
+  const response=await fetch('/api/processes/table-references'+(resolution?'/resolve':''),{method:'POST',headers:roleHeaders(),body:form,signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось разобрать значения книги.'));
+  return resolution?response.blob():response.json();
+}
 async function sourceCall<T>(suffix:string,options:RequestInit={}):Promise<T>{
   const response=await fetch('/api/source-materials'+suffix,{...options,headers:{...roleHeaders(),...options.headers}});
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось обработать исходный материал.'));

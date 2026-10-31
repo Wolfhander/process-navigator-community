@@ -58,6 +58,7 @@ count += await WorkRulesChecks.RunAsync();
 count += await PackageContextChecks.RunAsync();
 count += await EvidenceReviewChecks.RunAsync();
 count += await SourceMaterialChecks.RunAsync();
+count += await TableReferenceChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();

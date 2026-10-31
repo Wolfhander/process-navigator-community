@@ -1,0 +1,15 @@
+{
+  "processId":"demo-showcase-l3-warehouse",
+  "description":"Синтетический сценарий: пять областей сопоставления, повторные вхождения и зависимое подразделение. Штатный XLSX экспортируется программой; меняются только эти ячейки.",
+  "changes":[
+    {"sheet":"Процессы","column":"Организация-владелец ID","value":"ghost-org","nonEmpty":true},
+    {"sheet":"Шаги","column":"Организация ID","value":"ghost-org","nonEmpty":true},
+    {"sheet":"Процессы","column":"Подразделение-владелец ID","value":"ghost-unit","nonEmpty":true},
+    {"sheet":"Шаги","column":"Подразделение ID","value":"ghost-unit","nonEmpty":true},
+    {"sheet":"Шаги","column":"Сотрудники ID","row":5,"value":"ghost-user | demo-employee"},
+    {"sheet":"Шаги","column":"Система выполнения","row":5,"value":"ghost-system"},
+    {"sheet":"Шаги","column":"Объекты реестра ID","row":5,"value":"ghost-object"},
+    {"sheet":"Каналы","column":"Документ","row":4,"value":"ghost-document"}
+  ],
+  "targets":{"entity":"plant","unit":"1.2.5","user":"demo-employee","system":"1С:ERP","object":"demo-receipt-inspection","document":"demo-receipt-inspection"}
+}
