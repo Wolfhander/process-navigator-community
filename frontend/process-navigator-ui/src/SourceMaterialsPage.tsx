@@ -1,0 +1,53 @@
+import {useEffect,useState} from 'react';
+import {ArrowLeft,Download,FileText,RefreshCw,Upload} from 'lucide-react';
+import {checkSourceMaterial,downloadSourceMaterial,loadProcess,loadSourceMaterials,previewSourceMaterial,uploadSourceMaterial} from './api';
+import type {ProcessModel,ProcessSummary} from './types';
+import {initialSourceTarget,sourceObjects,sourceTimestamp,type SourceCheck,type SourceList,type SourceSnapshot,type SourceTarget} from './source-materials';
+import './source-materials.css';
+import sample from '../../../master-data/v1/documents/PKG-001.md?raw';
+type Props={catalog:ProcessSummary[];canUpload:boolean;onBack:()=>void;onOpen:(target:SourceSnapshot)=>void};
+export function SourceMaterialsPage({catalog,canUpload,onBack,onOpen}:Props) {
+  const [list,setList]=useState<SourceList>(),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
+  const [target,setTarget]=useState<SourceTarget>(()=>initialSourceTarget(catalog));
+  const [model,setModel]=useState<ProcessModel>(),[file,setFile]=useState<File>(),[preview,setPreview]=useState<SourceSnapshot>(),[checks,setChecks]=useState<Record<string,SourceCheck>>({});
+  const [filter,setFilter]=useState(''),[generation,setGeneration]=useState(0),[fileKey,setFileKey]=useState(0);
+  useEffect(()=>{if(!target.processId&&catalog.length)setTarget(initialSourceTarget(catalog));},[catalog,target.processId]);
+  useEffect(()=>{const c=new AbortController();setLoading(true);setError('');loadSourceMaterials(c.signal).then(setList).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setLoading(false);});return()=>c.abort();},[generation]);
+  useEffect(()=>{const c=new AbortController();setModel(undefined);setPreview(undefined);if(target.processId&&canUpload)loadProcess(target.processId,c.signal,target.draft).then(setModel).catch(e=>{if(!c.signal.aborted)setError(e.message);});return()=>c.abort();},[target.processId,target.draft,canUpload]);
+  function change(patch:Partial<SourceTarget>){setTarget(t=>({...t,...patch}));setPreview(undefined);setNotice('');}
+  async function run(action:()=>Promise<void>){setBusy(true);setError('');setNotice('');try{await action();}catch(e){setError(e instanceof Error?e.message:'Операция не выполнена.');}finally{setBusy(false);}}
+  const current=catalog.find(p=>p.id===target.processId);
+  const shown=(list?.materials??[]).filter(m=>[m.target.name,m.fileName,m.target.processName,m.target.elementName,m.target.objectName].join(' ').toLocaleLowerCase('ru').includes(filter.toLocaleLowerCase('ru')));
+  return <main className="source-materials"><div className="source-content">
+    <nav aria-label="Навигация"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>Паспорта и приложения</span></nav>
+    <header><span className="eyebrow">Исходные материалы</span><h1>Паспорта и приложения</h1><p>Оригиналы файлов с неизменяемой привязкой к редакции модели, этапу и объекту реестра. Загрузка не подтверждает факты и не меняет схему.</p><p>Привязка хранит метки и версию цели, но не полную копию схемы. Для проверки используйте «Сверить с моделью».</p>
+    <button onClick={()=>{const url=URL.createObjectURL(new Blob([sample],{type:'text/plain;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='PKG-001.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}}>Скачать учебный исходник PKG-001</button></header>
+    {error&&<p role="alert" className="source-error">{error}</p>}{notice&&<p role="status">{notice}</p>}
+    <div className="source-columns">
+    {canUpload&&<section className="source-card"><h2>Добавить исходник</h2><p>1. Выберите цель и файл · 2. Проверьте привязку · 3. Сохраните оригинал.</p>
+      <fieldset disabled={busy} className="source-fields">
+      <label>Процесс<select aria-label="Процесс" value={target.processId} onChange={e=>change({processId:e.target.value,draft:catalog.find(p=>p.id===e.target.value)?.status==='Draft',elementId:undefined,objectId:undefined})}>{catalog.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <label>Редакция<select aria-label="Редакция" value={String(target.draft)} onChange={e=>change({draft:e.target.value==='true',elementId:undefined,objectId:undefined})}>{current?.status!=='Draft'&&<option value="false">Действующая — {current?.version}</option>}{(current?.hasDraft||current?.status==='Draft')&&<option value="true">Черновик — {current?.draftVersion??current?.version}</option>}</select></label>
+      <label>Этап<select aria-label="Этап" value={target.elementId??''} onChange={e=>change({elementId:e.target.value||undefined,objectId:undefined})}><option value="">Процесс целиком</option>{model?.nodes.map(n=><option key={n.id} value={n.id}>{n.name||n.id}</option>)}</select></label>
+      <label>Объект реестра<select aria-label="Объект реестра" value={target.objectId??''} onChange={e=>change({objectId:e.target.value||undefined})}><option value="">Без объекта</option>{sourceObjects(model,target.elementId??'').map(o=><option key={o.objectId} value={o.objectId}>{o.name} · {o.objectId}</option>)}</select></label>
+      <label>Вид материала<select aria-label="Вид материала" value={target.kind} onChange={e=>change({kind:e.target.value as SourceTarget['kind']})}><option value="passport">Исходный паспорт</option><option value="attachment">Приложение</option></select></label>
+      <label>Версия документа<input aria-label="Версия документа" maxLength={40} value={target.documentVersion} onChange={e=>change({documentVersion:e.target.value})}/></label>
+      <label>Название<input aria-label="Название" maxLength={200} value={target.name} onChange={e=>change({name:e.target.value})}/></label>
+      <label>Оригинал до 20 МБ<input aria-label="Оригинал до 20 МБ" key={fileKey} type="file" accept=".md,.txt,.pdf,.docx,.doc,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.bpmn,.json,.zip" onChange={e=>{const f=e.target.files?.[0];setFile(f);change({name:f?.name??''});}}/></label>
+      <p>Поддерживаются тексты, PDF, Word, Excel, изображения, BPMN, JSON и ZIP. Файлы не исполняются, текст не извлекается автоматически. Антивирусная проверка не выполняется.</p>
+      <button disabled={!model||!file||!target.name.trim()||!target.documentVersion.trim()} onClick={()=>void run(async()=>{if(!file||file.size<=0||file.size>20*1024*1024)throw new Error('Выберите непустой файл до 20 МБ.');setPreview(await previewSourceMaterial(target));})}><RefreshCw size={16}/>Проверить привязку</button>
+      {preview&&<div className="source-preview"><h3>Проверенная цель</h3><p>{preview.processName} · {preview.draft?'черновик':'действующая'} {preview.processVersion}</p><p>{preview.elementName??'Процесс целиком'} · {preview.objectName??'Без объекта реестра'}</p><p>Проверена привязка, а не достоверность содержимого.</p><button onClick={()=>void run(async()=>{if(!file)return;const result=await uploadSourceMaterial(file,{...target,expectedFingerprint:preview.fingerprint});setNotice(result.created?'Оригинал сохранён. Модель не изменена.':'Этот оригинал с такой привязкой уже сохранён.');setPreview(undefined);setFile(undefined);setFileKey(v=>v+1);setGeneration(v=>v+1);})}><Upload size={16}/>Сохранить оригинал</button></div>}
+      </fieldset></section>}
+    <section className="source-card source-list"><h2>Сохранённые материалы</h2><p>Черновые файлы доступны только профилям с правами на черновики, в том числе после публикации модели. Предел: 200 материалов / 512 МБ.</p>
+      <label>Поиск<input aria-label="Поиск" type="search" value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Процесс, этап, документ или файл"/></label><button disabled={busy||loading} onClick={()=>{setChecks({});setGeneration(v=>v+1);}}>Обновить список</button>
+      {loading?<p role="status">Загрузка…</p>:list&&<p>Показано {shown.length} из {list.materials.length} доступных материалов.</p>}
+      {list&&(list.unreadable>0||list.limited)&&<p role="alert" className="source-error">Хранилище неполно: недоступных записей {list.unreadable}{list.limited?' · предел выдачи превышен':''}. Новые загрузки заблокированы. Существующие файлы не удалены.</p>}
+      {!loading&&list&&!shown.length&&<p>Материалы не найдены. {canUpload?'Добавьте исходный паспорт или приложение.':'Здесь появятся доступные вам исходники.'}</p>}
+      {shown.map(m=><article key={m.id}><h3><FileText size={18}/>{m.target.name}</h3><p>{m.target.kind==='passport'?'Паспорт':'Приложение'} · документ {m.target.documentVersion}</p><p>{m.target.processName} · {m.target.draft?'черновик':'действующая на момент загрузки'} {m.target.processVersion}</p><p>{m.target.elementName??'Процесс целиком'} · {m.target.objectName??'Без объекта реестра'}</p><p>{m.fileName} · {(m.size/1024).toFixed(1)} КБ<br/>{m.uploadedByName} · {sourceTimestamp(m.uploadedAt)}</p><details><summary>Идентификаторы и контрольная сумма</summary><dl><dt>Процесс / этап / объект</dt><dd>{m.target.processId} / {m.target.elementId??'—'} / {m.target.objectId??'—'}</dd><dt>SHA-256</dt><dd>{m.sha256}</dd><dt>Идентификатор исходника</dt><dd>{m.id}</dd></dl></details>
+        {checks[m.id]&&<p role="status">{checks[m.id].message}</p>}
+        <div className="source-actions"><button disabled={busy} onClick={()=>void run(async()=>{const blob=await downloadSourceMaterial(m.id);const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=m.fileName;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);})}><Download size={16}/>Скачать оригинал</button>
+        <button disabled={busy} onClick={()=>void run(async()=>{const checked=await checkSourceMaterial(m.id);setChecks(v=>({...v,[m.id]:checked}));})}>Сверить с моделью</button><button onClick={()=>onOpen(m.target)}>{m.target.draft?'Текущий черновик':'Открыть модель'}</button></div>
+      </article>)}
+    </section></div>
+  </div></main>;
+}

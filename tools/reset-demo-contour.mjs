@@ -108,6 +108,10 @@ export function createDemoContour() {
       context.elements.Task_PrepareWarehouse.inputs = [...context.elements.Task_Manufacture.inputs];
       context.elements.Task_Quality.inputs = [context.elements.Task_Manufacture.expectedResult, context.elements.Task_PrepareWarehouse.expectedResult];
     }
+    if (model.id === 'demo-showcase-l3-warehouse') {
+      bind(context.elements.Task_PhysicalReceipt,'demo-receipt-inspection','Результат физической приёмки','Output');
+      bind(context.elements.Task_ReceiptOrder,'demo-receipt-inspection','Результат физической приёмки','Input');
+    }
     if (model.id === 'demo-showcase-l2-engineering') bind(context.elements.Task_EngineeringApprove, 'demo-approved-documentation', 'Утверждённый комплект КД и ТД', 'Output');
     if (model.id === 'demo-showcase-l2-procurement') bind(context.elements.Task_ReceiveStock, 'demo-materials-available', 'Материалы и ПКИ доступны производству', 'Output');
     if (model.id === production.id) {
@@ -134,7 +138,7 @@ export function resetDemoContour(repoRoot, apply = false) {
   const data = path.join(root, 'backend', 'ProcessNavigator.Api', 'Data');
   if (!fs.existsSync(path.join(root, 'backend', 'ProcessNavigator.Api', 'ProcessNavigator.Api.csproj'))) throw new Error('Process Navigator repository was not found.');
   if (fs.realpathSync(data) !== data) throw new Error('Data path must not be a symbolic link or junction.');
-  const removableDirectories = new Set(['Drafts', 'Versions', 'Passports', 'Assignments', 'Executions', 'SchedulePlans', 'ScheduleArchive', 'PortfolioHistory','EvidenceReviews', 'Commands', 'Comments', 'Notifications', 'InformationObjects', 'ImportReports', 'ImportSelectionSets', 'Artifacts', 'Audit']);
+  const removableDirectories = new Set(['Drafts', 'Versions', 'Passports', 'Assignments', 'Executions', 'SchedulePlans', 'ScheduleArchive', 'PortfolioHistory','EvidenceReviews','SourceMaterials', 'Commands', 'Comments', 'Notifications', 'InformationObjects', 'ImportReports', 'ImportSelectionSets', 'Artifacts', 'Audit']);
   const targets = fs.readdirSync(data, { withFileTypes: true }).filter(entry => entry.isDirectory() ? removableDirectories.has(entry.name) : entry.name === 'organization.json' || entry.name.endsWith('.bpmn') || entry.name.endsWith('.context.json')).map(entry => path.join(data, entry.name));
   for (const target of targets) {
     if (path.dirname(target) !== data || fs.lstatSync(target).isSymbolicLink()) throw new Error(`Unsafe reset target: ${target}`);

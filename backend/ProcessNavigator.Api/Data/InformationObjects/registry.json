@@ -18,5 +18,13 @@
     "aliases": [
       "Материалы и ПКИ доступны производству"
     ]
+  },
+  {
+    "id":"demo-receipt-inspection",
+    "name":"Результат физической приёмки",
+    "kind":"Result",
+    "version":"1.0",
+    "lifecycleState":"Active",
+    "aliases":["Результат физической приёмки"]
   }
 ]

@@ -70,7 +70,7 @@
       ],
       "executionMode": "manual",
       "executorKind": "human",
-      "informationObjects": []
+      "informationObjects": [{"objectId":"demo-receipt-inspection","name":"Результат физической приёмки","role":"Output","required":true,"version":"1.0"}]
     },
     "Task_ReceiptOrder": {
       "description": "Записать фактическую приёмку в складском контуре.",
@@ -100,7 +100,7 @@
       "executionMode": "system",
       "executorKind": "human",
       "systemName": "1С:ERP",
-      "informationObjects": []
+      "informationObjects": [{"objectId":"demo-receipt-inspection","name":"Результат физической приёмки","role":"Input","required":true,"version":"1.0"}]
     },
     "Task_SystemNotice": {
       "evidence": [

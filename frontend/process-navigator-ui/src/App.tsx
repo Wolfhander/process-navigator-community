@@ -21,6 +21,7 @@ import { LaneOrganizationDialog } from './LaneOrganizationDialog';
 import { DeploymentDialog } from './DeploymentDialog';
 import { CreateProcessDialog } from './CreateProcessDialog';
 const EvidenceRegisterPage=lazy(()=>import('./EvidenceRegisterPage').then(m=>({default:m.EvidenceRegisterPage})));
+const SourceMaterialsPage=lazy(()=>import('./SourceMaterialsPage').then(m=>({default:m.SourceMaterialsPage})));
 import { ProcessCatalogDialog } from './ProcessCatalogDialog';
 import { ProcessPropertiesDialog } from './ProcessPropertiesDialog';
 import { AuditLogDialog } from './AuditLogDialog';
@@ -312,6 +313,7 @@ export default function App() {
     if (action === 'catalog') { navigateSection('catalog'); return; }
     if (action === 'catalogAudit') { setAuditReturnSection('home'); navigateSection('catalogAudit'); return; }
     if (action === 'evidenceRegister') { navigateSection('evidenceRegister'); return; }
+    if (action === 'sourceMaterials') { navigateSection('sourceMaterials'); return; }
     if (action === 'informationObjects') { navigateSection('informationObjects'); return; }
     if (action === 'schedule') { navigateSection('schedule'); return; }
     if (action === 'create') setCreateProcessOpen(true);
@@ -600,6 +602,11 @@ export default function App() {
       setDraftView(entry.edition === 'Draft');
       setReloadKey(value => value + 1);
       setPendingAuditTarget(entry.elementId ? { processId: entry.processId, elementId: entry.elementId } : undefined);
+    }}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'sourceMaterials' && <SourceMaterialsPage key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} catalog={catalog} canUpload={can('process.context.edit')} onBack={()=>navigateSection('home')} onOpen={target=>{
+      openProcess(target.processId);setProcess(undefined);setDraftView(target.draft);
+      setArchivedVersion(!target.draft&&catalog.find(p=>p.id===target.processId)?.version!==target.processVersion?target.processVersion:undefined);
+      setReloadKey(v=>v+1);setPendingAuditTarget(target.elementId?{processId:target.processId,elementId:target.elementId}:undefined);
     }}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage key={session.currentUser.id} userId={session.currentUser.id} canAssign={can('process.execute')} catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'organization' && (organizationEditor ? <OrganizationAdminDialog page

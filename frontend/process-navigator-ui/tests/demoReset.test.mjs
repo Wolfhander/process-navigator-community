@@ -52,7 +52,7 @@ test('reset previews, backs up old data and removes process history without chan
   fs.mkdirSync(path.join(data, 'Keys'));
   fs.mkdirSync(path.join(data, 'SchedulePlans'));
   fs.writeFileSync(path.join(data, 'SchedulePlans', 'example.json'), 'plan-history');
-  for(const name of ['ScheduleArchive','PortfolioHistory','EvidenceReviews']){
+  for(const name of ['ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials']){
     fs.mkdirSync(path.join(data,name));fs.writeFileSync(path.join(data,name,'old.json'),'old-history');
   }
   fs.writeFileSync(path.join(data, '..', 'ProcessNavigator.Api.csproj'), '<Project/>');
@@ -72,7 +72,7 @@ test('reset previews, backs up old data and removes process history without chan
     assert.ok(!fs.existsSync(path.join(data, 'old.bpmn')));
     assert.ok(!fs.existsSync(path.join(data, 'Drafts')));
     assert.ok(!fs.existsSync(path.join(data, 'SchedulePlans')));
-    for(const name of ['ScheduleArchive','PortfolioHistory','EvidenceReviews']){
+    for(const name of ['ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials']){
       assert.ok(!fs.existsSync(path.join(data,name)));
       assert.equal(fs.readFileSync(path.join(result.backup,name,'old.json'),'utf8'),'old-history');
     }

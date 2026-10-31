@@ -1,0 +1,18 @@
+.app-shell>.source-materials{grid-row:2/-1;min-height:0;overflow:auto;background:var(--page-bg,#f5f8f4)}
+.source-content{max-width:1560px;margin:0 auto;padding:24px clamp(16px,3vw,48px);min-width:0}
+.source-content nav,.source-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.source-content>header{display:block;position:static;height:auto;min-height:0;padding:0;margin:24px 0;border:0;background:transparent;box-shadow:none}
+.source-content h1{font-family:Georgia,'Times New Roman',serif;font-size:clamp(26px,3vw,40px);margin:12px 0}
+.source-content>header p{max-width:1080px}
+.source-content p,.source-content h3,.source-content dd{overflow-wrap:anywhere}
+.source-columns{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(0,1.4fr);gap:24px;align-items:start}
+.source-columns:has(>.source-card:only-child){grid-template-columns:minmax(0,1fr)}
+.source-card{background:white;border:1px solid #d4dfd7;border-radius:14px;padding:24px;min-width:0}
+.source-fields{margin:0;border:0;padding:0;display:grid;gap:14px;min-width:0}
+.source-content label{display:grid;gap:6px;min-width:0}.source-content input,.source-content select{width:100%;max-width:100%;min-width:0;padding:10px;border:1px solid #c6d5ca;border-radius:7px;box-sizing:border-box}
+.source-content button{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:normal;max-width:100%;padding:9px 12px;border:1px solid #c6d5ca;border-radius:7px;background:#f5f9f5;color:#254e3a;cursor:pointer}
+.source-content button:disabled{opacity:.5;cursor:default}.source-content p{line-height:1.5;color:#56665e}
+.source-list>button{margin-top:10px}.source-list article{border-top:1px solid #d4dfd7;padding:20px 0;min-width:0}.source-list h3{display:flex;gap:8px;align-items:flex-start}.source-list h3 svg{flex-shrink:0}
+.source-list dd{margin:5px 0 15px;font-size:13px}.source-list summary{cursor:pointer}
+.source-error{color:#9d3529!important;padding:12px;background:#fff0eb;border-radius:8px}.source-preview{padding:16px;background:#edf6ed;border-radius:9px}
+@media(max-width:900px){.source-columns{grid-template-columns:minmax(0,1fr)}.source-card{padding:16px}}

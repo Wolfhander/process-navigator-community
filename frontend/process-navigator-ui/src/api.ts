@@ -8,6 +8,23 @@ const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+async function sourceCall<T>(suffix:string,options:RequestInit={}):Promise<T>{
+  const response=await fetch('/api/source-materials'+suffix,{...options,headers:{...roleHeaders(),...options.headers}});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось обработать исходный материал.'));
+  return response.json() as Promise<T>;
+}
+export const loadSourceMaterials=(signal?:AbortSignal)=>sourceCall<import('./source-materials').SourceList>('',{signal});
+export const previewSourceMaterial=(target:import('./source-materials').SourceTarget)=>sourceCall<import('./source-materials').SourceSnapshot>('/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(target)});
+export const checkSourceMaterial=(id:string)=>sourceCall<import('./source-materials').SourceCheck>('/'+encodeURIComponent(id)+'/check');
+export function uploadSourceMaterial(file:File,target:import('./source-materials').SourceTarget) {
+  const data=new FormData();data.set('file',file);data.set('target',JSON.stringify(target));
+  return sourceCall<{material:import('./source-materials').SourceMaterial;created:boolean}>('',{method:'POST',body:data});
+}
+export async function downloadSourceMaterial(id:string) {
+  const response=await fetch('/api/source-materials/'+encodeURIComponent(id)+'/content',{headers:roleHeaders()});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось скачать исходный файл.'));
+  return response.blob();
+}
 export async function loadDepartmentHeatmap(signal?: AbortSignal):Promise<DepartmentReport> {
   const response=await fetch('/api/analytics/organization',{signal,headers:roleHeaders()});
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось загрузить тепловую карту подразделений.'));

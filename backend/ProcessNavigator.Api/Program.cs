@@ -26,6 +26,7 @@ builder.Services.AddSingleton<TransferAnalyticsService>();
 builder.Services.AddSingleton<OrganizationHeatmapService>();
 builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<EvidenceReviewService>();
+builder.Services.AddSingleton<SourceMaterialService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -1065,6 +1066,7 @@ app.MapDelete("/api/processes/table-selection-sets/{id}", async (string id, Http
     catch (InvalidDataException exception) { return Results.BadRequest(new { message = exception.Message }); }
 });
 
+app.MapSourceMaterials(CanOpenDraft);
 app.MapGet("/api/processes/{processId}/elements/{elementId}/evidence-reviews", async (string processId,string elementId,bool? draft,
     HttpContext context,EvidenceReviewService reviews,AccessControlService access,CancellationToken ct) =>
 {

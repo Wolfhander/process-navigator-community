@@ -2,7 +2,7 @@ import { ArrowRight, BarChart3, BookOpen, Building2, CalendarClock, ClipboardLis
 import type { LucideIcon } from 'lucide-react';
 import type { ProcessSummary } from './types';
 import type { ReactNode } from 'react';
-export type HomeAction = 'map' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'informationObjects' | 'schedule' | 'analytics' | 'settings' | 'version' | 'syncLanes' | 'directionMatrix' | 'create' | 'import' | 'importHistory' | 'organization' | 'users' | 'audit' | 'deployment' | 'integration' | 'help';
+export type HomeAction = 'map' | 'catalog' | 'catalogAudit' | 'evidenceRegister' | 'sourceMaterials' | 'informationObjects' | 'schedule' | 'analytics' | 'settings' | 'version' | 'syncLanes' | 'directionMatrix' | 'create' | 'import' | 'importHistory' | 'organization' | 'users' | 'audit' | 'deployment' | 'integration' | 'help';
 type Props = { settings: boolean; groupName: string; catalog: ProcessSummary[]; can: (permission: string) => boolean; onAction: (action: HomeAction) => void; children?: ReactNode };
 export function WorkspaceHome({ settings, groupName, catalog, can, onAction, children }: Props) {
   const cards: { action: HomeAction; title: string; description: string; icon: LucideIcon; permission?: string }[] = settings ? [
@@ -21,6 +21,7 @@ export function WorkspaceHome({ settings, groupName, catalog, can, onAction, chi
     { action: 'catalog', title: 'Каталог моделей', description: 'Поиск процессов, черновики и иерархия моделей.', icon: ClipboardList },
     { action: 'catalogAudit', title: 'Проверка процессов', description: 'Ошибки маршрутов, привязок и описаний во всём каталоге.', icon: ListChecks, permission: 'process.diagram.edit' },
     { action: 'evidenceRegister', title: 'Источники и вопросы', description: 'Факты, предположения и вопросы по шагам действующих моделей и черновиков.', icon: BookOpen },
+    { action: 'sourceMaterials', title: 'Паспорта и приложения', description: 'Оригиналы файлов, их версии и привязки к моделям, этапам и документам.', icon: Files },
     { action: 'informationObjects', title: 'Документы и результаты', description: 'Источники, получатели и разрывы сквозных передач между процессами.', icon: Files },
     { action: 'schedule', title: 'Расчёт сроков', description: 'Прямой и обратный расчёт цепочки процессов по нормам шагов и передаваемым документам.', icon: CalendarClock },
     { action: 'analytics', title: 'Аналитика', description: 'Показатели портфеля, качество описания и фактическое выполнение.', icon: BarChart3, permission: 'analytics.view' },

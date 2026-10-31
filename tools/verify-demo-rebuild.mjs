@@ -12,7 +12,7 @@ const repo=path.join(folder,'repository'),data=path.join(repo,'backend/ProcessNa
 fs.mkdirSync(data,{recursive:true});fs.writeFileSync(path.join(data,'../ProcessNavigator.Api.csproj'),'<Project/>');
 const expected=createDemoContour();
 const first=resetDemoContour(repo,true);
-const histories=['Drafts','Versions','Passports','Assignments','Executions','SchedulePlans','ScheduleArchive','PortfolioHistory','EvidenceReviews','Commands','Comments','Notifications','ImportReports','ImportSelectionSets','Artifacts','Audit'];
+const histories=['Drafts','Versions','Passports','Assignments','Executions','SchedulePlans','ScheduleArchive','PortfolioHistory','EvidenceReviews','SourceMaterials','Commands','Comments','Notifications','ImportReports','ImportSelectionSets','Artifacts','Audit'];
 for(const name of histories){fs.mkdirSync(path.join(data,name),{recursive:true});fs.writeFileSync(path.join(data,name,'old-marker.json'),'{"synthetic":true}');}
 fs.writeFileSync(path.join(data,'old-process.bpmn'),'<old/>');
 const second=resetDemoContour(repo,true);
@@ -27,4 +27,4 @@ for(const [relative,content]of expected.files)assert.equal(fs.readFileSync(path.
 assert.equal(fs.readdirSync(data).filter(f=>f.endsWith('.bpmn')).length,10);
 fs.cpSync(path.join(root,'backend/ProcessNavigator.Api/Data/Templates'),path.join(data,'Templates'),{recursive:true});
 fs.writeFileSync(path.join(folder,'rebuild-report.json'),JSON.stringify({status:'passed',models:expected.models.length,organizations:expected.organization.legalEntities.length,historyDirectories:histories,backups:[first.backup,second.backup,third.backup].map(p=>path.relative(folder,p))},null,2));
-console.log('Demo rebuild passed: 10 models, exact regeneration, 16 history directories cleaned with verified recoverable backups.');
+console.log('Demo rebuild passed: 10 models, exact regeneration, '+histories.length+' history directories cleaned with verified recoverable backups.');

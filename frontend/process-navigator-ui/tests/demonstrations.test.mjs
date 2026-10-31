@@ -19,9 +19,9 @@ test('every completed roadmap function has exactly one reproducible demonstratio
   for(const s of cases){for(const id of s.models)assert.ok(models.has(id),id);for(const file of s.evidence)assert.ok(existsSync(new URL('../../../'+file,import.meta.url)),file);}
 });
 test('a new completed function cannot silently lack a scenario; duplicates and stale mappings are explicit',()=>{
-  const removed=structuredClone(cases);delete removed[0].expected['1'];
+  const removed=structuredClone(cases);delete removed.find(item=>item.expected['1']).expected['1'];
   assert.deepEqual(demonstrationCoverage(steps,removed).missing.map(s=>s.id),[1]);
-  const duplicate=demonstrationCoverage(steps,[...cases,cases[0]]);assert.ok(duplicate.duplicates.includes(1));
+  const duplicate=demonstrationCoverage(steps,[...cases,cases.find(item=>item.expected['1'])]);assert.ok(duplicate.duplicates.includes(1));
   assert.ok(demonstrationCoverage(steps.filter(s=>s.id!==1),cases).stale.includes(1));
 });
 test('search narrows by function number, expected result, scenario or model without losing per-function wording',()=>{
@@ -45,7 +45,7 @@ function render(query,catalog=[],permissions=['process.view']){
 }
 test('page states coverage, lack of a demo model and the difference between plan and executed acceptance',()=>{
   const html=render('103');
-  assert.match(html,/Покрыто 59 из 59/);assert.match(html,/Модель отсутствует в текущем контуре/);
+  assert.match(html,/Покрыто 60 из 60/);assert.match(html,/Модель отсутствует в текущем контуре/);
   assert.match(html,/не отметка о том, что вы выполнили сценарий/);assert.match(html,/отдельный учебный контур/);
   assert.doesNotMatch(html,/Матрица требует актуализации/);
 });
