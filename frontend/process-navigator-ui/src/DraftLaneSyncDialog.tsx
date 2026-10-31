@@ -1,24 +1,34 @@
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Network, RefreshCw, X } from 'lucide-react';
-import { syncDraftLaneNames } from './api';
-import type { DraftLaneSyncReport } from './types';
+import {useEffect,useState} from 'react';
+import {ArrowLeft,RefreshCw} from 'lucide-react';
+import {previewDraftLaneNames,syncDraftLaneNames,type LanePlan} from './api';
+import type {DraftLaneSyncReport} from './types';
 import './draft-lane-sync.css';
-
-export function DraftLaneSyncDialog({ onClose, onSynced }: { onClose: () => void; onSynced: () => void }) {
-  const [report, setReport] = useState<DraftLaneSyncReport>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const run = async () => {
-    setBusy(true); setError('');
-    try { setReport(await syncDraftLaneNames()); onSynced(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось обновить дорожки.'); }
-    finally { setBusy(false); }
-  };
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="draft-lane-sync-dialog" role="dialog" aria-modal="true" aria-label="Обновление дорожек черновиков">
-    <header><div><span className="eyebrow">Оргструктура и BPMN</span><h2>Названия дорожек черновиков</h2><p>Система возьмёт актуальные названия подразделений из оргструктуры и применит выбранное для каждой дорожки полное или сокращённое имя.</p></div><button className="dialog-close" onClick={onClose} aria-label="Закрыть"><X size={17}/></button></header>
-    <div className="draft-lane-sync-body"><div className="draft-lane-sync-notice"><Network size={21}/><span>Изменяются только редактируемые черновики. Опубликованные и архивные BPMN, идентификаторы элементов, переходы и координаты не затрагиваются. Открытые в редакторе и находящиеся на согласовании черновики будут пропущены.</span></div>
-      {error && <p className="draft-lane-sync-error"><AlertTriangle size={16}/>{error}</p>}
-      {report && <><div className="draft-lane-sync-summary"><CheckCircle2 size={19}/><strong>Обновлено процессов: {report.updatedProcesses}</strong><span>Переименовано дорожек: {report.renamedLanes}</span></div><div className="draft-lane-sync-list">{report.items.map(item => <article key={item.processId}><span><strong>{item.processName}</strong><small>{item.status === 'Updated' ? `Переименовано дорожек: ${item.renamedLanes}` : item.status === 'Unchanged' ? 'Названия уже актуальны' : item.reason ?? 'Пропущено'}</small></span><em className={`is-${item.status.toLowerCase()}`}>{item.status === 'Updated' ? 'Обновлён' : item.status === 'Unchanged' ? 'Без изменений' : 'Пропущен'}</em></article>)}{report.items.length === 0 && <p>Черновиков с оргпривязками пока нет.</p>}</div></>}
-    </div><footer><button onClick={onClose}>{report ? 'Закрыть' : 'Отмена'}</button><button className="primary" disabled={busy} onClick={run}><RefreshCw size={15}/>{busy ? 'Проверяем…' : report ? 'Проверить повторно' : 'Обновить дорожки'}</button></footer>
-  </section></div>;
+export function DraftLaneSyncDialog({onClose,onSynced}:{onClose:()=>void;onSynced:()=>void}){
+  const [plan,setPlan]=useState<LanePlan>(),[selected,setSelected]=useState<string[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[reload,setReload]=useState(0);
+  const [result,setResult]=useState<{backupFileName:string;report:DraftLaneSyncReport}>();
+  useEffect(()=>{const c=new AbortController();setBusy(true);setError('');setPlan(undefined);setSelected([]);
+    previewDraftLaneNames(c.signal).then(setPlan).catch(e=>{if(!c.signal.aborted)setError(e.message);}).finally(()=>{if(!c.signal.aborted)setBusy(false);});
+    return()=>c.abort();
+  },[reload]);
+  async function apply(){if(!plan||!selected.length)return;setBusy(true);setError('');
+    try{setResult(await syncDraftLaneNames(plan,selected));setPlan(undefined);setSelected([]);onSynced();}
+    catch(e){setError(e instanceof Error?e.message:'Не удалось применить план.');setPlan(undefined);setSelected([]);}
+    finally{setBusy(false);}
+  }
+  return <section className="draft-lane-plan" aria-label="Обновление дорожек черновиков"><div className="draft-lane-plan-content">
+    <nav><button disabled={busy} onClick={onClose}><ArrowLeft size={16}/>Назад к настройкам</button></nav>
+    <h1>План обновления дорожек</h1>
+    <p>Просмотрите точные изменения и выберите черновики. Владельцы, ссылки, опубликованные редакции, идентификаторы, переходы и координаты не изменяются.</p>
+    <p>Перед применением создаётся резервная копия. Каждый черновик проверяется повторно; заблокированные и изменённые пропускаются. Пакет не является общей транзакцией: уже выполненные изменения сохраняются при последующей ошибке. Для восстановления используйте раздел резервных копий.</p>
+    <button disabled={busy} onClick={()=>setReload(v=>v+1)}><RefreshCw size={15}/>Подготовить новый просмотр</button>
+    {busy&&<p role="status">Выполняется операция…</p>}{error&&<p role="alert">{error} Для продолжения подготовьте новый просмотр.</p>}
+    {result&&<section><h2>Последний результат</h2><p>Обновлено: {result.report.updatedProcesses}; дорожек: {result.report.renamedLanes}.</p><p>Резервная копия: <code>{result.backupFileName}</code></p>
+      {result.report.items.map(i=><p key={i.processId}>{i.processName} · {i.status==='Updated'?'Обновлён':'Пропущен'} · {i.reason??i.renamedLanes}</p>)}</section>}
+    {plan&&<><p>Черновиков с оргпривязками: {plan.items.length}. Выбрано: {selected.length}. Просмотр ничего не записывает.</p>
+      {plan.items.map(i=><article key={i.processId}><label><input type="checkbox" disabled={busy||!!i.reason||!i.changes.length} checked={selected.includes(i.processId)} onChange={e=>setSelected(v=>e.target.checked?[...v,i.processId]:v.filter(id=>id!==i.processId))}/><strong>{i.processName}</strong> <code>{i.processId}</code></label>
+        {i.reason?<p>Пропущен: {i.reason}</p>:!i.changes.length?<p>Названия уже актуальны.</p>:<ul>{i.changes.map(c=><li key={c.laneId}><code>{c.laneId}</code>: <span>{c.before||'(пусто)'}</span> → <strong>{c.after}</strong></li>)}</ul>}
+      </article>)}
+      <button disabled={busy||!selected.length} onClick={()=>void apply()}>Создать резервную копию и применить выбранное ({selected.length})</button>
+    </>}
+  </div></section>;
 }

@@ -72,7 +72,6 @@ export default function App() {
   const [createProcessOpen, setCreateProcessOpen] = useState(false);
   const [auditReturnSection, setAuditReturnSection] = useState<'home' | 'catalog'>('home');
   const [versionsOpen, setVersionsOpen] = useState(false);
-  const [draftLaneSyncOpen, setDraftLaneSyncOpen] = useState(false);
   const [assignmentsOpen, setAssignmentsOpen] = useState(false);
   const [processView, setProcessView] = useState<ProcessView>('diagram');
   const [assignments, setAssignments] = useState<ProcessAssignments>();
@@ -320,7 +319,7 @@ export default function App() {
     if (action === 'import') { setDraftView(false); navigateSection('import'); }
     if (action === 'importHistory') navigateSection('importHistory');
     if (action === 'organization') { setOrganizationEditor(undefined); navigateSection('organization'); }
-    if (action === 'syncLanes') setDraftLaneSyncOpen(true);
+    if (action === 'syncLanes') navigateSection('laneSync');
     if (action === 'directionMatrix') navigateSection('directions');
     if (action === 'users') navigateSection('users');
     if (action === 'audit') navigateSection('auditLog');
@@ -484,7 +483,7 @@ export default function App() {
 
   return <div className="app-shell">
     <header className="workspace-header"><button className="brand app-home-button" onClick={() => navigateSection('home')} aria-label="Главная"><span className="brand-mark">PN</span><span>Process Navigator</span></button>
-      <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
+      <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory', 'laneSync'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
       <button className="header-action notification-button" onClick={() => setNotificationsOpen(true)} aria-label="Уведомления" title="Уведомления"><Bell size={17}/>{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><UserMenu session={session} onChange={changeUser}/><button className="search" onClick={() => setSearchOpen(true)} aria-label="Поиск" title="Поиск"><Search size={17}/></button>
     </header>
     <SectionLoadBoundary key={`${sectionVisit}:${homeSection}:${enterpriseOpen}:${portfolioAnalyticsOpen}`} onHome={() => navigateSection('home')}>
@@ -518,7 +517,7 @@ export default function App() {
     {versionsOpen && process && (
       <VersionDialog processId={processId} processName={process.name} onClose={() => setVersionsOpen(false)} onOpen={version => { setVersionsOpen(false); setSelected(undefined); if (version.status === 'Archived') { setDraftView(false); setArchivedVersion(version.version); } else { setArchivedVersion(undefined); setDraftView(version.status === 'Draft'); } }}/>
     )}
-    {draftLaneSyncOpen && <DraftLaneSyncDialog onClose={() => setDraftLaneSyncOpen(false)} onSynced={() => { setReloadKey(value => value + 1); void refreshCatalog(); }}/>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'laneSync' && can('system.manage') && <DraftLaneSyncDialog key={session.currentUser.id} onClose={() => navigateSection('settings')} onSynced={() => { setReloadKey(value => value + 1); void refreshCatalog(); }}/>}
     {assignmentsOpen && assignments && <AssignmentDialog assignments={assignments}
       onClose={() => setAssignmentsOpen(false)}
       onSaved={updated => { setAssignments(updated); setAssignmentsOpen(false); notify('Ответственные по дорожкам сохранены'); }}

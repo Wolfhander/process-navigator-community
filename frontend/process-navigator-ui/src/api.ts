@@ -140,10 +140,17 @@ export async function saveProcessLaneOrganizations(processId: string, lanes: Lan
   return response.json() as Promise<OrganizationMap>;
 }
 
-export async function syncDraftLaneNames(): Promise<DraftLaneSyncReport> {
-  const response = await fetch('/api/admin/organization/sync-draft-lanes', { method: 'POST', headers: roleHeaders() });
+export type LanePlan={organizationRevision:string;items:{processId:string;processName:string;fingerprint?:string;reason?:string;changes:{laneId:string;before:string;after:string}[]}[]};
+export async function previewDraftLaneNames(signal?:AbortSignal):Promise<LanePlan>{
+  const response=await fetch('/api/admin/organization/sync-draft-lanes',{headers:roleHeaders(),signal});
+  if(!response.ok)throw new Error(await errorMessage(response,'Не удалось подготовить план.'));
+  return response.json();
+}
+export async function syncDraftLaneNames(plan:LanePlan,ids:string[]): Promise<{backupFileName:string;report:DraftLaneSyncReport}> {
+  const selected=plan.items.filter(i=>ids.includes(i.processId)).map(i=>({processId:i.processId,fingerprint:i.fingerprint}));
+  const response = await fetch('/api/admin/organization/sync-draft-lanes', { method: 'POST', headers: {...roleHeaders(),'Content-Type':'application/json'},body:JSON.stringify({organizationRevision:plan.organizationRevision,selected}) });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось обновить названия дорожек.'));
-  return response.json() as Promise<DraftLaneSyncReport>;
+  return response.json();
 }
 
 export async function saveProcessProperties(processId: string, update: ProcessPropertiesUpdate): Promise<ProcessModel> {

@@ -28,6 +28,7 @@ builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<EvidenceReviewService>();
 builder.Services.AddSingleton<SourceMaterialService>();
 builder.Services.AddSingleton<ImportRecipeService>();
+builder.Services.AddSingleton<DraftLanePlanService>();
 builder.Services.AddSingleton<ProcessValidationService>();
 builder.Services.AddSingleton<CatalogAuditService>();
 builder.Services.AddSingleton<AuditLogService>();
@@ -209,12 +210,23 @@ app.MapPut("/api/admin/processes/{processId}/lane-organizations", async (string 
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Lane organization validation failed"); }
 });
 
-app.MapPost("/api/admin/organization/sync-draft-lanes", async (HttpContext context,
-    OrganizationMapService organization, AccessControlService access, CancellationToken cancellationToken) =>
+app.MapGet("/api/admin/organization/sync-draft-lanes", async (HttpContext context,
+    DraftLanePlanService plans, AccessControlService access, CancellationToken cancellationToken) =>
 {
+    context.Response.Headers["Cache-Control"]="no-store";
     if (!access.Has(context, ProcessPermissions.ManageSystem)) return Forbidden(ProcessPermissions.ManageSystem);
-    try { return Results.Ok(await organization.SyncDraftLaneNamesAsync(cancellationToken)); }
+    try { return Results.Ok(await plans.PreviewAsync(cancellationToken)); }
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Draft lane synchronization failed"); }
+    catch(IOException){return Results.Problem("Не удалось прочитать хранилище.",statusCode:503);}
+});
+app.MapPost("/api/admin/organization/sync-draft-lanes", async (LanePlanApply request,HttpContext context,
+    DraftLanePlanService plans,AccessControlService access,CancellationToken ct) =>
+{
+    context.Response.Headers["Cache-Control"]="no-store";
+    if(!access.Has(context,ProcessPermissions.ManageSystem))return Forbidden(ProcessPermissions.ManageSystem);
+    try{return Results.Ok(await plans.ApplyAsync(request,access.CurrentUser(context).DisplayName,ct));}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422);}
+    catch(IOException){return Results.Problem("Хранилище недоступно. Проверьте результат и резервные копии.",statusCode:503);}
 });
 
 app.MapGet("/api/session", (HttpContext context, AccessControlService access) => Results.Ok(access.Session(context)));

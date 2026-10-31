@@ -8,7 +8,7 @@ import {analyticsViews} from '../src/analytics-views.ts';
 test('every primary section roundtrips through a stable local hash; home retains legacy empty address',()=>{
   assert.equal(sectionLocationHash('home'),'');
   for(const section of appSections)assert.equal(readSectionLocation(sectionLocationHash(section)),section);
-  assert.equal(appSections.length,20);
+  assert.equal(appSections.length,21);
 });
 test('legacy process links take precedence and preserve edition, element and representation',()=>{
   const hash='#page=analytics&process=demo&step=task-1&edition=draft&view=instruction';

@@ -704,7 +704,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     }
 
     public async Task<int> SyncDraftLaneNamesAsync(string processId, IReadOnlyList<LaneOrganizationModel> mappings,
-        OrganizationMapModel organization, CancellationToken cancellationToken = default)
+        OrganizationMapModel organization, CancellationToken cancellationToken = default, Func<Task<bool>>? stillCurrent = null)
     {
         await EnsureDraftEditableAsync(processId, cancellationToken);
         var paths = DraftPaths(processId);
@@ -737,6 +737,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         {
             await File.WriteAllTextAsync(temporaryPath, document.ToString(SaveOptions.DisableFormatting), new UTF8Encoding(false), cancellationToken);
             await loader.LoadFilesAsync(temporaryPath, paths.Context, processId, cancellationToken);
+            if(stillCurrent is not null&&!await stillCurrent())
+                throw new InvalidDataException("Черновик, оргструктура или блокировка изменились. Повторите просмотр.");
             File.Move(temporaryPath, paths.Bpmn, overwrite: true);
             return renamed;
         }
