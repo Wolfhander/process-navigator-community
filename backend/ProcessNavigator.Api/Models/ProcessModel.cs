@@ -42,8 +42,14 @@ public sealed record ProcessChannelModel(
     string? DocumentName = null,
     string Flow = "primary",
     string Direction = "work",
-    string? ObjectId = null)
+    string? ObjectId = null,
+    string? TransferMethod = null)
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasValidTransferMethod => TransferMethod is null ||
+        (TransferMethod is "automatic" or "manual-copy" or "reentry") &&
+        Kind.Equals("system", StringComparison.OrdinalIgnoreCase) && Direction.Equals("input", StringComparison.OrdinalIgnoreCase) &&
+        !string.IsNullOrWhiteSpace(SystemName) && !string.IsNullOrWhiteSpace(ObjectId);
     public bool Matches(InformationObjectBindingModel binding) =>
         string.Equals(ObjectId, binding.ObjectId, StringComparison.OrdinalIgnoreCase) &&
         (Direction.ToLowerInvariant() switch { "input" => binding.Role == "Input", "output" => binding.Role == "Output", _ => false });

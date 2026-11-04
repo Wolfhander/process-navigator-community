@@ -100,6 +100,16 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
             if (paperGaps.Length > 0)
                 Add("paper-medium-gap", source, "Для общего ID документа указаны разные среды: бумага на одной стороне и электронный канал на другой. Проверены явные выход и вход на структурном пути до ближайшей задачи. Общей среды среди привязанных каналов нет. Уточните оцифровку или печать; это несогласованность описания, не факт потери или доказательство исполнения ветви.", target, paperGaps, route.ElementIds);
             var from = WorkSystems(source); var to = WorkSystems(target);
+            foreach (var channel in (target.Channels ?? []).Where(c => c.TransferMethod is not null && c.HasValidTransferMethod))
+            {
+                var binding = (target.InformationObjects ?? []).FirstOrDefault(channel.Matches);
+                if (binding is null || !outputs.Contains(binding.ObjectId) || from.Length == 0 ||
+                    from.Contains(channel.SystemName!.Trim(), StringComparer.OrdinalIgnoreCase)) continue;
+                var code = channel.TransferMethod switch { "manual-copy" => "declared-manual-transfer", "reentry" => "declared-reentry", _ => "declared-automatic-transfer" };
+                var method = channel.TransferMethod switch { "manual-copy" => "ручное копирование", "reentry" => "повторный ручной ввод", _ => "автоматический обмен" };
+                result.Add(new(process.Id,process.Name,code,source.Id,source.Name,target.Id,target.Name,from,[channel.SystemName.Trim()],[binding.ObjectId],
+                    $"На входном канале {channel.Id} указано: {method}. Общий ID документа и структурный путь до ближайшей задачи найдены; это регламент, не журнал фактических операций.",route.ElementIds));
+            }
             if (from.Length == 0 || to.Length == 0 || from.Intersect(to, StringComparer.OrdinalIgnoreCase).Any()) continue;
             Add("system-transition", source, (route.ElementIds.Count > 2 ? "Структурный путь BPMN через шлюзы между разными системами выполнения. Показан один кратчайший путь для пары задач; условия и совместимость ветвей не подтверждены. " : "Прямая связь BPMN между разными системами выполнения. ") +
                 (shared.Length > 0 ? "Есть общие ID выходов и входов. " : "Общий документ по ID не установлен. ") +

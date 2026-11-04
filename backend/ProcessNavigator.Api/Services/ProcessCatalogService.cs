@@ -1050,8 +1050,11 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             Text(item.DocumentName, 300, "Channel document"),
             Text(item.Flow, 30, "Channel flow") ?? "primary",
             Text(item.Direction, 30, "Channel direction") ?? "work",
-            Text(item.ObjectId, 100, "Channel object ID"))).ToArray();
+            Text(item.ObjectId, 100, "Channel object ID"),
+            Text(item.TransferMethod, 30, "Channel transfer method"))).ToArray();
         if (channels.Length > 20) throw new InvalidDataException("У элемента не может быть более 20 каналов.");
+        if (channels.Any(channel => !channel.HasValidTransferMethod))
+            throw new InvalidDataException("Способ переноса допустим только для системного входа с указанной системой и ID объекта.");
         if (channels.Select(item => item.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != channels.Length)
             throw new InvalidDataException("Идентификаторы каналов элемента должны быть уникальны.");
         var allowedKinds = new HashSet<string>(["system", "email", "paper", "phone", "memo", "meeting", "other"], StringComparer.OrdinalIgnoreCase);

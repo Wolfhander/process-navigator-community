@@ -131,6 +131,9 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
             {channel.objectId && !informationObjects.some(binding=>binding.objectId===channel.objectId && (channel.direction==='input'?binding.role==='Input':channel.direction==='output'&&binding.role==='Output')) && <option value={channel.objectId}>Несовместимая привязка: {channel.objectId} — очистите или замените</option>}
             {informationObjects.filter(binding=>channel.direction==='input'?binding.role==='Input':channel.direction==='output'&&binding.role==='Output').map(binding=><option key={binding.objectId} value={binding.objectId}>{binding.name} · {binding.objectId}</option>)}
           </select></label>
+          {(channel.transferMethod || (channel.direction==='input'&&channel.kind==='system'&&channel.objectId))&&<label>Способ переноса в систему<select value={channel.transferMethod??''} onChange={event=>patchChannel(index,{transferMethod:(event.target.value||undefined) as ProcessChannel['transferMethod']})}>
+            <option value="">Не указан</option><option value="automatic">Автоматический обмен</option><option value="manual-copy">Ручное копирование</option><option value="reentry">Повторный ручной ввод</option>
+          </select><small>Указывайте по регламенту; это описание способа, а не факт выполнения.</small></label>}
         </div>)}
         {!channels.length && <p className="empty-collection">Каналы пока не указаны. Старое поле «Способ выполнения» остаётся совместимым с ранее внесёнными данными.</p>}
       </section>

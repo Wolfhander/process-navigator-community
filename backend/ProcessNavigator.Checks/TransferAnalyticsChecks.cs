@@ -42,6 +42,15 @@ internal static class TransferAnalyticsChecks
         Check(!TransferAnalyticsService.Analyze(process with {Nodes=[paperSource,digitalTarget],Edges=[]}).Any(f=>f.Code=="paper-medium-gap"),"Unconnected candidates do not become a paper break");
         var intermediate=sourceNode with {Id="intermediate",Type="task",Channels=[],InformationObjects=[]};
         Check(!TransferAnalyticsService.Analyze(process with {Nodes=[paperSource,intermediate,digitalTarget],Edges=[new("a",paperSource.Id,intermediate.Id,null,[]),new("b",intermediate.Id,digitalTarget.Id,null,[])]}).Any(f=>f.Code=="paper-medium-gap"),"No assumption across an intervening task that could digitize the document");
+        foreach (var (method,code) in new[] {("manual-copy","declared-manual-transfer"),("reentry","declared-reentry"),("automatic","declared-automatic-transfer")})
+        {
+            var channel = new ProcessChannelModel("erp", "system", "ERP", "ERP", Direction:"input",ObjectId:"drawing",TransferMethod:method);
+            var declared = Pair(sourceNode, to with { Channels=[channel] }).Single(f=>f.Code==code);
+            Check(declared.ObjectIds.SequenceEqual(["drawing"]) && declared.TargetSystems.SequenceEqual(["ERP"]) && declared.RouteElementIds?.Count==2,"Declared method retains exact document, receiving system and route");
+            Check(!Pair(sourceNode, to with { Channels=[channel with { ObjectId="other" }] }).Any(f=>f.Code==code),"Wrong document cannot produce declared transfer finding");
+            Check(!Pair(sourceNode, to with { Channels=[channel with { SystemName="Учебная PLM" }] }).Any(f=>f.Code==code),"Same system is not an intersystem transfer");
+        }
+        Check(!new ProcessChannelModel("work","system","Работа","ERP",TransferMethod:"reentry").HasValidTransferMethod,"Transfer method requires an exact system input");
         Check(!Pair(sourceNode, to with { Channels = [new("a", "system", "PLM", "Учебная PLM"), new("b", "system", "ERP", "ERP")] }).Any(f => f.Code == "system-transition"), "Overlapping system sets cannot prove a change of system");
         Check(TransferAnalyticsService.Analyze(process with { Edges = [new("broken", "missing", "register", null, [])] }).All(f => f.Code != "system-transition"), "Broken edge does not crash analysis");
         Console.WriteLine($"Transfer analytics master checks passed: {count}.");

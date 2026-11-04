@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { selectTransfers, transfersCsv, transferLabels } from '../src/transfer-analytics.ts';
 const finding = { processId: 'p', processName: 'Чертёж', code: 'system-transition', elementId: 'a', elementName: 'Создать', targetId: 'b', targetName: 'Принять', sourceSystems: ['PLM'], targetSystems: ['ERP'], objectIds: ['drawing'], explanation: 'Проверить перенос, не доказан повторный ввод' };
 const report = { generatedAt: '2026-10-18T00:00:00Z', processCount: 1, findings: [finding, {...finding, code: 'paper-alternative', objectIds: []}] };
+test('declared copy, re-entry and automatic transfer remain independent of structural guesses',()=>{
+  const codes=['declared-manual-transfer','declared-reentry','declared-automatic-transfer'];
+  const data={...report,findings:[finding,...codes.map(code=>({...finding,code,routeElementIds:['a','b']}))]};
+  for(const code of codes){
+    assert.match(transferLabels[code],/по регламенту/);
+    assert.deepEqual(selectTransfers(data,code,'drawing').map(row=>row.code),[code]);
+    const csv=transfersCsv(data,code,'drawing');
+    assert.ok(csv.includes(code));
+    assert.ok(!csv.includes('system-transition'));
+  }
+});
 test('modeled paper gap is independently searchable and exports its document and witness path',()=>{
   const gap={...finding,code:'paper-medium-gap',routeElementIds:['a','gateway','b'],explanation:'Несогласованность описания, не факт потери'};
   const data={...report,findings:[...report.findings,gap]};

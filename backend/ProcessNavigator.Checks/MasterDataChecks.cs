@@ -163,12 +163,20 @@ internal static class MasterDataChecks
                 var objectId=binding["objectId"]!.GetValue<string>();
                 var direction=binding["role"]!.GetValue<string>()=="Input"?"input":"output";
                 task["channels"]!.AsArray().Add(new JsonObject {["id"]="exact-paper",["kind"]="paper",["label"]="Подлинник",["direction"]=direction,["flow"]="parallel",["objectId"]=objectId});
+                if (direction=="output")
+                {
+                    var input=binding.DeepClone(); input["role"]="Input";
+                    if (!task["informationObjects"]!.AsArray().Any(b=>b?["objectId"]?.GetValue<string>()==objectId&&b?["role"]?.GetValue<string>()=="Input"))
+                        task["informationObjects"]!.AsArray().Add(input);
+                }
+                task["channels"]!.AsArray().Add(new JsonObject {["id"]="manual-entry",["kind"]="system",["label"]="Ручной ввод",["systemName"]="ERP",["direction"]="input",["flow"]="primary",["objectId"]=objectId,["transferMethod"]="reentry"});
                 await File.WriteAllTextAsync(contextPath,context.ToJsonString());
                 var exactBook=await table.ExportAsync("md-order",false,false);
                 using var zip=new ZipArchive(new MemoryStream(exactBook.Content));
                 using var sheet=zip.GetEntry("xl/worksheets/sheet4.xml")!.Open();
                 var channelDocument=XDocument.Load(sheet);
                 Check(channelDocument.Descendants().Any(element=>element.Name.LocalName=="c" && element.Attribute("r")?.Value.StartsWith("K")==true && element.Value==objectId),"XLSX channel sheet contains the explicit object ID");
+                Check(channelDocument.Descendants().Any(element=>element.Name.LocalName=="c" && element.Attribute("r")?.Value.StartsWith("L")==true && element.Value=="reentry"),"XLSX channel sheet contains the declared method");
                 Check((await table.PreviewAsync(Form(exactBook.Content))).ErrorCount==0,"XLSX explicit channel roundtrip validates");
             }
             finally { await File.WriteAllTextAsync(contextPath,originalContext); }
