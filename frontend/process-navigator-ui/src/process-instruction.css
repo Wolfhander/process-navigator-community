@@ -37,4 +37,13 @@
 .route-overview-lane { padding: 12px; border-top: 1px solid var(--line); }
 .route-overview-lane details { padding: 10px 12px; margin: 8px 0; border-left: 3px solid var(--line); }
 .route-overview-lane summary { cursor: pointer; overflow-wrap: anywhere; line-height: 1.5; }
+.route-map-lanes,.route-map-pairs{list-style:none;padding:0;display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(min(100%,225px),1fr))}
+.route-map-lanes li,.route-map-pairs li{min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px;overflow-wrap:anywhere;background:#f1f6ef}
+.route-map-lanes span,.route-map-pairs small{display:block;margin-top:4px}
+.route-map-pairs li{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;gap:7px}
+.route-map-pairs small{grid-column:1/-1}
+.route-linked-branch{min-width:0;margin-top:8px;padding:8px;border-left:2px solid var(--line);overflow-wrap:anywhere}
+.route-linked-branch .instruction-card,.route-linked-branch details{padding-left:4px;padding-right:4px}
+.route-linked-branch .route-linked-branch{padding-inline:0;border-left:0}
+.route-linked-branch .route-linked-branch .instruction-card,.route-linked-branch .route-linked-branch details{padding-inline:0;border-inline:0}
 @media(max-width:750px) { .instruction-fields,.instruction-transitions { grid-template-columns: 1fr; }.instruction-card { padding: 14px; } }

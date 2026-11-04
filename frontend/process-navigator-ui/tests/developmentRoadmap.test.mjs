@@ -35,7 +35,8 @@ test('wrong-parent, orphan and duplicate task identifiers fail rather than vanis
 
 test('accepted master-data points and analytics workspace are complete without closing unrelated work',()=>{
   const steps=parseDevelopmentRoadmap(readFileSync(new URL('../../../docs/development-decomposition.md', import.meta.url),'utf8')).flatMap(s=>s.steps);
-  assert.equal(roadmapProgress(steps).done,79);
+  assert.equal(roadmapProgress(steps).done,80);
+  assert.equal(steps.find(step=>step.id===98).status,'done');
   assert.equal(steps.find(step=>step.id===39).status,'done');
   assert.equal(steps.find(step=>step.id===38).status,'done');
   assert.equal(steps.find(step=>step.id===70).status,'done');
@@ -45,5 +46,5 @@ test('accepted master-data points and analytics workspace are complete without c
   assert.equal(steps.find(step=>step.id===85).status,'done');
   for(const id of [7,8,9,10,19,20,25,27,29,34,40,64,67,71,72,73,74,77,92,94,100,102,103])assert.equal(steps.find(step=>step.id===id).status,'done');
   assert.deepEqual(steps.filter(s=>s.subtasks.length).map(s=>s.id),[77,98,99,100,101]);
-  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:23,verify:3,planned:7});
+  assert.deepEqual(roadmapSubtaskProgress(steps),{tracked:5,total:33,done:26,verify:2,planned:5});
 });

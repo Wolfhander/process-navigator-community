@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { transformWithOxc } from 'vite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import {overviewLaneMap} from '../src/overview-lane-map.ts';
 const compiled = await transformWithOxc(readFileSync(new URL('../src/ProcessRouteOverview.tsx',import.meta.url),'utf8'),'ProcessRouteOverview.tsx',{jsx:{runtime:'classic'}});
-const Page = new Function('React',compiled.code.replace(/import[^;]+;/g,'').replace('export function ','function ')+';return ProcessRouteOverview;')({createElement});
+const Page = new Function('React','useState','overviewLaneMap','OverviewLinkedBranch',compiled.code.replace(/import[^;]+;/g,'').replace('export function ','function ')+';return ProcessRouteOverview;')({createElement},()=>[undefined,()=>{}],overviewLaneMap,()=>null);
 const model = {nodes:[{id:'a',name:'Действие',type:'task',laneId:'l',linkedProcessId:'child'},{id:'g',name:'Разделение',type:'parallelGateway',laneId:'unknown'}],lanes:[{id:'l',name:'Отдел'}],edges:[{id:'e1',sourceId:'a',targetId:'g',label:'Да'},{id:'e2',sourceId:'g',targetId:'a',label:'Повтор'},{id:'e3',sourceId:'g',targetId:'missing'},{id:'e4',sourceId:'gone',targetId:'a'}]};
 test('overview preserves loops, parallel meaning, missing references and linked detail without mutation',()=>{
   const before=JSON.stringify(model);
@@ -28,4 +29,13 @@ test('overview only selects original node after explicit click',()=>{
   assert.equal(selected,undefined);
   find(tree).props.onClick();
   assert.equal(selected,model.nodes[0]);
+});
+test('lane map keeps reciprocal directions separate and does not turn broken edges into transfers',()=>{
+  const map=overviewLaneMap(model);
+  assert.deepEqual(map.pairs.map(p=>[p.from.name,p.to.name,p.count]),[['Отдел','Без известной дорожки',1],['Без известной дорожки','Отдел',1]]);
+  assert.equal(map.broken,2);
+  assert.equal(map.lanes[0].actions,1);
+  const html=renderToStaticMarkup(Page({process:model}));
+  assert.match(html,/Карта дорожек/);
+  assert.match(html,/оборванных переходов: 2/);
 });
