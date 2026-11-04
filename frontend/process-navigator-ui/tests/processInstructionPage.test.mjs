@@ -8,14 +8,27 @@ import { buildProcessInstruction } from '../src/process-instruction.ts';
 import { inspectReadability } from '../src/process-readability.ts';
 const compiled = await transformWithOxc(readFileSync(new URL('../src/ProcessInstructionPage.tsx', import.meta.url), 'utf8'), 'ProcessInstructionPage.tsx', { jsx: { runtime: 'classic' } });
 const code = compiled.code.replace(/^import[^\n]*\n/gm, '').replace('export function ', 'function ');
-const Page = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, { createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability, () => null, () => null);
+const Page = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','useDiagramLabelMeasure','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, { createElement, Fragment }, () => ['', () => {}], callback => callback(), buildProcessInstruction, inspectReadability,()=>undefined, () => null, () => null);
 const process = { id: 'p', name: 'Процесс', version: '7', status: 'Draft', lanes: [{ id: 'lane', name: 'Отдел' }],
   nodes: [{ id: 's', type: 'startEvent', name: 'Начало' }, { id: 'a', type: 'task', name: '<script>действие</script>', laneId: 'lane', instruction: 'Сделать действие', channels: [{ id: 'mail', label: 'Заявка', kind: 'email', direction: 'input', flow: 'alternative' }], actions: [{ id: 'cmd', label: 'Зарегистрировать', kind: 'manual' }], informationObjects: [{ objectId: 'd', name: 'Чертёж', role: 'Output', required: true, version: '2' }] }], edges: [{ id: 'f', sourceId: 's', targetId: 'a' }] };
+
+test('readability gives a native button for navigating to the precise arrow ID',()=>{
+  const sample={...process,nodes:[{...process.nodes[1],x:0,y:0,width:120,height:80}],
+    edges:[{id:'flow-42',sourceId:'s',targetId:'a',label:'Условие',points:[{x:0,y:30},{x:100,y:30}]}]};
+  const selected=[];
+  const tree=Page({process:sample,onBack:()=>{},onSelect:()=>{},onSelectEdge:id=>selected.push(id)});
+  const walk=item=>Array.isArray(item)?item.map(walk).find(Boolean):item?.type==='button'&&String(item.props.children).includes('Показать стрелку')?item:item?.props?walk(item.props.children):undefined;
+  const button=walk(tree);
+  assert.ok(button);
+  button.props.onClick();
+  assert.deepEqual(selected,['flow-42']);
+  assert.match(renderToStaticMarkup(tree),/Показать стрелку · flow-42/);
+});
 
 test('printed instruction identifies filters and incomplete paged selection, including last page', () => {
   const large = {...process,nodes:Array.from({length:201},(_,i)=>({...process.nodes[1],id:'n'+String(i).padStart(3,'0'),name:'Шаг '+i,instruction:'Маркер инструкции '+i})),edges:[]};
   const states=['','',999];
-  const Paged = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null,()=>null);
+  const Paged = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','useDiagramLabelMeasure','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>undefined,()=>null,()=>null);
   const html=renderToStaticMarkup(Paged({process:large,onBack:()=>{},onSelect:()=>{}}));
   assert.match(html,/НЕПОЛНАЯ ВЫБОРКА/);
   assert.match(html,/Страница выборки: 2 из 2/);
@@ -27,7 +40,7 @@ test('printed instruction identifies filters and incomplete paged selection, inc
 
 test('filtered instruction prints literal escaped query and matching counts', () => {
   const states=['<script>','',0];
-  const Filtered = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>null,()=>null);
+  const Filtered = new Function('lazy','Suspense','React','useState','useMemo','buildProcessInstruction','inspectReadability','useDiagramLabelMeasure','StepWorkRulesView','ProcessRouteOverview', code + '\nreturn ProcessInstructionPage;')(() => () => null, Fragment, {createElement,Fragment},()=>[states.shift(),()=>{}],cb=>cb(),buildProcessInstruction,inspectReadability,()=>undefined,()=>null,()=>null);
   const html=renderToStaticMarkup(Filtered({process,onBack:()=>{},onSelect:()=>{}}));
   assert.match(html,/отфильтрованная инструкция/);
   assert.match(html,/Действий в документе: 1/);

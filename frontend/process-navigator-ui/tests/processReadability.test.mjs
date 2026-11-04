@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { inspectReadability } from '../src/process-readability.ts';
+import { diagramEdgeLabelPoint, diagramTaskTypography, taskLabelFits } from '../src/diagram-labels.ts';
 const node = (id, x = 0, y = 0) => ({ id, type: 'task', name: 'Шаг', laneId: 'a', x, y, width: 150, height: 80 });
 const model = nodes => ({ nodes, edges: [], lanes: [{id:'a'}] });
 const withEdge = points => ({...model([node('a',-200),node('middle'),node('b',300)]),edges:[{id:'flow',sourceId:'a',targetId:'b',points}]});
@@ -51,4 +52,32 @@ test('readability: bounds and expensive overlap checks report incomplete inspect
 test('readability: empty model is safe and stretched layout produces advice', () => {
   assert.deepEqual(inspectReadability(model([])),{advice:[],limited:false});
   assert.ok(inspectReadability(model([node('a'),node('b',3000)])).advice.some(item=>item.code==='aspect'));
+});
+test('task labels use measured glyph widths, density and wrap even for an unbroken word',()=>{
+  const measure=(value,size)=>Array.from(value).reduce((total,char)=>total+(char==='Ш'?size:size/3),0);
+  assert.equal(taskLabelFits('ШШШШШШШШШШ',80,35,measure),false);
+  assert.equal(taskLabelFits('iiiiiiiiii',80,35,measure),true);
+  assert.equal(taskLabelFits('ШШШШШШШШ',80,55,measure),true);
+  assert.equal(taskLabelFits('шаг',19,80,measure),false);
+  assert.deepEqual([65,66,106].map(n=>diagramTaskTypography('a'.repeat(n)).size),[13,11,9.5]);
+});
+test('arrow label collisions use the viewer anchor and separate label-to-label from path intersections',()=>{
+  const points=[{x:-30,y:96},{x:300,y:96}];
+  const edge={id:'flow',label:'Условие',sourceId:'a',targetId:'b',points};
+  assert.deepEqual(diagramEdgeLabelPoint(edge),{x:22,y:87});
+  const source={...model([node('middle',0,80)]),edges:[edge,{...edge,id:'flow-2'}]};
+  const result=inspectReadability(source,()=>60);
+  const finding=result.advice.find(a=>a.code==='edge-label-overlap');
+  assert.deepEqual(finding.edgeIds,['flow','flow-2']);
+  assert.deepEqual(finding.nodeIds,['middle']);
+  const separate=inspectReadability({...source,nodes:[],edges:[edge,{...edge,id:'far',points:points.map(p=>({...p,y:p.y+17}))}]},()=>60);
+  assert.equal(separate.advice.some(a=>a.code==='edge-label-overlap'),false);
+});
+test('large font and arrow label checks stop explicitly without blocking the model',()=>{
+  const source=model(Array.from({length:1100},(_,i)=>({...node(String(i),i*200),name:'a'.repeat(100)})));
+  source.edges=Array.from({length:2100},(_,i)=>({id:'e'+i,label:'x',sourceId:'a',targetId:'b',points:[{x:0,y:i*20},{x:100,y:i*20}]}));
+  const result=inspectReadability(source,(text,size)=>text.length*size/2);
+  assert.equal(result.limited,true);
+  assert.ok(result.advice.some(a=>a.code==='text-limit'));
+  assert.ok(result.advice.some(a=>a.code==='edge-label-limit'));
 });

@@ -2,13 +2,14 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import type { ProcessInstance, ProcessModel, ProcessNode } from './types';
 import { buildProcessInstruction } from './process-instruction';
 import { inspectReadability } from './process-readability';
+import {useDiagramLabelMeasure} from './use-diagram-label-measure';
 import { ProcessRouteOverview } from './ProcessRouteOverview';
 import { StepWorkRulesView } from './StepWorkRules';
 import './process-instruction.css';
 const InstructionPackagePanel = lazy(() => import('./InstructionPackagePanel').then(module => ({default:module.InstructionPackagePanel})));
 const InstructionSupportPanel = lazy(() => import('./InstructionSupportPanel').then(module => ({default:module.InstructionSupportPanel})));
 
-export function ProcessInstructionPage({ process, instance, edition, mode = 'instruction', onBack, onSelect }: { process: ProcessModel; instance?:ProcessInstance; edition?: string; mode?: 'overview' | 'instruction'; onBack: () => void; onSelect: (node: ProcessNode) => void }) {
+export function ProcessInstructionPage({ process, instance, edition, mode = 'instruction', onBack, onSelect, onSelectEdge }: { process: ProcessModel; instance?:ProcessInstance; edition?: string; mode?: 'overview' | 'instruction'; onBack: () => void; onSelect: (node: ProcessNode) => void; onSelectEdge?: (edgeId:string)=>void }) {
   const [query, setQuery] = useState('');
   const [laneId, setLaneId] = useState('');
   const [page, setPage] = useState(0);
@@ -17,7 +18,8 @@ export function ProcessInstructionPage({ process, instance, edition, mode = 'ins
     catch (cause) { return { data: undefined, error: cause instanceof Error ? cause.message : 'Не удалось построить инструкцию.' }; }
   }, [process]);
   const data = built.data;
-  const readability = useMemo(() => inspectReadability(process), [process]);
+  const measure=useDiagramLabelMeasure();
+  const readability = useMemo(() => inspectReadability(process,measure), [process,measure]);
   const labels = { startEvent: 'Начало', endEvent: 'Завершение', exclusiveGateway: 'Исключающий шлюз', parallelGateway: 'Параллельный шлюз', task: 'Действие' };
   const channelKinds = { system: 'система', email: 'электронная почта', paper: 'бумага', phone: 'телефон', memo: 'служебная записка', meeting: 'совещание', other: 'другой канал' };
   const channelDirections = { input: 'вход', work: 'работа', output: 'выход' };
@@ -48,9 +50,9 @@ export function ProcessInstructionPage({ process, instance, edition, mode = 'ins
       <p>Рекомендации по читаемости — эвристические; пределы показа перечислены в соответствующих разделах.</p>
     </section>
     {mode === 'overview' && <ProcessRouteOverview process={process} onSelect={onSelect}/>}
-    <details className="instruction-card"><summary>Читаемость схемы · рекомендаций: {readability.advice.length}</summary><p>Подсказки по геометрии, не ошибки BPMN и не запрет сохранения. Дочерние схемы и фактическое отображение шрифтов здесь не проверяются.</p>
+    <details className="instruction-card"><summary>Читаемость схемы · рекомендаций: {readability.advice.length}</summary><p>Подсказки для открытой схемы, не ошибки BPMN и не запрет сохранения. {measure?'Ширина текста измерена шрифтом браузера; границы и перенос оценены приблизительно.':'Используется приблизительная оценка ширины текста.'}</p>
       {!readability.advice.length && <p>Эвристики не нашли замечаний. Это не подтверждает визуальную читаемость: проверьте схему на своём экране.</p>}
-      {readability.advice.map(item => <section key={item.code}><h3>{item.message}</h3>{!!item.edgeIds?.length && <p>Стрелки (ID): {item.edgeIds.slice(0, 30).join(", ")}{item.edgeIds.length > 30 ? " · показаны первые 30 из " + item.edgeIds.length : ""}</p>}{item.nodeIds.slice(0, 30).map((id, index) => { const node = process.nodes.find(candidate => candidate.id === id); return node ? <button key={index} onClick={() => onSelect(node)}>{node.name || id} · {id}</button> : null; })}{item.nodeIds.length > 30 && <p>Показаны первые 30 из {item.nodeIds.length} элементов этой группы.</p>}</section>)}
+      {readability.advice.map(item => <section key={item.code}><h3>{item.message}</h3>{!!item.edgeIds?.length && !onSelectEdge && <p>Стрелки (ID): {item.edgeIds.slice(0, 30).join(", ")}{item.edgeIds.length > 30 ? " · показаны первые 30 из " + item.edgeIds.length : ""}</p>}{onSelectEdge && item.edgeIds?.slice(0,30).map(id=><button key={id} onClick={()=>onSelectEdge(id)}>Показать стрелку · {id}</button>)}{onSelectEdge && (item.edgeIds?.length??0)>30 && <p>Показаны первые 30 из {item.edgeIds?.length} стрелок.</p>}{item.nodeIds.slice(0, 30).map((id, index) => { const node = process.nodes.find(candidate => candidate.id === id); return node ? <button key={index} onClick={() => onSelect(node)}>{node.name || id} · {id}</button> : null; })}{item.nodeIds.length > 30 && <p>Показаны первые 30 из {item.nodeIds.length} элементов этой группы.</p>}</section>)}
     </details>
     {data && mode === 'instruction' && <>
       <section className="instruction-notice"><p>Карточки сгруппированы по минимальному расстоянию от начала для обзора. Это не обязательная последовательность: выбирайте ветви и параллельную работу по переходам схемы.</p>

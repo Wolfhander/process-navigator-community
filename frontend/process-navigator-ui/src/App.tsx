@@ -496,7 +496,7 @@ export default function App() {
     {!enterpriseOpen && !analyticsOpen && process && !editorOpen && <ProcessViewNavigation view={processView} onChange={changeProcessView}/>}
     {!enterpriseOpen && !analyticsOpen && process && (processView === 'instruction' || processView === 'overview') && <ProcessInstructionPage mode={processView} process={process} instance={!draftView && !archivedVersion ? activeInstance : undefined} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
       setProcessView('diagram'); setSelected(node); setFocusCommand(current => ({ id: (current?.id ?? 0) + 1, elementId: node.id }));
-    }}/>}
+    }} onSelectEdge={elementId=>{setProcessView('diagram');setSelected(undefined);setPersonalMode(false);setFocusCommand(current=>({id:(current?.id??0)+1,elementId}));}}/>}
     {!enterpriseOpen && !analyticsOpen && process && processView === 'responsibility' && <ProcessResponsibilityPage process={process} assignments={assignments} edition={archivedVersion ? 'Архивная версия' : draftView ? 'Черновик' : 'Действующая версия'} onBack={() => setProcessView('diagram')} onSelect={node => {
       setProcessView('diagram'); setPersonalMode(false); setSelected(node); setFocusCommand(current => ({ id: (current?.id ?? 0) + 1, elementId: node.id }));
     }}/>}

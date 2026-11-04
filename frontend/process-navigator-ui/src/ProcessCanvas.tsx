@@ -1,3 +1,4 @@
+import {diagramEdgeLabelPoint as labelPoint,diagramTaskTypography} from './diagram-labels';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { processLocationHash, readProcessLocation } from './process-location';
 import { restoreExpandedProcesses, type ExpandedProcess } from './expanded-location';
@@ -51,18 +52,6 @@ function pathFor(edge: Edge) {
   return edge.points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ');
 }
 
-function labelPoint(edge: Edge) {
-  for (let index = 0; index < edge.points.length - 1; index += 1) {
-    const a = edge.points[index], b = edge.points[index + 1];
-    const dx = b.x - a.x, dy = b.y - a.y;
-    if (Math.abs(dx) >= 30 && Math.abs(dx) >= Math.abs(dy)) {
-      const offset = Math.sign(dx) * Math.min(52, Math.abs(dx) / 2);
-      return { x: a.x + offset, y: a.y - 9 };
-    }
-  }
-  const a = edge.points[0] ?? { x: 0, y: 0 }, b = edge.points[1] ?? a;
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 9 };
-}
 
 function clampCamera(camera: Camera, world: Camera): Camera {
   const width = Math.min(world.width, Math.max(world.width / maxZoom, camera.width));
@@ -115,8 +104,8 @@ function NodeShape({ node, selected, related, personal, muted, executionStatus, 
   if (node.type === 'startEvent' || node.type === 'endEvent') return <g {...common}><circle cx={cx} cy={cy} r={node.width / 2 - 3}/>{node.type === 'endEvent' && <circle cx={cx} cy={cy} r={node.width / 2 - 7}/>}<title>{node.name}</title></g>;
   if (node.type === 'exclusiveGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx-9} ${cy-9} L ${cx+9} ${cy+9} M ${cx+9} ${cy-9} L ${cx-9} ${cy+9}`}/><title>{node.name}</title></g>;
   if (node.type === 'parallelGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx} ${cy-11} V ${cy+11} M ${cx-11} ${cy} H ${cx+11}`}/><title>{node.name}</title></g>;
-  const labelDensity = node.name.length > 105 ? ' is-dense' : node.name.length > 65 ? ' is-compact' : '';
-  return <g {...common}><rect x={node.x} y={node.y} width={node.width} height={node.height} rx="12"/><foreignObject x={node.x + 10} y={node.y + 8} width={node.width - 20} height={node.height - 16}><div className={`node-label${labelDensity}`} title={node.name}>{node.name}</div></foreignObject>{showOverlays && overlayLabel && <g className="capability-overlay" transform={`translate(${node.x + node.width - 5} ${node.y - 5})`}><rect x={-overlayWidth} y={-18} width={overlayWidth} height={22} rx={11}/><text x={-overlayWidth / 2} y={-4} textAnchor="middle">{overlayLabel}</text></g>}{node.linkedProcessId && <g className="inline-expand-control" transform={`translate(${node.x + node.width + 8} ${node.y + node.height / 2})`} onClick={event => { event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); } }} role="button" tabIndex={0} aria-label={`Развернуть детализацию «${node.name}»`}><circle r="13"/><path d="M -5 0 H 5 M 0 -5 V 5"/></g>}</g>;
+  const labelDensity = diagramTaskTypography(node.name).density;
+  return <g {...common}><rect x={node.x} y={node.y} width={node.width} height={node.height} rx="12"/><foreignObject x={node.x + 10} y={node.y + 8} width={node.width - 20} height={node.height - 16}><div className={`node-label${labelDensity}`} title={node.name}><span>{node.name}</span></div></foreignObject>{showOverlays && overlayLabel && <g className="capability-overlay" transform={`translate(${node.x + node.width - 5} ${node.y - 5})`}><rect x={-overlayWidth} y={-18} width={overlayWidth} height={22} rx={11}/><text x={-overlayWidth / 2} y={-4} textAnchor="middle">{overlayLabel}</text></g>}{node.linkedProcessId && <g className="inline-expand-control" transform={`translate(${node.x + node.width + 8} ${node.y + node.height / 2})`} onClick={event => { event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); } }} role="button" tabIndex={0} aria-label={`Развернуть детализацию «${node.name}»`}><circle r="13"/><path d="M -5 0 H 5 M 0 -5 V 5"/></g>}</g>;
 }
 
 function InlineProcessLevel({ entry, level, onToggle, onCollapse, onOpen }: { entry: ExpandedProcess; level: number; onToggle: (processId: string, level: number, source: ProcessNode, sourceProcess: ProcessModel) => void; onCollapse: (level: number) => void; onOpen: (processId: string) => void }) {
@@ -153,6 +142,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
   const activeLane = process.lanes.find(lane => lane.id === selectedNode?.laneId)
     ?? process.lanes.find(lane => camera.y + camera.height / 2 >= lane.y && camera.y + camera.height / 2 < lane.y + lane.height);
   const focusedEdges = new Set(process.edges.filter(edge => edge.sourceId === selectedId || edge.targetId === selectedId).map(edge => edge.id));
+  const focusedEdgeId=!selectedId?process.edges.find(edge=>edge.id===focusCommand?.elementId)?.id:undefined;
   const relatedNodes = new Set<string>([selectedId ?? '']);
   const personalLanes = new Set(personalLaneIds);
   const availableSteps = new Set(availableStepIds);
@@ -200,8 +190,9 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
     const laneNode = lane && process.nodes.find(item => item.laneId === lane.id);
     const edge = process.edges.find(item => item.id === focusCommand.elementId);
     const point = node ?? laneNode;
-    const centerX = point ? point.x + point.width / 2 : edge?.points.length ? edge.points[Math.floor(edge.points.length / 2)].x : lane ? 200 : undefined;
-    const centerY = point ? point.y + point.height / 2 : edge?.points.length ? edge.points[Math.floor(edge.points.length / 2)].y : lane ? lane.y + lane.height / 2 : undefined;
+    const edgePoint=edge?.points.length?(edge.label?labelPoint(edge):edge.points[Math.floor(edge.points.length / 2)]):undefined;
+    const centerX = point ? point.x + point.width / 2 : edgePoint?.x ?? (lane ? 200 : undefined);
+    const centerY = point ? point.y + point.height / 2 : edgePoint?.y ?? (lane ? lane.y + lane.height / 2 : undefined);
     if (centerX === undefined || centerY === undefined) return;
     const width = Math.min(world.width, 760);
     const height = Math.min(world.height, 480);
@@ -276,7 +267,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
       <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M 24 0 L 0 0 0 24" fill="none" stroke="#dfe2dc" strokeWidth="1"/></pattern><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#47524b"/></marker><marker id="arrow-focus" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d4673c"/></marker></defs>
       <rect width={world.width} height={world.height} fill="url(#grid)"/>
       <g className="lanes">{process.lanes.map(lane => { const affiliation = laneOrganization(lane.id); return <g key={lane.id} className={personalMode ? personalLanes.has(lane.id) ? 'is-personal' : 'is-muted' : ''}><rect className="lane" x="45" y={lane.y} width={world.width - 90} height={lane.height}/><foreignObject x="45" y={lane.y} width="55" height={lane.height}><div className="lane-title">{affiliation?.laneName ?? lane.name}</div></foreignObject>{affiliation && <foreignObject x={world.width - 345} y={lane.y + 10} width="285" height="34"><div className="lane-organization"><strong>{affiliation.entityName}</strong><span>{affiliation.department}</span></div></foreignObject>}</g>; })}</g>
-      <g className="edges">{process.edges.map(edge => { const label = labelPoint(edge); const focused = !!selectedId && focusedEdges.has(edge.id); const personal = personalMode && (personalNodes.has(edge.sourceId) || personalNodes.has(edge.targetId)); const muted = selectedId ? !focused : personalMode && !personal; return <g key={edge.id} className={`${focused ? 'is-focused' : personal ? 'is-personal' : ''}${muted ? ' is-muted' : ''}`}><path d={pathFor(edge)} markerEnd={focused || personal ? 'url(#arrow-focus)' : 'url(#arrow)'}/><text x={label.x} y={label.y} textAnchor="middle">{edge.label}</text></g>; })}</g>
+      <g className="edges">{process.edges.map(edge => { const label = labelPoint(edge); const focused = edge.id===focusedEdgeId || (!!selectedId && focusedEdges.has(edge.id)); const personal = personalMode && (personalNodes.has(edge.sourceId) || personalNodes.has(edge.targetId)); const muted = selectedId ? !focused : personalMode && !personal; return <g key={edge.id} className={`${focused ? 'is-focused' : personal ? 'is-personal' : ''}${muted ? ' is-muted' : ''}`}><path d={pathFor(edge)} markerEnd={focused || personal ? 'url(#arrow-focus)' : 'url(#arrow)'}/>{edge.label && <text x={label.x} y={label.y} textAnchor="middle">{edge.label}<title>{edge.label}</title></text>}</g>; })}</g>
       <g className="nodes" onClick={event => event.stopPropagation()}>{process.nodes.map(node => <NodeShape key={node.id} node={node} selected={node.id === selectedId} related={!!selectedId && relatedNodes.has(node.id) && node.id !== selectedId} personal={personalMode && personalNodes.has(node.id)} muted={selectedId ? !relatedNodes.has(node.id) : personalMode && !personalNodes.has(node.id)} executionStatus={stepStatuses[node.id]} executionAvailable={availableSteps.has(node.id)} showOverlays={zoom >= 1.25 || node.id === selectedId} onSelect={() => onSelect(node)} onToggleDetails={(id, source) => toggleDetails(id, 0, source, process)}/>)}</g>
     </svg>
     <div className="zoom-readout">{Math.round(zoom * 100)}%</div>
