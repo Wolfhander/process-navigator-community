@@ -1,6 +1,7 @@
 import {occurrenceDetails} from './information-object-detail.ts';
 import type {InformationTransfer} from './information-transfers.ts';
 import type {InformationObjectOccurrence,OrganizationMap,ProcessModel} from './types';
+import {transferRouteLabels,type TransferRoute} from './transfer-route-evidence.ts';
 
 export function transferFacts(rows:InformationTransfer[],models:Record<string,ProcessModel>,organization?:OrganizationMap){
   const facts=new Map<InformationObjectOccurrence,ReturnType<typeof occurrenceDetails>>();
@@ -39,9 +40,9 @@ function csvCell(value:unknown){
   if(/^[\s\u0000-\u001f]*[=+\-@]/u.test(text))text="'"+text;
   return '"'+text.replaceAll('"','""')+'"';
 }
-export function transferCsv(rows:InformationTransfer[],facts:TransferFacts,meta:{generatedAt:string;registryGeneratedAt?:string;query:string;built:number;limited:boolean;modelLimit:boolean;failures:string[]}){
+export function transferCsv(rows:InformationTransfer[],facts:TransferFacts,meta:{generatedAt:string;registryGeneratedAt?:string;query:string;built:number;limited:boolean;modelLimit:boolean;failures:string[];routes?:ReadonlyMap<InformationTransfer,TransferRoute>;routeFilter?:TransferRoute|'all'}){
   const header=['Сформировано','Реестр сформирован','Область','Поиск','Найдено пар','Построено пар','Предел пар','Предел моделей','Недоступные сведения','ID объекта','Объект','Версия объекта','Состояние реестра','Внешний источник','Внешний получатель','Число источников в реестре',
-    ...['Источник','Получатель'].flatMap(side=>['ID процесса','Процесс','Область привязки','ID этапа','Этап','Подразделение','Системы этапа','Каналы этапа','Обязательный','Условие','Версия привязки','Сведения модели','Каналы объекта по ID'].map(name=>side+': '+name))];
+    ...['Источник','Получатель'].flatMap(side=>['ID процесса','Процесс','Область привязки','ID этапа','Этап','Подразделение','Системы этапа','Каналы этапа','Обязательный','Условие','Версия привязки','Сведения модели','Каналы объекта по ID'].map(name=>side+': '+name)), 'Проверка пути BPMN', 'Фильтр пути BPMN'];
   const endpoint=(objectId:string,value?:InformationObjectOccurrence)=>{
     const f=value?facts.get(value):undefined;
     return value?[value.processId,value.processName,value.scope,value.elementId,value.elementName,f?.responsibility,f?.systems.join(' · '),f?.channels.map(c=>[c.kind,c.direction,c.label,c.documentName].filter(Boolean).join(': ')).join(' · '),value.required?'Да':'Нет',value.condition,value.version,f?.available?'Доступны':'Недоступны',explicitTransferChannels(objectId,value,facts).map(c=>[c.id,c.kind,c.flow,c.label].join(': ')).join(' · ')]:
@@ -49,6 +50,7 @@ export function transferCsv(rows:InformationTransfer[],facts:TransferFacts,meta:
   };
   const prefix=[meta.generatedAt,meta.registryGeneratedAt,'Возможные пары по ID, не факт передачи; вся найденная построенная выборка',meta.query,rows.length,meta.built,meta.limited?'Достигнут':'Нет',meta.modelLimit?'Достигнут':'Нет',meta.failures.join(' · ')];
   // An empty selection still exports scope, limits and errors instead of a misleading blank file.
-  const records=rows.length?rows.map(row=>[...prefix,row.object.id,row.object.name,row.object.version,row.object.lifecycleState,row.object.externalSource,row.object.externalRecipient,row.object.producers.length,...endpoint(row.object.id,row.source),...endpoint(row.object.id,row.target)]):[[...prefix,...Array(header.length-prefix.length).fill('')]];
+  const routeFilter=meta.routeFilter&&meta.routeFilter!=='all'?transferRouteLabels[meta.routeFilter]:'Все';
+  const records=rows.length?rows.map(row=>[...prefix,row.object.id,row.object.name,row.object.version,row.object.lifecycleState,row.object.externalSource,row.object.externalRecipient,row.object.producers.length,...endpoint(row.object.id,row.source),...endpoint(row.object.id,row.target),transferRouteLabels[meta.routes?.get(row)??'unknown'],routeFilter]):[[...prefix,...Array(header.length-prefix.length-1).fill(''),routeFilter]];
   return '\uFEFF'+[header,...records].map(row=>row.map(csvCell).join(';')).join('\r\n')+'\r\n';
 }
