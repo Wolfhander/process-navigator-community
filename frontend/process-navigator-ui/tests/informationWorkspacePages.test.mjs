@@ -20,7 +20,7 @@ const noop=()=>{};
 const ObjectRouteScenarioPanel=makePage(await code('ObjectRouteScenarioPanel'),'ObjectRouteScenarioPanel',{React:{createElement,Fragment},useState:realUseState,objectRouteScenario});
 test('object card displays version, state, aliases, missing parties and unavailable model without inventing transfer facts',()=>{
   const states=[{},undefined,false,[]];
-  const Page=makePage(detailCode,'InformationObjectDetailPage',{React:{createElement,Fragment},useState:()=>[states.shift(),noop],useEffect:noop,ArrowLeft:()=>null,ArrowRight:()=>null,informationObjectVersions,occurrenceDetails,ObjectRouteScenarioPanel});
+  const Page=makePage(detailCode,'InformationObjectDetailPage',{React:{createElement,Fragment},useState:()=>[states.shift(),noop],useEffect:noop,ArrowLeft:()=>null,ArrowRight:()=>null,informationObjectVersions,occurrenceDetails,ObjectRouteScenarioPanel,InformationObjectCompositionView:()=>null});
   const html=renderToStaticMarkup(createElement(Page,{item,objects:[item],issues:[{code:'missing-consumer',message:'Нет получателя'}],onBack:noop,onOpen:noop,onOpenObject:noop}));
   for(const text of ['Карточка объекта','Действующий','Модель','Версия реестра: 2','Создают','Получают','Не найдены в доступных моделях','Сведения этапа недоступны','не хранилище файлов'])assert.ok(html.includes(text),text);
   assert.doesNotMatch(html,/undefined|NaN/);
