@@ -82,6 +82,17 @@ internal static class RegistryLifecycleChecks
             Check(clearedParties.Producers.Count==withParties.Producers.Count && clearedParties.Consumers.Count==withParties.Consumers.Count,"Parties never replace model occurrences");
             var finalReload = new InformationObjectRegistryService(catalog, environment);
             Check((await finalReload.BuildAsync(false)).Objects.Single(item => item.Id == "legacy").History?.Any(snapshot => snapshot.Components?.Count == 1) == true, "Composition history survives reload");
+            var opened=(await finalReload.BuildAsync(false)).Objects.Single(item=>item.Id=="legacy");
+            Check(opened.RevisionToken?.Length==64 && opened.RevisionToken==clearedParties.RevisionToken,"Snapshot token is stable across reads and restart");
+            var form=Update("2","Draft","2","Draft") with {ExpectedRevisionToken=opened.RevisionToken};
+            var changed=(await finalReload.SaveAsync("legacy",form with {ExternalParties=parties},false)).Objects.Single(item=>item.Id=="legacy");
+            Check(changed.Version==opened.Version && changed.LifecycleState==opened.LifecycleState && changed.RevisionToken!=opened.RevisionToken,"Metadata-only edit invalidates another open form");
+            var bytes=await File.ReadAllTextAsync(path);
+            await Reject(finalReload,form with {Name="Устаревшее имя"});
+            Check(bytes==await File.ReadAllTextAsync(path),"Stale metadata form cannot overwrite data or history");
+            var updated=(await finalReload.SaveAsync("legacy",form with {Name="Новая запись",ExpectedRevisionToken=changed.RevisionToken},false)).Objects.Single(item=>item.Id=="legacy");
+            Check(updated.Name=="Новая запись" && updated.ExternalParties?.Count==3,"Refreshed form saves without erasing omitted fields");
+            await Reject(finalReload,form with {ExpectedRevisionToken="observed"});
         }
         finally
         {

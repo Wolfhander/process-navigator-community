@@ -26,7 +26,7 @@ public sealed record InformationObjectModel(
     IReadOnlyList<InformationObjectOccurrenceModel> Consumers,
     IReadOnlyList<InformationObjectOccurrenceModel> References,
     IReadOnlyList<InformationObjectRevisionModel>? History = null,
-    IReadOnlyList<InformationObjectComponentModel>? Components = null, string? ExternalSource = null, string? ExternalRecipient = null, IReadOnlyList<ExternalObjectParty>? ExternalParties = null);
+    IReadOnlyList<InformationObjectComponentModel>? Components = null, string? ExternalSource = null, string? ExternalRecipient = null, IReadOnlyList<ExternalObjectParty>? ExternalParties = null, string? RevisionToken = null);
 
 public sealed record InformationObjectComponentModel(string ObjectId, bool Required = true, string? Version = null, string? Condition = null);
 
@@ -60,4 +60,4 @@ public sealed record InformationObjectUpdateModel(
     IReadOnlyList<string> Aliases,
     string? ExpectedVersion = null,
     string? ExpectedLifecycleState = null,
-    IReadOnlyList<InformationObjectComponentModel>? Components = null, string? ExternalSource = null, string? ExternalRecipient = null, IReadOnlyList<ExternalObjectParty>? ExternalParties = null);
+    IReadOnlyList<InformationObjectComponentModel>? Components = null, string? ExternalSource = null, string? ExternalRecipient = null, IReadOnlyList<ExternalObjectParty>? ExternalParties = null, string? ExpectedRevisionToken = null);

@@ -59,7 +59,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
 
         foreach (var definition in definitions.Where(definition => !objects.ContainsKey(definition.Id)))
         {
-            var entry = new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties);
+            var entry = new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties, RevisionToken(definition));
             foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
             objects[definition.Id] = entry;
         }
@@ -107,6 +107,9 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         {
             var definitions = (await LoadDefinitionsAsync(cancellationToken)).ToList();
             var previous = definitions.FirstOrDefault(item => item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (update.ExpectedRevisionToken is not null &&
+                !string.Equals(update.ExpectedRevisionToken, previous is null ? "observed" : RevisionToken(previous), StringComparison.Ordinal))
+                throw new InvalidDataException("Запись реестра изменилась после открытия формы. Пересчитайте реестр и откройте форму заново; изменения не сохранены.");
             if (update.ExpectedVersion is not null && (previous is null || previous.Version != update.ExpectedVersion || previous.LifecycleState != update.ExpectedLifecycleState))
                 throw new InvalidDataException("Версия или состояние объекта изменены после открытия формы. Пересчитайте реестр и откройте форму заново; изменения не сохранены.");
             InformationObjectLifecycle.Validate(previous?.LifecycleState, previous?.Version, lifecycle, version);
@@ -156,7 +159,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         {
             entry = definition is null
                 ? new Entry(binding.ObjectId, binding.Name, DetectKind(binding.Name), binding.Version ?? "1.0", "Observed", false)
-                : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties);
+                : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties, RevisionToken(definition));
             if (definition is not null) foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
             objects[key] = entry;
         }
@@ -186,7 +189,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                 {
                     entry = definition is null
                         ? new Entry(expectedId, name, forcedKind ?? DetectKind(name), "1.0", "Observed", false)
-                        : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties);
+                        : new Entry(definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, true, definition.History, definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties, RevisionToken(definition));
                     if (definition is not null) foreach (var alias in definition.Aliases) entry.Aliases.Add(alias);
                     objects[scopedKey] = entry;
                 }
@@ -211,7 +214,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
             entry.Version, entry.LifecycleState, entry.Managed, state,
             entry.Producers.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(),
             entry.Consumers.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(),
-            entry.References.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(), entry.History, entry.Components, entry.ExternalSource, entry.ExternalRecipient, entry.ExternalParties);
+            entry.References.OrderBy(item => item.ProcessName).ThenBy(item => item.ElementName).ToArray(), entry.History, entry.Components, entry.ExternalSource, entry.ExternalRecipient, entry.ExternalParties, entry.Revision);
     }
 
     private static IEnumerable<string> Split(string value) => value.Split(['\r', '\n', ';', '•'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -237,6 +240,17 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         return result;
     }
 
+    private static string RevisionToken(Definition definition)
+    {
+        var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            definition.Id, definition.Name, definition.Kind, definition.Version, definition.LifecycleState, definition.Aliases,
+            definition.Components, definition.ExternalSource, definition.ExternalRecipient, definition.ExternalParties,
+            HistoryCount = definition.History?.Count ?? 0, LastChange = definition.History?.LastOrDefault()?.ArchivedAt
+        }, JsonOptions);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+    }
+
     private static IReadOnlyList<ExternalObjectParty> NormalizeParties(IReadOnlyList<ExternalObjectParty> input)
     {
         if (input.Count > 20) throw new InvalidDataException("Допустимо не более 20 внешних участников объекта.");
@@ -255,7 +269,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         return result;
     }
 
-    private sealed class Entry(string id, string name, string kind, string version, string lifecycleState, bool managed, IReadOnlyList<InformationObjectRevisionModel>? history = null, IReadOnlyList<InformationObjectComponentModel>? components = null, string? externalSource = null, string? externalRecipient = null, IReadOnlyList<ExternalObjectParty>? externalParties = null)
+    private sealed class Entry(string id, string name, string kind, string version, string lifecycleState, bool managed, IReadOnlyList<InformationObjectRevisionModel>? history = null, IReadOnlyList<InformationObjectComponentModel>? components = null, string? externalSource = null, string? externalRecipient = null, IReadOnlyList<ExternalObjectParty>? externalParties = null, string? revision = null)
     {
         public string Id { get; } = id;
         public string Name { get; } = name;
@@ -268,6 +282,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
         public string? ExternalSource { get; } = externalSource;
         public string? ExternalRecipient { get; } = externalRecipient;
         public IReadOnlyList<ExternalObjectParty> ExternalParties { get; } = externalParties ?? [];
+        public string? Revision { get; } = revision;
         public HashSet<string> Aliases { get; } = new(StringComparer.CurrentCultureIgnoreCase);
         public List<InformationObjectOccurrenceModel> Producers { get; } = [];
         public List<InformationObjectOccurrenceModel> Consumers { get; } = [];
