@@ -41,7 +41,13 @@ public sealed record ProcessChannelModel(
     string? SystemName = null,
     string? DocumentName = null,
     string Flow = "primary",
-    string Direction = "work");
+    string Direction = "work",
+    string? ObjectId = null)
+{
+    public bool Matches(InformationObjectBindingModel binding) =>
+        string.Equals(ObjectId, binding.ObjectId, StringComparison.OrdinalIgnoreCase) &&
+        (Direction.ToLowerInvariant() switch { "input" => binding.Role == "Input", "output" => binding.Role == "Output", _ => false });
+}
 
 public sealed record InformationObjectBindingModel(
     string ObjectId,

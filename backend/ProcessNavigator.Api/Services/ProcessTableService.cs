@@ -224,6 +224,7 @@ public sealed partial class ProcessTableService(
 
         var channels = new List<TableChannel>();
         var channelKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var stepsForChannels = stepRows.ToLookup(row => row.Get("ID процесса") + "\u001f" + row.Get("ID шага"), StringComparer.OrdinalIgnoreCase);
         foreach (var row in channelRows)
         {
             var processId = row.Get("ID процесса"); var stepId = row.Get("ID шага"); var channelId = row.Get("ID канала");
@@ -232,6 +233,16 @@ public sealed partial class ProcessTableService(
             if (string.IsNullOrWhiteSpace(channelId)) Add("Error", row, "ID канала", "Укажите ID канала.", processId, stepId);
             else if (!channelKeys.Add($"{processId}\u001f{stepId}\u001f{channelId}")) Add("Error", row, "ID канала", "ID канала повторяется для шага.", processId, stepId);
             var kind = row.Get("Тип канала"); var flow = row.Get("Режим"); var direction = row.Get("Направление");
+            var objectId = row.Get("ID объекта канала");
+            if (!string.IsNullOrEmpty(objectId))
+            {
+                var step = stepsForChannels[$"{processId}\u001f{stepId}"].FirstOrDefault();
+                var ids = step is null ? [] : Split(step.Get("Объекты реестра ID"), preserveEmpty: true);
+                var roles = step is null ? [] : Split(step.Get("Роли объектов"), preserveEmpty: true);
+                var candidate = new ProcessChannelModel(channelId, kind, "", Direction: direction, ObjectId: objectId);
+                if (!TechnicalId().IsMatch(objectId) || !ids.Zip(roles).Any(pair => candidate.Matches(new(pair.First, "", pair.Second, false))))
+                    Add("Error", row, "ID объекта канала", "Объект должен быть указан на листе «Шаги» с соответствующей ролью входа или выхода.", processId, stepId);
+            }
             if (!ChannelKinds.Contains(kind)) Add("Error", row, "Тип канала", "Неизвестный тип канала.", processId, stepId);
             if (!ChannelFlows.Contains(flow)) Add("Error", row, "Режим", "Режим должен быть primary, alternative или parallel.", processId, stepId);
             if (!ChannelDirections.Contains(direction)) Add("Error", row, "Направление", "Направление должно быть input, work или output.", processId, stepId);
@@ -302,6 +313,18 @@ public sealed partial class ProcessTableService(
             var incomingById = incoming.Where(row => !string.IsNullOrWhiteSpace(row.Get("ID шага")))
                 .ToDictionary(row => row.Get("ID шага"), StringComparer.OrdinalIgnoreCase);
             var existingById = existing.Nodes.ToDictionary(node => node.Id, StringComparer.OrdinalIgnoreCase);
+            foreach (var channelRow in channelRows.Where(row => !row.Has("ID объекта канала") && row.Get("ID процесса").Equals(processId, StringComparison.OrdinalIgnoreCase)))
+            {
+                var stepId = channelRow.Get("ID шага");
+                if (!existingById.TryGetValue(stepId, out var oldNode) || !incomingById.TryGetValue(stepId, out var newStep)) continue;
+                var oldChannel = oldNode.Channels?.FirstOrDefault(c => c.Id.Equals(channelRow.Get("ID канала"), StringComparison.OrdinalIgnoreCase));
+                if (oldChannel?.ObjectId is null) continue;
+                var candidate = oldChannel with { Direction = channelRow.Get("Направление") };
+                var valid = newStep.Has("Объекты реестра ID")
+                    ? Split(newStep.Get("Объекты реестра ID"), true).Zip(Split(newStep.Get("Роли объектов"), true)).Any(pair => candidate.Matches(new(pair.First, "", pair.Second)))
+                    : (oldNode.InformationObjects ?? []).Any(candidate.Matches);
+                if (!valid) issues.Add(new("Error", channelRow.Sheet, channelRow.Number, "ID объекта канала", "Старая книга нарушает сохранённую привязку канала. Выгрузите новую книгу и исправьте привязку явно.", processId, stepId));
+            }
             foreach (var row in incoming.Where(row => !row.Has("Правила работы JSON") && row.Has("Объекты реестра ID")))
                 if (existingById.TryGetValue(row.Get("ID шага"), out var original) && (original.WorkRules ?? []).Any(rule => rule.Kind == "document" && !Split(row.Get("Объекты реестра ID")).Contains(rule.ObjectId, StringComparer.OrdinalIgnoreCase)))
                     issues.Add(new("Error", row.Sheet, row.Number, "Объекты реестра ID", "Старая книга удаляет привязку объекта, на который ссылается сохранённое правило. Добавьте колонку правил и исправьте их явно.", processId, row.Get("ID шага")));
@@ -359,9 +382,9 @@ public sealed partial class ProcessTableService(
         var existingEdges = process.Edges.Where(edge => edge.SourceId.Equals(node.Id, StringComparison.Ordinal)).ToArray();
         var incomingChannels = channelRows.Where(channel => channel.Get("ID процесса").Equals(row.Get("ID процесса"), StringComparison.OrdinalIgnoreCase) &&
                 channel.Get("ID шага").Equals(node.Id, StringComparison.OrdinalIgnoreCase))
-            .Select(channel => $"{channel.Get("ID канала")}\u001f{channel.Get("Тип канала")}\u001f{channel.Get("Режим")}\u001f{channel.Get("Направление")}\u001f{channel.Get("Название")}\u001f{channel.Get("Система")}\u001f{channel.Get("Документ")}")
+            .Select(channel => $"{channel.Get("ID канала")}\u001f{channel.Get("Тип канала")}\u001f{channel.Get("Режим")}\u001f{channel.Get("Направление")}\u001f{channel.Get("Название")}\u001f{channel.Get("Система")}\u001f{channel.Get("Документ")}\u001f{(channel.Has("ID объекта канала") ? channel.Get("ID объекта канала") : node.Channels?.FirstOrDefault(c => c.Id.Equals(channel.Get("ID канала"), StringComparison.OrdinalIgnoreCase))?.ObjectId)}")
             .OrderBy(value => value, StringComparer.Ordinal).ToArray();
-        var existingChannels = (node.Channels ?? []).Select(channel => $"{channel.Id}\u001f{channel.Kind}\u001f{channel.Flow}\u001f{channel.Direction}\u001f{channel.Label}\u001f{channel.SystemName}\u001f{channel.DocumentName}")
+        var existingChannels = (node.Channels ?? []).Select(channel => $"{channel.Id}\u001f{channel.Kind}\u001f{channel.Flow}\u001f{channel.Direction}\u001f{channel.Label}\u001f{channel.SystemName}\u001f{channel.DocumentName}\u001f{channel.ObjectId}")
             .OrderBy(value => value, StringComparer.Ordinal).ToArray();
         laneMappings.TryGetValue(node.LaneId, out var laneMapping);
         laneAssignments.TryGetValue(node.LaneId, out var assignedUsers);
@@ -415,7 +438,8 @@ public sealed partial class ProcessTableService(
         var parts = value.Split('\u001f');
         return parts.Length < 7 ? value : $"{parts[0]}: {parts[4]} [{parts[1]}, {parts[2]}, {parts[3]}]" +
             (string.IsNullOrWhiteSpace(parts[5]) ? string.Empty : $" · {parts[5]}") +
-            (string.IsNullOrWhiteSpace(parts[6]) ? string.Empty : $" · {parts[6]}");
+            (string.IsNullOrWhiteSpace(parts[6]) ? string.Empty : $" · {parts[6]}") +
+            (parts.Length < 8 || string.IsNullOrWhiteSpace(parts[7]) ? string.Empty : $" · ID: {parts[7]}");
     }));
     private static string DisplayBindings(IEnumerable<string> values) => string.Join("; ", values.Select(value =>
     {
@@ -731,7 +755,7 @@ public sealed partial class ProcessTableService(
                     node.BpmnType ?? node.Type, node.ExecutionMode, node.SystemName, node.Instruction, node.ExecutorKind, JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web))]);
                 foreach (var channel in node.Channels ?? [])
                     channelRows.Add([null, process.Id, node.Id, channel.Id, channel.Kind, channel.Flow, channel.Direction,
-                        channel.Label, channel.SystemName, channel.DocumentName]);
+                        channel.Label, channel.SystemName, channel.DocumentName, channel.ObjectId]);
             }
         }
         if (stepRows.Count > 20_000 || channelRows.Count > 50_000 || evidenceRows.Count > 50_000 || requirementRows.Length > 50_000)
@@ -777,7 +801,9 @@ public sealed partial class ProcessTableService(
         var channelsByStep = channelRows.GroupBy(row => row.Get("ID шага"), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => (IReadOnlyList<ProcessChannelModel>)group.Select(row => new ProcessChannelModel(
                 row.Get("ID канала"), row.Get("Тип канала"), row.Get("Название"), EmptyToNull(row.Get("Система")),
-                EmptyToNull(row.Get("Документ")), row.Get("Режим"), row.Get("Направление"))).ToArray(), StringComparer.OrdinalIgnoreCase);
+                EmptyToNull(row.Get("Документ")), row.Get("Режим"), row.Get("Направление"),
+                row.Has("ID объекта канала") ? EmptyToNull(row.Get("ID объекта канала")) :
+                    existing?.Nodes.FirstOrDefault(node => node.Id.Equals(group.Key, StringComparison.OrdinalIgnoreCase))?.Channels?.FirstOrDefault(channel => channel.Id.Equals(row.Get("ID канала"), StringComparison.OrdinalIgnoreCase))?.ObjectId)).ToArray(), StringComparer.OrdinalIgnoreCase);
         var elementContexts = steps.ToDictionary(row => row.Get("ID шага"), row =>
         {
             var lane = lanes.First(item => item.Id.Equals(row.Get("Дорожка ID"), StringComparison.OrdinalIgnoreCase));
@@ -794,6 +820,8 @@ public sealed partial class ProcessTableService(
                 ParseRequired(objectRequired.ElementAtOrDefault(index) ?? "") ?? true, EmptyToNull(objectConditions.ElementAtOrDefault(index) ?? ""),
                 EmptyToNull(objectVersions.ElementAtOrDefault(index) ?? ""))).ToArray();
             var workRules = row.Has("Правила работы JSON") ? ParseWorkRules(row.Get("Правила работы JSON")) : existingNode?.WorkRules;
+            if (channels.Any(channel => channel.ObjectId is not null && !objectBindings.Any(channel.Matches)))
+                throw new InvalidDataException("Канал ссылается на объект без соответствующей привязки входа или выхода.");
             if ((workRules ?? []).Any(rule => rule.Kind == "document" && !objectBindings.Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
                 throw new InvalidDataException("Правило документа ссылается на объект, не привязанный к шагу.");
             return new ElementContextUpdateModel(EmptyToNull(row.Get("Описание")), EmptyToNull(row.Get("Ответственный")),
@@ -854,8 +882,9 @@ public sealed partial class ProcessTableService(
             RewriteDataSheet(archive, "xl/worksheets/sheet3.xml", "xl/tables/table2.xml", stepRows, StepHeaders.Length, [3],
                 row => $"IF(OR(B{row}=\"\",D{row}=\"\",E{row}=\"\",F{row}=\"\"),\"Заполнить обязательные поля\",IF(AND(E{row}<>\"startEvent\",E{row}<>\"endEvent\",I{row}=\"\"),\"Указать подразделение\",IF(AND(E{row}=\"task\",N{row}=\"\"),\"Указать результат\",\"Готово\")))",
                 StepHeaders);
-            RewriteDataSheet(archive, "xl/worksheets/sheet4.xml", "xl/tables/table3.xml", channelRows, 10, [],
-                row => $"IF(OR(B{row}=\"\",C{row}=\"\",D{row}=\"\",E{row}=\"\",F{row}=\"\",G{row}=\"\",H{row}=\"\"),\"Заполнить обязательные поля\",IF(AND(E{row}=\"system\",I{row}=\"\"),\"Указать систему\",\"Готово\"))");
+            RewriteDataSheet(archive, "xl/worksheets/sheet4.xml", "xl/tables/table3.xml", channelRows, 11, [],
+                row => $"IF(OR(B{row}=\"\",C{row}=\"\",D{row}=\"\",E{row}=\"\",F{row}=\"\",G{row}=\"\",H{row}=\"\"),\"Заполнить обязательные поля\",IF(AND(E{row}=\"system\",I{row}=\"\"),\"Указать систему\",\"Готово\"))",
+                ["Проверка", "ID процесса", "ID шага", "ID канала", "Тип канала", "Режим", "Направление", "Название", "Система", "Документ", "ID объекта канала"]);
             RewriteDictionaries(archive, organization);
             AddEvidenceSheet(archive, evidenceRows ?? []);
             AddEvidenceSheet(archive, requirementRows ?? [], true);

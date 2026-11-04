@@ -1,13 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {informationTransfers} from '../src/information-transfers.ts';
-import {filterTransfers,summarizeTransfers,transferFacts,transferPage,transferCsv} from '../src/information-transfer-report.ts';
+import {explicitTransferChannels,filterTransfers,summarizeTransfers,transferFacts,transferPage,transferCsv} from '../src/information-transfer-report.ts';
 const occurrence=(processId,elementId)=>({processId,processName:processId,scope:'Step',elementId,elementName:elementId,required:true,version:'2',condition:'После проверки'});
 const object={id:'doc',name:'Чертёж',version:'2',lifecycleState:'Active',producers:[occurrence('cad','a'),occurrence('cad','b')],consumers:[occurrence('erp','c'),occurrence('erp','d')],externalSource:'Клиент'};
 const rows=informationTransfers([object]).rows;
 const models={cad:{nodes:[{id:'a',laneId:'l',channels:[{id:'mail',label:'=почта',kind:'email',direction:'output',documentName:'=чертёж'}],systemName:'PLM'},{id:'b',laneId:'l'}]},erp:{nodes:[{id:'c',laneId:'r',systemName:'ERP'},{id:'d',laneId:'r'}]}};
 const facts=transferFacts(rows,models);
 const meta={generatedAt:'2026-10-31',registryGeneratedAt:'2026-10-30',query:'',built:4,limited:false,modelLimit:false,failures:[]};
+test('explicit channels are separated from generic channels and scoped to endpoint direction',()=>{
+  const linked=structuredClone(models);
+  const source={...rows[0].source,direction:'Producer'};
+  linked.cad.nodes[0].channels.push(
+    {id:'exact',label:'Бумажный оригинал',kind:'paper',direction:'output',flow:'parallel',objectId:'doc'},
+    {id:'wrong',label:'Вход',kind:'email',direction:'input',objectId:'doc'},
+    {id:'other',label:'Тот же заголовок',kind:'paper',direction:'output',objectId:'other'});
+  const row={...rows[0],source};
+  const resolved=transferFacts([row],linked);
+  assert.deepEqual(explicitTransferChannels('doc',source,resolved).map(c=>c.id),['exact']);
+  const [header,data]=parseCsv(transferCsv([row],resolved,meta));
+  assert.match(data[header.indexOf('Источник: Каналы объекта по ID')],/^exact:.*Бумажный оригинал$/);
+  assert.match(data[header.indexOf('Источник: Каналы этапа')],/Тот же заголовок/);
+});
 function parseCsv(csv){
   const rows=[];let row=[],cell='',quoted=false;
   for(let i=1;i<csv.length;i++){const c=csv[i];if(c==='"'){if(quoted&&csv[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(!quoted&&c===';'){row.push(cell);cell='';}else if(!quoted&&c==='\r'&&csv[i+1]==='\n'){row.push(cell);rows.push(row);row=[];cell='';i++;}else cell+=c;}

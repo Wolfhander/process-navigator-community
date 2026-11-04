@@ -49,7 +49,7 @@ public sealed partial class InformationObjectRegistryService(ProcessCatalogServi
                     AddMany(objects, aliases, Values(artifact.Name), process, node, "Step", "Reference", "Document");
                 foreach (var channel in node.Channels ?? [])
                 {
-                    if (string.IsNullOrWhiteSpace(channel.DocumentName)) continue;
+                    if (channel.ObjectId is not null || string.IsNullOrWhiteSpace(channel.DocumentName)) continue;
                     var direction = channel.Direction.Equals("input", StringComparison.OrdinalIgnoreCase) ? "Consumer"
                         : channel.Direction.Equals("output", StringComparison.OrdinalIgnoreCase) ? "Producer" : "Reference";
                     AddMany(objects, aliases, Values(channel.DocumentName), process, node, "Step", direction, "Document");

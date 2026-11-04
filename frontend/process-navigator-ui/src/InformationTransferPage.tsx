@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {loadOrganization,loadProcess} from './api';
 import {informationTransfers} from './information-transfers';
-import {filterTransfers,summarizeTransfers,transferCsv,transferFacts,transferPage} from './information-transfer-report';
+import {explicitTransferChannels,filterTransfers,summarizeTransfers,transferCsv,transferFacts,transferPage} from './information-transfer-report';
 import type {InformationObject,InformationObjectOccurrence,OrganizationMap,ProcessModel} from './types';
 
 export function InformationTransferPage({objects,registryGeneratedAt,onBack,onOpen}:{objects:InformationObject[];registryGeneratedAt?:string;onBack:()=>void;onOpen:(value:InformationObjectOccurrence)=>void}){
@@ -36,10 +36,11 @@ export function InformationTransferPage({objects,registryGeneratedAt,onBack,onOp
       const link=document.createElement('a');link.href=url;link.download='information-transfers.csv';link.click();
     }catch{setError('Не удалось выгрузить матрицу передач.');}
   }
-  function endpoint(value?:InformationObjectOccurrence){
+  function endpoint(objectId:string,value?:InformationObjectOccurrence){
     if(!value)return <p>Не указан в реестре</p>;
     const f=facts.get(value);
-    return <div><button onClick={()=>onOpen(value)}>{value.processName} · {value.elementName||'Паспорт'}</button><p><code>{value.processId} / {value.elementId||'паспорт'}</code></p><p>{f?.responsibility||'Подразделение не установлено'}</p><p>Системы этапа: {f?.systems.join(' · ')||'не указаны'}</p><p>Каналы этапа: {f?.channels.map(c=>[c.kind,c.direction,c.label,c.documentName].filter(Boolean).join(': ')).join(' · ')||'не указаны'}</p><small>{value.required?'Обязательный':'Необязательный'} · {value.condition||'условие не указано'} · версия {value.version||'не указана'}</small>{!f?.available&&!loading&&<p>Сведения модели недоступны</p>}</div>;
+    const exact=explicitTransferChannels(objectId,value,facts);
+    return <div><button onClick={()=>onOpen(value)}>{value.processName} · {value.elementName||'Паспорт'}</button><p><code>{value.processId} / {value.elementId||'паспорт'}</code></p><p>{f?.responsibility||'Подразделение не установлено'}</p><p>Системы этапа: {f?.systems.join(' · ')||'не указаны'}</p><p>Каналы этапа: {f?.channels.map(c=>[c.kind,c.direction,c.label,c.documentName].filter(Boolean).join(': ')).join(' · ')||'не указаны'}</p><p>Каналы этого объекта по ID: {exact.map(c=>[c.label,c.kind,c.flow].join(' · ')).join('; ')||'не назначены'}</p><small>{value.required?'Обязательный':'Необязательный'} · {value.condition||'условие не указано'} · версия {value.version||'не указана'}</small>{!f?.available&&!loading&&<p>Сведения модели недоступны</p>}</div>;
   }
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb" aria-label="Путь матрицы"><button onClick={onBack}>← Документы и результаты</button><span>› Матрица передач</span></nav>
@@ -61,7 +62,7 @@ export function InformationTransferPage({objects,registryGeneratedAt,onBack,onOp
     </nav>
     <div className="transfer-table"><table>
       {view==='pairs'?<><thead><tr><th scope="col">Документ / результат</th><th scope="col">Источник</th><th scope="col">Получатель</th></tr></thead><tbody>{pairsPage.rows.map((row,index)=><tr key={index}>
-        <td>{row.object.name}<p><code>{row.object.id}</code></p><p>Внешний источник: {row.object.externalSource||'не указан'}</p><p>Внешний получатель: {row.object.externalRecipient||'не указан'}</p>{row.object.producers.length>1&&<strong>Несколько возможных источников</strong>}</td><td>{endpoint(row.source)}</td><td>{endpoint(row.target)}</td>
+        <td>{row.object.name}<p><code>{row.object.id}</code></p><p>Внешний источник: {row.object.externalSource||'не указан'}</p><p>Внешний получатель: {row.object.externalRecipient||'не указан'}</p>{row.object.producers.length>1&&<strong>Несколько возможных источников</strong>}</td><td>{endpoint(row.object.id,row.source)}</td><td>{endpoint(row.object.id,row.target)}</td>
       </tr>)}</tbody></>:<><thead><tr><th scope="col">Объект</th><th scope="col">Пары в выборке</th><th scope="col">Источники / получатели в выборке</th></tr></thead><tbody>{objectsPage.rows.map(g=><tr key={g.id}><td>{g.name}<p><code>{g.id}</code></p></td><td>{g.pairs}</td><td>{g.sources} / {g.targets}{g.missingSource&&<p>Источник не указан</p>}{g.missingTarget&&<p>Получатель не указан</p>}</td></tr>)}</tbody></>}
     </table></div>
     {!visible.length&&<p>Передачи по выбранным условиям не найдены. Это не подтверждает отсутствие передач в непостроенной части фонда.</p>}

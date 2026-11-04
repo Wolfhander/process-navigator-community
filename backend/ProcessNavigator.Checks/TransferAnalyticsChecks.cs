@@ -25,6 +25,13 @@ internal static class TransferAnalyticsChecks
         Check(!Pair(sourceNode, to with { Type = "gateway" }).Any(f => f.Code == "system-transition"), "Gateway does not become a guessed task handoff");
         var ambiguous = sourceNode with { InformationObjects = [new("drawing", "Чертёж", "Output"), new("other", "Чертёж", "Output")] };
         Check(Pair(ambiguous, to).Single(f => f.Code == "paper-parallel").ObjectIds.Count == 0, "Ambiguous equal names must not map to arbitrary ID");
+        var exact = ambiguous with { Channels = sourceNode.Channels!.Select(c => c.Kind == "paper" ? c with { ObjectId = "other" } : c).ToArray() };
+        Check(Pair(exact, to).Single(f => f.Code == "paper-parallel").ObjectIds.SequenceEqual(["other"]), "Explicit ID wins over ambiguous name");
+        var bad = exact with { Channels = exact.Channels!.Select(c => c.Kind == "paper" ? c with { ObjectId = "absent" } : c).ToArray() };
+        Check(Pair(bad, to).Single(f => f.Code == "paper-parallel").ObjectIds.Count == 0, "Invalid explicit ID cannot fall back to a name");
+        Check(!new ProcessChannelModel("c","paper","Вход", Direction:"input", ObjectId:"drawing").Matches(new("drawing","Чертёж","Output")), "Input channel cannot point at an output binding");
+        var json = JsonSerializer.Serialize(exact, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Check(JsonSerializer.Deserialize<NodeModel>(json,new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Channels!.Any(c => c.ObjectId == "other"), "Explicit ID survives context JSON serialization");
         Check(!Pair(sourceNode, to with { Channels = [new("a", "system", "PLM", "Учебная PLM"), new("b", "system", "ERP", "ERP")] }).Any(f => f.Code == "system-transition"), "Overlapping system sets cannot prove a change of system");
         Check(TransferAnalyticsService.Analyze(process with { Edges = [new("broken", "missing", "register", null, [])] }).All(f => f.Code != "system-transition"), "Broken edge does not crash analysis");
         Console.WriteLine($"Transfer analytics master checks passed: {count}.");

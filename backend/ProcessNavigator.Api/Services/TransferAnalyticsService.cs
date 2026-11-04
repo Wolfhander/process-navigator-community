@@ -50,8 +50,16 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
             {
                 var objectIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 var ambiguous = false;
+                var explicitMatch = false;
                 foreach (var channel in group)
                 {
+                    if (channel.ObjectId is not null)
+                    {
+                        var binding = (node.InformationObjects ?? []).FirstOrDefault(channel.Matches);
+                        if (binding is null) ambiguous = true;
+                        else { objectIds.Add(binding.ObjectId); explicitMatch = true; }
+                        continue;
+                    }
                     var matches = (node.InformationObjects ?? []).Where(binding =>
                         ((channel.Direction == "input" && binding.Role == "Input") || (channel.Direction == "output" && binding.Role == "Output"))
                         && !string.IsNullOrWhiteSpace(channel.DocumentName)
@@ -60,7 +68,8 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
                 }
                 var code = group.Key.Flow == "parallel" ? "paper-parallel" : group.Key.Flow == "alternative" ? "paper-alternative" : "paper-primary";
                 Add(code, node, $"Бумажный канал: {group.Key.Direction}; режим {group.Key.Flow}. " +
-                    (ambiguous ? "Не все документы однозначно сопоставлены по названию и направлению; уточните привязки. " : "Документы сопоставлены по названию и направлению. ") +
+                    (explicitMatch ? "Есть явные привязки по ID. " : "") +
+                    (ambiguous ? "Не все документы однозначно сопоставлены; уточните привязки. " : !explicitMatch ? "Документы сопоставлены по названию и направлению. " : "") +
                     "Это признак бумажной передачи, не доказательство потери документа или обязательности бумаги во всех случаях.", objects: objectIds.Order().ToArray());
             }
         }

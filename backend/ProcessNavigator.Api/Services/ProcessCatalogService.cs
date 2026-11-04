@@ -1049,7 +1049,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             Text(item.SystemName, 200, "Channel system"),
             Text(item.DocumentName, 300, "Channel document"),
             Text(item.Flow, 30, "Channel flow") ?? "primary",
-            Text(item.Direction, 30, "Channel direction") ?? "work")).ToArray();
+            Text(item.Direction, 30, "Channel direction") ?? "work",
+            Text(item.ObjectId, 100, "Channel object ID"))).ToArray();
         if (channels.Length > 20) throw new InvalidDataException("У элемента не может быть более 20 каналов.");
         if (channels.Select(item => item.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() != channels.Length)
             throw new InvalidDataException("Идентификаторы каналов элемента должны быть уникальны.");
@@ -1073,6 +1074,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             Text(item.Condition, 500, "Information object condition"),
             Text(item.Version, 50, "Information object version"))).ToArray();
         if (informationObjects.Length > 40) throw new InvalidDataException("К этапу можно привязать не более 40 объектов реестра.");
+        if (channels.Any(channel => channel.ObjectId is not null && !informationObjects.Any(channel.Matches)))
+            throw new InvalidDataException("ID документа канала должен быть привязан к этапу в соответствующей роли входа или выхода.");
         if (informationObjects.Any(item => !SafeProcessId().IsMatch(item.ObjectId)))
             throw new InvalidDataException("Некорректный идентификатор объекта реестра.");
         if (informationObjects.Any(item => item.Role is not ("Input" or "Output" or "Reference")))

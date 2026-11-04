@@ -113,7 +113,7 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
                 {
                     if (channel.Kind == "system" && string.IsNullOrWhiteSpace(channel.SystemName))
                         Warning("task-channel-system", $"Для канала «{channel.Label}» задачи «{node.Name}» не указана информационная система.", node.Id, node.Name);
-                    if (channel.Flow == "parallel" && string.IsNullOrWhiteSpace(channel.DocumentName))
+                    if (channel.Flow == "parallel" && string.IsNullOrWhiteSpace(channel.DocumentName) && string.IsNullOrWhiteSpace(channel.ObjectId))
                         Warning("task-parallel-channel-document", $"Для параллельного канала «{channel.Label}» желательно указать передаваемый документ или результат.", node.Id, node.Name);
                 }
                 foreach (var reference in node.ParticipantUnitRefs ?? [])

@@ -155,6 +155,23 @@ internal static class MasterDataChecks
             var preview=await table.PreviewAsync(Form(exported.Content));
             Check(preview.ErrorCount==0,"Master XLSX roundtrip: "+string.Join("; ",preview.Issues.Where(issue=>issue.Severity=="Error").Take(3).Select(issue=>issue.Message)));
             Check(preview.ProcessCount==5&&preview.StepCount==17,"Master XLSX retains all processes and elements");Passed("xlsx-roundtrip");
+            try
+            {
+                var context=JsonNode.Parse(originalContext)!;
+                var task=context["elements"]!["task-1"]!;
+                var binding=task["informationObjects"]!.AsArray().First(b=>b?["role"]?.GetValue<string>() is "Input" or "Output")!;
+                var objectId=binding["objectId"]!.GetValue<string>();
+                var direction=binding["role"]!.GetValue<string>()=="Input"?"input":"output";
+                task["channels"]!.AsArray().Add(new JsonObject {["id"]="exact-paper",["kind"]="paper",["label"]="Подлинник",["direction"]=direction,["flow"]="parallel",["objectId"]=objectId});
+                await File.WriteAllTextAsync(contextPath,context.ToJsonString());
+                var exactBook=await table.ExportAsync("md-order",false,false);
+                using var zip=new ZipArchive(new MemoryStream(exactBook.Content));
+                using var sheet=zip.GetEntry("xl/worksheets/sheet4.xml")!.Open();
+                var channelDocument=XDocument.Load(sheet);
+                Check(channelDocument.Descendants().Any(element=>element.Name.LocalName=="c" && element.Attribute("r")?.Value.StartsWith("K")==true && element.Value==objectId),"XLSX channel sheet contains the explicit object ID");
+                Check((await table.PreviewAsync(Form(exactBook.Content))).ErrorCount==0,"XLSX explicit channel roundtrip validates");
+            }
+            finally { await File.WriteAllTextAsync(contextPath,originalContext); }
             var single=await table.ExportAsync("md-order",false,false);
             var large=LargeBook(single.Content);
             var largePreview=await table.PreviewAsync(Form(large));

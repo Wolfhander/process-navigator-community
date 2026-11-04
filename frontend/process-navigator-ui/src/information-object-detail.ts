@@ -16,6 +16,6 @@ export function occurrenceDetails(occurrence: InformationObjectOccurrence, proce
     available: !!process && (occurrence.scope === 'Process' || !!node),
     responsibility: occurrence.scope === 'Process' ? process?.owner : unit ? `${unit.name} · ${entity?.name}` : binding?.department ?? node?.responsible,
     systems: [...new Set(node ? [node.systemName, ...(node.channels ?? []).filter(channel => channel.kind === 'system').map(channel => channel.systemName)].filter((value): value is string => !!value) : occurrence.scope === 'Process' ? process?.passport?.systems ?? [] : [])],
-    channels: (node?.channels ?? []).map(channel => ({ ...channel, kind: channelKinds[channel.kind] ?? channel.kind, direction: channelDirections[channel.direction] ?? channel.direction })),
+    channels: (node?.channels ?? []).map(channel => ({ ...channel, directionCode: channel.direction, kind: channelKinds[channel.kind] ?? channel.kind, direction: channelDirections[channel.direction] ?? channel.direction })),
   };
 }
