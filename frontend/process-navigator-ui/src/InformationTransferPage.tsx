@@ -48,7 +48,7 @@ export function InformationTransferPage({objects,registryGeneratedAt,onBack,onOp
   return <main className="feature-page information-registry"><div className="feature-page-shell">
     <nav className="feature-breadcrumb" aria-label="Путь матрицы"><button onClick={onBack}>← Документы и результаты</button><span>› Матрица передач</span></nav>
     <h1>Матрица передач</h1>
-    <p>Пары строятся по ID объекта. Для двух этапов одной модели проверяется направленный путь BPMN. Найденный путь не подтверждает выбор ветви, совместимость версий документа или фактическую передачу. Для разных моделей такая проверка не выполняется. Сводка не является количеством фактических отправок.</p>
+    <p>Пары строятся по ID объекта. Проверяется направленный путь BPMN внутри модели или через одну явно описанную границу прямого подпроцесса. Повторные вызовы и произвольные цепочки между моделями не подтверждаются. Найденный путь не доказывает выбор ветви или фактическую передачу. Сводка не является количеством фактических отправок.</p>
     <div className="transfer-controls"><label>Поиск по ID, объекту, процессу, подразделению, системе или каналу<input value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></label>
       <label>Представление<select value={view} onChange={e=>{setView(e.target.value as typeof view);setPage(0);}}><option value="pairs">Возможные пары</option><option value="objects">Сводка по объектам</option></select></label>
       <label>Путь BPMN<select value={routeFilter} disabled={loading} onChange={e=>{setRouteFilter(e.target.value as typeof routeFilter);setPage(0);}}><option value="all">Все результаты</option>{Object.entries(transferRouteLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
