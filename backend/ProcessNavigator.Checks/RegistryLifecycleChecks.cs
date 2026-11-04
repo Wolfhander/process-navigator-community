@@ -68,6 +68,18 @@ internal static class RegistryLifecycleChecks
             await Reject(loadedAgain, externalUpdate with { ExternalSource = new string('x', 301) });
             var noExternal = (await loadedAgain.SaveAsync("legacy", externalUpdate with { ExternalSource = "", ExternalRecipient = "" }, false)).Objects.Single(item => item.Id == "legacy");
             Check(noExternal.ExternalSource == "" && noExternal.History?.Last().ExternalSource == externalUpdate.ExternalSource, "Explicit clear snapshots external participant");
+            var parties = new ExternalObjectParty[] {new("source","supplier","  Учебный поставщик  "," Письмо "),new("recipient","customer","Учебный клиент"),new("recipient","regulator","Учебный регулятор","Портал")};
+            var partyUpdate=Update("2","Draft","2","Draft") with {ExternalParties=parties};
+            var withParties=(await loadedAgain.SaveAsync("legacy",partyUpdate,false)).Objects.Single(item=>item.Id=="legacy");
+            Check(withParties.ExternalParties?.Count==3 && withParties.ExternalParties[0].Name=="Учебный поставщик" && withParties.ExternalParties[0].Channel=="Письмо","Multiple typed parties persist normalized");
+            var preserved=(await loadedAgain.SaveAsync("legacy",Update("2","Draft","2","Draft"),false)).Objects.Single(item=>item.Id=="legacy");
+            Check(preserved.ExternalParties!.SequenceEqual(withParties.ExternalParties!) && preserved.History?.Count==withParties.History?.Count,"Legacy save preserves structured parties without a spurious history revision");
+            await Reject(loadedAgain, partyUpdate with {ExternalParties=[parties[0],parties[0] with {Name="учебный поставщик"}]});
+            await Reject(loadedAgain, partyUpdate with {ExternalParties=[parties[0] with {Direction="internal"}]});
+            await Reject(loadedAgain, partyUpdate with {ExternalParties=[parties[0] with {Channel=new string('x',201)}]});
+            var clearedParties=(await loadedAgain.SaveAsync("legacy",partyUpdate with {ExternalParties=[]},false)).Objects.Single(item=>item.Id=="legacy");
+            Check(clearedParties.ExternalParties?.Count==0 && clearedParties.History?.Last().ExternalParties?.Count==3,"Explicit clear keeps structured parties in history");
+            Check(clearedParties.Producers.Count==withParties.Producers.Count && clearedParties.Consumers.Count==withParties.Consumers.Count,"Parties never replace model occurrences");
             var finalReload = new InformationObjectRegistryService(catalog, environment);
             Check((await finalReload.BuildAsync(false)).Objects.Single(item => item.Id == "legacy").History?.Any(snapshot => snapshot.Components?.Count == 1) == true, "Composition history survives reload");
         }

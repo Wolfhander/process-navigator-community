@@ -15,7 +15,7 @@ export function explicitTransferChannels(objectId:string,value:InformationObject
 }
 export function filterTransfers(rows:InformationTransfer[],query:string,facts:TransferFacts){
   const needle=query.trim().toLocaleLowerCase('ru');
-  return rows.filter(row=>[row.object.id,row.object.name,row.object.version,row.object.externalSource,row.object.externalRecipient,
+  return rows.filter(row=>[row.object.id,row.object.name,row.object.version,row.object.externalSource,row.object.externalRecipient,...(row.object.externalParties??[]).flatMap(p=>[p.name,p.role,p.channel]),
     ...[row.source,row.target].flatMap(value=>value?[value.processId,value.processName,value.elementId,value.elementName,value.version,value.condition,facts.get(value)?.responsibility,...(facts.get(value)?.systems??[]),...(facts.get(value)?.channels??[]).flatMap(c=>[c.label,c.kind,c.direction,c.documentName])]:[])
   ].some(value=>value?.toLocaleLowerCase('ru').includes(needle)));
 }
@@ -41,7 +41,7 @@ function csvCell(value:unknown){
   return '"'+text.replaceAll('"','""')+'"';
 }
 export function transferCsv(rows:InformationTransfer[],facts:TransferFacts,meta:{generatedAt:string;registryGeneratedAt?:string;query:string;built:number;limited:boolean;modelLimit:boolean;failures:string[];routes?:ReadonlyMap<InformationTransfer,TransferRoute>;routeFilter?:TransferRoute|'all'}){
-  const header=['Сформировано','Реестр сформирован','Область','Поиск','Найдено пар','Построено пар','Предел пар','Предел моделей','Недоступные сведения','ID объекта','Объект','Версия объекта','Состояние реестра','Внешний источник','Внешний получатель','Число источников в реестре',
+  const header=['Сформировано','Реестр сформирован','Область','Поиск','Найдено пар','Построено пар','Предел пар','Предел моделей','Недоступные сведения','ID объекта','Объект','Версия объекта','Состояние реестра','Внешний источник','Внешний получатель','Внешние участники JSON','Число источников в реестре',
     ...['Источник','Получатель'].flatMap(side=>['ID процесса','Процесс','Область привязки','ID этапа','Этап','Подразделение','Системы этапа','Каналы этапа','Обязательный','Условие','Версия привязки','Сведения модели','Каналы объекта по ID'].map(name=>side+': '+name)), 'Проверка пути BPMN', 'Фильтр пути BPMN'];
   const endpoint=(objectId:string,value?:InformationObjectOccurrence)=>{
     const f=value?facts.get(value):undefined;
@@ -51,6 +51,6 @@ export function transferCsv(rows:InformationTransfer[],facts:TransferFacts,meta:
   const prefix=[meta.generatedAt,meta.registryGeneratedAt,'Возможные пары по ID, не факт передачи; вся найденная построенная выборка',meta.query,rows.length,meta.built,meta.limited?'Достигнут':'Нет',meta.modelLimit?'Достигнут':'Нет',meta.failures.join(' · ')];
   // An empty selection still exports scope, limits and errors instead of a misleading blank file.
   const routeFilter=meta.routeFilter&&meta.routeFilter!=='all'?transferRouteLabels[meta.routeFilter]:'Все';
-  const records=rows.length?rows.map(row=>[...prefix,row.object.id,row.object.name,row.object.version,row.object.lifecycleState,row.object.externalSource,row.object.externalRecipient,row.object.producers.length,...endpoint(row.object.id,row.source),...endpoint(row.object.id,row.target),transferRouteLabels[meta.routes?.get(row)??'unknown'],routeFilter]):[[...prefix,...Array(header.length-prefix.length-1).fill(''),routeFilter]];
+  const records=rows.length?rows.map(row=>[...prefix,row.object.id,row.object.name,row.object.version,row.object.lifecycleState,row.object.externalSource,row.object.externalRecipient,JSON.stringify(row.object.externalParties??[]),row.object.producers.length,...endpoint(row.object.id,row.source),...endpoint(row.object.id,row.target),transferRouteLabels[meta.routes?.get(row)??'unknown'],routeFilter]):[[...prefix,...Array(header.length-prefix.length-1).fill(''),routeFilter]];
   return '\uFEFF'+[header,...records].map(row=>row.map(csvCell).join(';')).join('\r\n')+'\r\n';
 }

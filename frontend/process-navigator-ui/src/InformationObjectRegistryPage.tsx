@@ -74,7 +74,7 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen,onSche
     }) })).filter(item => item.objects.length > 0);
   }, [dependencies, issuesByObject, kind, filter, query]);
   const occurrence = (item: InformationObjectOccurrence) => <button key={`${item.processId}:${item.elementId}:${item.direction}`} onClick={() => onOpen(item)}><strong>{item.elementName ?? item.processName}</strong>{item.elementName && <small>{item.processName}</small>}{(item.version || item.condition || !item.required) && <small>{item.required ? 'обязательный' : 'необязательный'}{item.version ? ` · версия ${item.version}` : ''}{item.condition ? ` · ${item.condition}` : ''}</small>}<ArrowRight size={14}/></button>;
-  const beginEdit = (item: InformationObject) => { setEditing(item.id); setForm({ name: item.name, kind: item.kind, version: item.version, lifecycleState: item.lifecycleState === 'Observed' ? 'Draft' : item.lifecycleState, aliases: item.aliases, components: item.components ?? [], externalSource: item.externalSource ?? '', externalRecipient: item.externalRecipient ?? '', ...(item.managed ? { expectedVersion: item.version, expectedLifecycleState: item.lifecycleState } : {}) }); setError(''); };
+  const beginEdit = (item: InformationObject) => { setEditing(item.id); setForm({ name: item.name, kind: item.kind, version: item.version, lifecycleState: item.lifecycleState === 'Observed' ? 'Draft' : item.lifecycleState, aliases: item.aliases, components: item.components ?? [], externalSource: item.externalSource ?? '', externalRecipient: item.externalRecipient ?? '', externalParties:item.externalParties??[], ...(item.managed ? { expectedVersion: item.version, expectedLifecycleState: item.lifecycleState } : {}) }); setError(''); };
   const save = async () => { if (!editing || !form) return; setSaving(true); setError(''); try { setRegistry(await saveInformationObject(editing, form)); setEditing(undefined); setForm(undefined); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить объект.'); } finally { setSaving(false); } };
   const exportCsv = () => {
     if (!registry) return;
@@ -125,6 +125,19 @@ export function InformationObjectRegistryPage({ canManage, onBack, onOpen,onSche
             <label>Синонимы — по одному в строке<textarea rows={4} value={form.aliases.join('\n')} onChange={event => setForm({ ...form, aliases: event.target.value.split('\n') })}/></label>
             <label>Внешний источник (например, поставщик)<input maxLength={300} value={form.externalSource ?? ''} onChange={event => setForm({ ...form, externalSource: event.target.value })}/></label>
             <label>Внешний получатель (например, клиент)<input maxLength={300} value={form.externalRecipient ?? ''} onChange={event => setForm({ ...form, externalRecipient: event.target.value })}/></label>
+            <fieldset><legend>Список внешних участников</legend><p>Укажите роль, сторону и при необходимости канал. Прежние текстовые поля выше сохраняются отдельно.</p>
+              {(form.externalParties??[]).map((party,index)=>{
+                const change=(patch:Partial<typeof party>)=>setForm({...form,externalParties:(form.externalParties??[]).map((item,i)=>i===index?{...item,...patch}:item)});
+                return <div className="context-form-grid" key={index}>
+                  <label>Сторона<select value={party.direction} onChange={e=>change({direction:e.target.value as typeof party.direction})}><option value="source">Источник</option><option value="recipient">Получатель</option></select></label>
+                  <label>Роль<select value={party.role} onChange={e=>change({role:e.target.value as typeof party.role})}><option value="customer">Клиент</option><option value="supplier">Поставщик</option><option value="regulator">Регулятор</option><option value="other">Другой участник</option></select></label>
+                  <label>Название<input required maxLength={200} value={party.name} onChange={e=>change({name:e.target.value})}/></label>
+                  <label>Канал<input maxLength={200} value={party.channel??''} onChange={e=>change({channel:e.target.value})}/></label>
+                  <button type="button" aria-label={'Удалить внешнего участника '+(index+1)} onClick={()=>setForm({...form,externalParties:(form.externalParties??[]).filter((_,i)=>i!==index)})}>Удалить участника</button>
+                </div>;
+              })}
+              <button type="button" disabled={(form.externalParties?.length??0)>=20} onClick={()=>setForm({...form,externalParties:[...(form.externalParties??[]),{direction:'source',role:'supplier',name:''}]})}>Добавить участника</button>
+            </fieldset>
             <p>Указывайте только подтверждённого участника за границей организации. Пустое поле означает отсутствие сведений, а не отсутствие участника. Это описание границы объекта, не подтверждённый маршрут.</p>
             <InformationObjectCompositionEditor id={item.id} objects={registry.objects} value={form.components} onChange={components => setForm({ ...form, components })}/>
             <footer><button onClick={() => { setEditing(undefined); setForm(undefined); }}><X size={14}/>Отмена</button><button className="is-primary" disabled={saving} onClick={save}><Save size={14}/>{saving ? 'Сохранение…' : 'Сохранить объект'}</button></footer>

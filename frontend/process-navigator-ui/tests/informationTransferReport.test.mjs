@@ -39,6 +39,14 @@ test('search covers exact identifiers, versions, conditions, external parties an
   assert.equal(filterTransfers(rows,'После проверки',facts).length,4);
   assert.equal(filterTransfers(rows,'нет такого',facts).length,0);
 });
+test('external parties are searchable and exported without fabricating internal endpoints',()=>{
+  const parties=[{direction:'source',role:'supplier',name:'Завод',channel:'Портал'},{direction:'recipient',role:'regulator',name:'Регулятор'}];
+  const row={...rows[0],target:undefined,object:{...object,externalParties:parties}};
+  assert.equal(filterTransfers([row],'Портал',facts).length,1);
+  const [header,record]=parseCsv(transferCsv([row],facts,meta));
+  assert.deepEqual(JSON.parse(record[header.indexOf('Внешние участники JSON')]),parties);
+  assert.equal(record[header.indexOf('Получатель: Сведения модели')],'Не указан в реестре');
+});
 test('pagination does not truncate export and resets stale page indices safely',()=>{
   const many=Array.from({length:1000},(_,i)=>({...rows[0],object:{...object,id:String(i)}}));
   assert.equal(transferPage(many,0).rows.length,100);assert.equal(transferPage(many,9).rows[0].object.id,'900');
