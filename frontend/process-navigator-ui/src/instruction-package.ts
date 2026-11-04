@@ -1,4 +1,5 @@
 import type { ProcessModel } from './types';
+import { compositionPrint, escapePrint as escape } from './composition-print.ts';
 
 export type InstructionEntry = { path: string[]; model: ProcessModel; edition: string };
 export type InstructionPackage = { entries: InstructionEntry[]; issues: string[]; capturedAt: string; maxDepth?: number; omittedLinks?: number };
@@ -51,26 +52,32 @@ export async function collectInstructionPackage(root: ProcessModel, rootEdition:
   return result;
 }
 
-const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!));
 const paragraph = (label: string, value: unknown) => '<p><strong>' + escape(label) + ':</strong> ' + escape(value || 'Не заполнено') + '</p>';
 
 /** Standalone report; input strings never become HTML, URLs or executable commands. */
-export function instructionPackageHtml(bundle: InstructionPackage) {
+export function instructionPackageHtml(bundle: InstructionPackage, graphics = false) {
   const parts: string[] = [];
   let size = 0;
+  let sheets = 0;
   const append = (part: string) => { size += part.length; if (size > 8000000) throw new Error('Документ превышает предел 8 млн символов. Разделите инструкцию на ветви.'); parts.push(part); };
   append('<!doctype html><html lang="ru"><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src \'none\'; base-uri \'none\'; form-action \'none\'"><title>Сквозная инструкция</title><style>body{font:15px system-ui;max-width:1100px;margin:24px auto;padding:16px;line-height:1.5;color:#182c23}p,li,h1,h2,h3{overflow-wrap:anywhere;white-space:pre-wrap}article{border:1px solid #ccd7cf;border-radius:8px;padding:16px;margin:16px 0}h2{border-bottom:2px solid #285b44;padding-bottom:8px}h1,h2,h3{break-after:avoid}.warning{color:#9b3d20}@media print{@page{size:A4;margin:15mm}body{font-size:10.5pt;line-height:1.35;margin:0;max-width:none;padding:0}p{margin:6px 0}h3{margin:4px 0 8px}article{break-inside:avoid;padding:10px;margin:10px 0}p,li{orphans:3;widows:3}.transitions{break-inside:avoid}}</style><body><h1>Сквозная инструкция</h1>');
   append(paragraph('Сбор исходников', bundle.capturedAt) + '<p>Это справочный документ, не исполняемый линейный план. Порядок разделов не выбирает ветви. Дочерние уровни не заменяют стрелки родительской модели; команды и ссылки не запускаются. Материалы и назначения сотрудников здесь не проверены.</p>');
   if (bundle.maxDepth !== undefined) append(paragraph('Выбранная глубина от корня (корень = 0)', String(bundle.maxDepth)) + paragraph('Вызовы на границе выбранной глубины (намеренно не раскрыты)', String(bundle.omittedLinks ?? 0)));
   append('<h2>Полнота загрузки</h2><p>' + (bundle.issues.length ? 'НЕПОЛНЫЙ ДОКУМЕНТ: замечаний ' + bundle.issues.length : 'Все найденные ссылки загружены в пределах выбранного обхода. Это не подтверждение корректности процессов.') + '</p><ul>' + bundle.issues.map(issue => '<li class="warning">' + escape(issue) + '</li>').join('') + '</ul>');
   append('<h2>Использованные модели</h2><ul>' + bundle.entries.map(entry => '<li>' + escape(entry.path.join(' → ')) + ' · ' + escape(entry.model.id) + ' · версия ' + escape(entry.model.version) + ' · ' + escape(entry.edition) + '</li>').join('') + '</ul>');
-  for (const entry of bundle.entries) {
+  if (graphics) append('<style>.composition-sheet{margin:16px 0}.composition-sheet svg{display:block;width:100%;height:auto;border:1px solid #91a097}@media print{@page{size:A4 landscape;margin:12mm}.composition-sheet{break-before:page;break-after:page;break-inside:avoid}.composition-sheet h3{font-size:11pt}.composition-sheet svg{width:242mm;max-width:100%;height:auto}}</style>');
+  for (const [index,entry] of bundle.entries.entries()) {
     const model = entry.model;
-    append('<section><h2>' + escape(entry.path.join(' → ')) + '</h2>' + paragraph('Модель / версия / редакция', model.id + ' / ' + model.version + ' / ' + entry.edition));
+    append('<section><h2>' + (graphics ? (index+1)+'. ' : '') + escape(entry.path.join(' → ')) + '</h2>' + paragraph('Модель / версия / редакция', model.id + ' / ' + model.version + ' / ' + entry.edition));
     append(paragraph('Цель',model.passport?.purpose) + paragraph('Запуск',model.passport?.trigger) + paragraph('Результат процесса',model.passport?.result));
     append('<h3>Все дорожки модели</h3>');
     for (const lane of model.lanes) append(paragraph(lane.id, lane.name));
     if (!model.lanes.length) append('<p>Дорожек нет.</p>');
+    if (graphics) {
+      const diagram = compositionPrint(model, 120 - sheets, index+1);
+      sheets += diagram.sheets;
+      append(diagram.html);
+    }
     append('<p>Элементов: ' + model.nodes.length + '; переходов: ' + model.edges.length + '. В этом разделе все элементы, без фильтров и постраничного усечения.</p>');
     for (const node of model.nodes) {
       append('<article><h3>' + escape(node.name || node.id) + '</h3>' + paragraph('ID / тип',node.id + ' / ' + (node.bpmnType || node.type)) +

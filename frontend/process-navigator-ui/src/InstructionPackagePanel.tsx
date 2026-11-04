@@ -31,12 +31,12 @@ export function InstructionPackagePanel({ process, edition }: { process: Process
     } catch (cause) { if (!request.signal.aborted) setError(cause instanceof Error ? cause.message : 'Не удалось собрать инструкцию.'); }
     finally { if (!request.signal.aborted) setBusy(false); }
   };
-  const download = () => {
+  const download = (graphics = false) => {
     if (!bundle || stale || busy || (bundle.issues.length && !allowPartial)) return;
     try {
-      const html = instructionPackageHtml(bundle);
+      const html = instructionPackageHtml(bundle, graphics);
       const url = URL.createObjectURL(new Blob([html], {type:'text/html;charset=utf-8'}));
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'process-instruction.html'; anchor.click();
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = graphics ? 'process-composition.html' : 'process-instruction.html'; anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Не удалось сформировать файл.'); }
   };
@@ -57,7 +57,8 @@ export function InstructionPackagePanel({ process, edition }: { process: Process
       <ul>{bundle.entries.map((entry,index) => <li key={index}>{entry.path.join(' → ')} · {entry.model.id} · версия {entry.model.version} · {entry.edition}</li>)}</ul>
       {!!bundle.issues.length && <><p className="instruction-warning">НЕПОЛНЫЙ ДОКУМЕНТ</p><ul>{bundle.issues.map((issue,index) => <li key={index}>{issue}</li>)}</ul><label><input type="checkbox" checked={allowPartial} onChange={event => setAllowPartial(event.target.checked)}/>Скачать неполный документ с перечисленными замечаниями</label></>}
       {stale && <p role="status">Выбор редакций или глубины изменён. Соберите документ заново перед скачиванием.</p>}
-      <button disabled={busy || stale || (!!bundle.issues.length && !allowPartial)} onClick={download}>Скачать инструкцию HTML</button>
+      <button disabled={busy || stale || (!!bundle.issues.length && !allowPartial)} onClick={() => download()}>Скачать инструкцию HTML</button>
+      <button disabled={busy || stale || (!!bundle.issues.length && !allowPartial)} onClick={() => download(true)}>Скачать инструкцию со схемами</button>
       <p>Откройте файл в браузере для чтения или печати/PDF: в нём все включённые элементы и переходы, без фильтров и постраничного усечения. Сквозная инструкция не объединяет маршруты в исполняемую последовательность и не подтверждает корректность процессов.</p>
     </>}
   </section>;
