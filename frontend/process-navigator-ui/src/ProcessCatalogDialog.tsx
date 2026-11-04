@@ -5,6 +5,7 @@ import { deleteProcess, loadProcessHierarchy, saveProcessHierarchy, saveProcessH
 import type { ProcessHierarchyNode, ProcessPassport, ProcessSummary } from './types';
 import { processLevelOptions } from './process-levels';
 import { mergeHierarchyUpdate } from './process-hierarchy-update';
+import {catalogHierarchy,catalogPage} from './catalog-pagination';
 import './process-catalog.css';
 import './process-hierarchy.css';
 
@@ -29,6 +30,7 @@ const dateText = (value?: string) => value
 
 export function ProcessCatalogDialog({ catalog, favorites, onFavorite, canDelete, onClose, onOpen, onDeleted, onAudit, page = false }: Props) {
   const [query, setQuery] = useState('');
+  const [position,setPosition]=useState(0);
   const [sort, setSort] = useState<SortMode>('updated');
   const [view, setView] = useState<ViewMode>('list');
   const [hierarchy, setHierarchy] = useState<ProcessHierarchyNode[]>([]);
@@ -42,13 +44,14 @@ export function ProcessCatalogDialog({ catalog, favorites, onFavorite, canDelete
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if(view!=='hierarchy')return;
     const controller = new AbortController();
-    loadProcessHierarchy(controller.signal).then(setHierarchy).catch(reason => {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+    loadProcessHierarchy(controller.signal).then(rows=>{if(!controller.signal.aborted)setHierarchy(rows);}).catch(reason => {
+      if (controller.signal.aborted) return;
       setError(reason instanceof Error ? reason.message : 'Не удалось загрузить иерархию процессов.');
     });
     return () => controller.abort();
-  }, [catalog]);
+  }, [catalog,view]);
 
   const processes = useMemo(() => {
     const term = query.trim().toLocaleLowerCase('ru-RU');
@@ -61,25 +64,13 @@ export function ProcessCatalogDialog({ catalog, favorites, onFavorite, canDelete
     });
   }, [catalog, query, sort]);
 
-  const hierarchyRows = useMemo(() => {
-    const term = query.trim().toLocaleLowerCase('ru-RU');
-    const byParent = new Map<string, ProcessHierarchyNode[]>();
-    hierarchy.forEach(item => {
-      const key = item.parentProcessId && hierarchy.some(candidate => candidate.id === item.parentProcessId) ? item.parentProcessId : '';
-      byParent.set(key, [...(byParent.get(key) ?? []), item]);
-    });
-    byParent.forEach(items => items.sort((a, b) => a.name.localeCompare(b.name, 'ru')));
-    const rows: Array<{ item: ProcessHierarchyNode; depth: number }> = [];
-    const visited = new Set<string>();
-    const append = (parentId: string, depth: number) => (byParent.get(parentId) ?? []).forEach(item => {
-      if (visited.has(item.id)) return;
-      visited.add(item.id); rows.push({ item, depth }); append(item.id, depth + 1);
-    });
-    append('', 0);
-    hierarchy.forEach(item => { if (!visited.has(item.id)) rows.push({ item, depth: 0 }); });
-    if (!term) return rows;
-    return rows.filter(({ item }) => `${item.name} ${item.id} ${item.classification}`.toLocaleLowerCase('ru-RU').includes(term));
-  }, [hierarchy, query]);
+  const hierarchyIndex=useMemo(()=>catalogHierarchy(hierarchy),[hierarchy]);
+  const hierarchyRows=useMemo(()=>{
+    const term=query.trim().toLocaleLowerCase('ru-RU');
+    return term?hierarchyIndex.filter(({item})=>`${item.name} ${item.id} ${item.classification}`.toLocaleLowerCase('ru-RU').includes(term)):hierarchyIndex;
+  },[hierarchyIndex,query]);
+  const listPage=catalogPage(processes,position), hierarchyPage=catalogPage(hierarchyRows,position);
+  const current=view==='list'?listPage:hierarchyPage;
   const levelOptions = processLevelOptions(Math.max(0, ...hierarchy.map(item => item.level)));
 
   const updateHierarchy = async (item: ProcessHierarchyNode, update: Partial<ProcessHierarchyNode>) => {
@@ -118,17 +109,17 @@ export function ProcessCatalogDialog({ catalog, favorites, onFavorite, canDelete
   const content = <section className={`process-catalog-dialog${page ? ' process-catalog-page-content' : ''}`} role={page ? 'region' : 'dialog'} aria-modal={page ? undefined : true} aria-label="Каталог процессов">
       <header><div><span className="eyebrow">Репозиторий процессов</span><h1>Каталог процессов</h1><p>Все опубликованные модели и черновики, включая ещё не распределённые по направлениям.</p></div>{!page && <button className="catalog-close" onClick={onClose} aria-label="Закрыть"><X size={18}/></button>}</header>
       <div className="catalog-toolbar">
-        <label><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти процесс…" autoFocus/></label>
-        <div className="catalog-view-switch"><button className={view === 'list' ? 'is-active' : ''} onClick={() => setView('list')}><List size={15}/> Список</button><button className={view === 'hierarchy' ? 'is-active' : ''} onClick={() => setView('hierarchy')}><GitBranch size={15}/> Иерархия</button></div>
-        {view === 'list' && <select value={sort} onChange={event => setSort(event.target.value as SortMode)} aria-label="Сортировка"><option value="updated">Сначала недавно изменённые</option><option value="created-new">Сначала новые</option><option value="created-old">По очередности создания</option><option value="name">По названию</option></select>}
+        <label><Search size={17}/><input value={query} onChange={event => {setQuery(event.target.value);setPosition(0);}} placeholder="Найти процесс…" autoFocus/></label>
+        <div className="catalog-view-switch"><button className={view === 'list' ? 'is-active' : ''} onClick={() => {setView('list');setPosition(0);}}><List size={15}/> Список</button><button className={view === 'hierarchy' ? 'is-active' : ''} onClick={() => {setView('hierarchy');setPosition(0);}}><GitBranch size={15}/> Иерархия</button></div>
+        {view === 'list' && <select value={sort} onChange={event => {setSort(event.target.value as SortMode);setPosition(0);}} aria-label="Сортировка"><option value="updated">Сначала недавно изменённые</option><option value="created-new">Сначала новые</option><option value="created-old">По очередности создания</option><option value="name">По названию</option></select>}
       </div>
       {error && <div className="catalog-error hierarchy-global-error">{error}</div>}
-      {view === 'hierarchy' && canDelete && <div className="hierarchy-bulk"><label><input type="checkbox" checked={!!hierarchyRows.length && hierarchyRows.every(row => selected.includes(row.item.id))} onChange={event => setSelected(event.target.checked ? hierarchyRows.map(row => row.item.id) : [])}/> Выбрать показанные</label><strong>Выбрано: {selected.length}</strong><select value={bulkLevel} onChange={event => setBulkLevel(event.target.value)}><option value="">Уровень — без изменения</option>{levelOptions.map(level => <option key={level} value={level}>Уровень {level}</option>)}</select><select value={bulkClassification} onChange={event => setBulkClassification(event.target.value)}><option value="">Тип — без изменения</option>{classifications.map(value => <option key={value}>{value}</option>)}</select><button disabled={!selected.length || (!bulkLevel && !bulkClassification) || hierarchyBusy === 'bulk'} onClick={applyBulk}>{hierarchyBusy === 'bulk' ? 'Сохраняем…' : 'Применить'}</button></div>}
-      {view === 'list' ? <div className="catalog-list">{processes.map(item => <article key={item.id} className="catalog-process-card">
+      {view === 'hierarchy' && canDelete && <div className="hierarchy-bulk"><label><input type="checkbox" checked={!!hierarchyRows.length && hierarchyRows.every(row => selected.includes(row.item.id))} onChange={event => setSelected(event.target.checked ? hierarchyRows.map(row => row.item.id) : [])}/> Выбрать все найденные (все страницы)</label><strong>Выбрано: {selected.length}</strong><select value={bulkLevel} onChange={event => setBulkLevel(event.target.value)}><option value="">Уровень — без изменения</option>{levelOptions.map(level => <option key={level} value={level}>Уровень {level}</option>)}</select><select value={bulkClassification} onChange={event => setBulkClassification(event.target.value)}><option value="">Тип — без изменения</option>{classifications.map(value => <option key={value}>{value}</option>)}</select><button disabled={!selected.length || (!bulkLevel && !bulkClassification) || hierarchyBusy === 'bulk'} onClick={applyBulk}>{hierarchyBusy === 'bulk' ? 'Сохраняем…' : 'Применить'}</button></div>}
+      {view === 'list' ? <div className="catalog-list">{listPage.items.map(item => <article key={item.id} className="catalog-process-card">
         <button className="catalog-process-open" onClick={() => onOpen(item.id)}><span className="catalog-process-icon"><Workflow size={19}/></span><span><strong>{item.name}</strong><small>{item.id} · версия {item.hasDraft ? item.draftVersion : item.version} · {item.hasDraft ? 'есть черновик' : item.status}</small><em><Clock3 size={12}/> Изменён: {dateText(item.updatedAt)} · {item.nodeCount} элементов · {item.laneCount} дорожек</em></span><ArrowRight size={19}/></button>
         <div className="catalog-card-actions"><button className="personal-star" aria-pressed={favorites.includes(item.id)} aria-label={`${favorites.includes(item.id) ? 'Убрать из избранного' : 'В избранное'}: ${item.name}`} onClick={() => onFavorite(item.id)}><Star size={16} fill={favorites.includes(item.id) ? 'currentColor' : 'none'}/></button>{canDelete && <button className="catalog-delete" onClick={() => { setDeleteTarget(item); setConfirmation(''); setError(''); }} title="Полностью удалить процесс" aria-label={`Удалить ${item.name}`}><Trash2 size={16}/></button>}</div>
       </article>)}{!processes.length && <div className="catalog-empty"><Workflow size={28}/><strong>Процессы не найдены</strong><span>Измените строку поиска.</span></div>}</div>
-      : <div className="hierarchy-list">{hierarchyRows.map(({ item, depth }) => <article className={`hierarchy-row${canDelete ? ' has-selection' : ''}`} key={item.id} style={{ '--hierarchy-depth': Math.min(depth, 6) } as CSSProperties}>
+      : <div className="hierarchy-list">{hierarchyPage.items.map(({ item, depth }) => <article className={`hierarchy-row${canDelete ? ' has-selection' : ''}`} key={item.id} style={{ '--hierarchy-depth': Math.min(depth, 6) } as CSSProperties}>
         {canDelete && <input className="hierarchy-select" type="checkbox" checked={selected.includes(item.id)} onChange={event => setSelected(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))} aria-label={`Выбрать ${item.name}`}/>}
         <button className="hierarchy-main" onClick={() => onOpen(item.id)}><GitBranch size={16}/><span><strong>{item.name}</strong><small>{item.id} · {item.status}</small></span></button>
         <div className="hierarchy-controls">
@@ -138,7 +129,7 @@ export function ProcessCatalogDialog({ catalog, favorites, onFavorite, canDelete
         </div>
         {!!item.issues.length && <div className="hierarchy-issues">{item.issues.map(issue => <span key={issue}>{issue}</span>)}</div>}
       </article>)}{!hierarchyRows.length && <div className="catalog-empty"><GitBranch size={28}/><strong>Процессы не найдены</strong><span>Измените строку поиска.</span></div>}</div>}
-      <footer><span>{view === 'list' ? processes.length : hierarchyRows.length} из {catalog.length}</span>{onAudit && <button onClick={onAudit}><ListChecks size={15}/> Проверить каталог</button>}{!page && <button onClick={onClose}>Закрыть</button>}</footer>
+      <footer>{current.pages>1&&<nav aria-label="Страницы каталога"><button disabled={!current.index} onClick={()=>setPosition(current.index-1)}>Назад</button><span> {current.from}–{current.to} · {current.index+1} из {current.pages} </span><button disabled={current.index+1>=current.pages} onClick={()=>setPosition(current.index+1)}>Далее</button></nav>}<span>{view === 'list' ? processes.length : hierarchyRows.length} из {catalog.length}</span>{onAudit && <button onClick={onAudit}><ListChecks size={15}/> Проверить каталог</button>}{!page && <button onClick={onClose}>Закрыть</button>}</footer>
     </section>;
   const deletePanel = deleteTarget && <section className="delete-process-confirm" role="alertdialog" aria-modal="true"><span className="eyebrow">Необратимое действие</span><h2>Полностью удалить процесс?</h2><p>Будут удалены BPMN, черновик, все версии, назначения, выполнения, комментарии и привязки процесса <strong>«{deleteTarget.name}»</strong>.</p><label>Для подтверждения введите название процесса<input value={confirmation} onChange={event => setConfirmation(event.target.value)} placeholder={deleteTarget.name} autoFocus/></label>{error && <div className="catalog-error">{error}</div>}<div><button onClick={() => setDeleteTarget(undefined)} disabled={busy}>Отмена</button><button className="is-danger" onClick={remove} disabled={busy || confirmation !== deleteTarget.name}><Trash2 size={15}/>{busy ? 'Удаляем…' : 'Удалить безвозвратно'}</button></div></section>;
   const deleteConfirmation = page && deletePanel

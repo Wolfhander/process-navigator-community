@@ -182,9 +182,32 @@ internal static class MasterDataChecks
             finally { await File.WriteAllTextAsync(contextPath,originalContext); }
             var single=await table.ExportAsync("md-order",false,false);
             var large=LargeBook(single.Content);
+            var watch=System.Diagnostics.Stopwatch.StartNew();
             var largePreview=await table.PreviewAsync(Form(large));
+            Console.WriteLine($"Large XLSX preview (3002 elements): {watch.Elapsed.TotalMilliseconds:F0} ms.");
             Check(largePreview.ErrorCount==0,"Large workbook: "+string.Join("; ",largePreview.Issues.Where(issue=>issue.Severity=="Error").Take(3).Select(issue=>issue.Message)));
             Check(largePreview.StepCount==3002,"Large workbook parses all 3000 tasks plus two events");Passed("large-book");
+            var performanceHost=new Host(Path.Combine(root,"performance"));
+            var performanceLoader=new BpmnProcessLoader(performanceHost);
+            Directory.CreateDirectory(performanceLoader.DataRoot);
+            for(var i=0;i<300;i++) WritePerformanceBpmn(performanceLoader.DataRoot,$"sample-{i:D3}",1);
+            var largePath=WritePerformanceBpmn(performanceLoader.DataRoot,"large",3000);
+            watch.Restart();
+            var largeModel=await performanceLoader.LoadAsync("large");
+            var bpmnMs=watch.Elapsed.TotalMilliseconds;
+            Check(largeModel.Nodes.Count==3000,"Large BPMN retains all nodes");
+            watch.Restart();
+            for(var i=0;i<12;i++) _=new BpmnProcessLoader(performanceHost).GetBpmnPath("absent");
+            var coldMs=watch.Elapsed.TotalMilliseconds;
+            watch.Restart();
+            for(var i=0;i<12;i++) _=performanceLoader.GetBpmnPath("absent");
+            Console.WriteLine($"Large fund (301 files, 12 complete scans): uncached {coldMs:F0} ms; cached {watch.Elapsed.TotalMilliseconds:F0} ms; large BPMN load {bpmnMs:F0} ms.");
+            Check(performanceLoader.GetBpmnPath("large")==largePath,"Cache locates published model");
+            File.WriteAllText(largePath,"<broken>");
+            Check(!File.Exists(performanceLoader.GetBpmnPath("large")),"Cache does not retain replaced BPMN ID");
+            WritePerformanceBpmn(performanceLoader.DataRoot,"large",1);
+            Check(performanceLoader.GetBpmnPath("large")==largePath,"Restored file is readable after invalidation");
+            Passed("large-fund");
             var reportDirectory=System.Environment.GetEnvironmentVariable("PN_MASTER_REPORT_DIR");
             if(!string.IsNullOrWhiteSpace(reportDirectory))
             {
@@ -204,6 +227,21 @@ internal static class MasterDataChecks
         }
         return count;
     }
+    private static string WritePerformanceBpmn(string root,string id,int count)
+    {
+        XNamespace b="http://www.omg.org/spec/BPMN/20100524/MODEL",d="http://www.omg.org/spec/BPMN/20100524/DI",dc="http://www.omg.org/spec/DD/20100524/DC";
+        var ids=Enumerable.Range(0,count).Select(i=>"task"+i).ToArray();
+        XElement Shape(string key,int x,int width)=>new(d+"BPMNShape",new XAttribute("bpmnElement",key),new XElement(dc+"Bounds",new XAttribute("x",x),new XAttribute("y",0),new XAttribute("width",width),new XAttribute("height",80)));
+        var document=new XDocument(new XElement(b+"definitions",
+            new XElement(b+"process",new XAttribute("id",id),
+                new XElement(b+"laneSet",new XElement(b+"lane",new XAttribute("id","lane"),ids.Select(key=>new XElement(b+"flowNodeRef",key)))),
+                ids.Select(key=>new XElement(b+"task",new XAttribute("id",key)))),
+            new XElement(d+"BPMNDiagram",new XElement(d+"BPMNPlane",Shape("lane",0,count*140),ids.Select((key,i)=>Shape(key,i*140,120))))));
+        var path=Path.Combine(root,id+".bpmn");document.Save(path);
+        File.WriteAllText(Path.ChangeExtension(path,".context.json"),"{\"version\":\"1\",\"owner\":\"Учебный\",\"status\":\"Published\",\"elements\":{}}");
+        return path;
+    }
+
     private static byte[] LargeBook(byte[] original)
     {
         using var memory=new MemoryStream();memory.Write(original);memory.Position=0;

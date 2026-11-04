@@ -7,6 +7,8 @@ namespace ProcessNavigator.Api.Services;
 
 public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
 {
+    private sealed record CachedIds(long Length, DateTime Modified, DateTime Created, string[] Ids);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string,CachedIds> idCache = new(StringComparer.Ordinal);
     private static readonly XNamespace Bpmn = "http://www.omg.org/spec/BPMN/20100524/MODEL";
     private static readonly XNamespace BpmnDi = "http://www.omg.org/spec/BPMN/20100524/DI";
     private static readonly XNamespace Dc = "http://www.omg.org/spec/DD/20100524/DC";
@@ -34,17 +36,29 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
     public string GetBpmnPath(string processId)
     {
         if (!Directory.Exists(DataRoot)) return Path.Combine(DataRoot, "__missing__.bpmn");
-        foreach (var path in Directory.EnumerateFiles(DataRoot, "*.bpmn", SearchOption.TopDirectoryOnly))
+        foreach (var file in new DirectoryInfo(DataRoot).EnumerateFiles("*.bpmn", SearchOption.TopDirectoryOnly))
         {
             try
             {
-                var document = XDocument.Load(path, LoadOptions.None);
-                if (document.Root?.Elements(Bpmn + "process").Any(process =>
-                    string.Equals((string?)process.Attribute("id"), processId, StringComparison.Ordinal)) == true)
-                    return path;
+                var path=file.FullName;
+                var length=file.Length; var modified=file.LastWriteTimeUtc; var created=file.CreationTimeUtc;
+                if (!idCache.TryGetValue(path,out var cached) || cached.Length!=length || cached.Modified!=modified || cached.Created!=created)
+                {
+                    var document=XDocument.Load(path,LoadOptions.None);
+                    var ids=document.Root?.Elements(Bpmn+"process").Select(process=>(string?)process.Attribute("id")).OfType<string>().ToArray() ?? [];
+                    cached=new(length,modified,created,ids);
+                    file.Refresh();
+                    if(file.Exists && file.Length==length && file.LastWriteTimeUtc==modified && file.CreationTimeUtc==created)
+                    {
+                        if(idCache.Count>=4096)idCache.Clear();
+                        idCache[path]=cached;
+                    }
+                }
+                if(cached.Ids.Contains(processId,StringComparer.Ordinal))return path;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Xml.XmlException)
             {
+                idCache.TryRemove(file.FullName,out _);
                 // Invalid drafts are ignored by lookup and reported by explicit import validation.
             }
         }
