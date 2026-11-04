@@ -1,6 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {collectInstructionPackage,instructionPackageHtml} from '../src/instruction-package.ts';
+
+test('explicit print depth makes boundary calls intentional and retains unused lanes',async()=>{
+  const root={...model('0',['1']),lanes:[{id:'empty',name:'Резерв <длинная дорожка>'}]};
+  const requests=[];
+  const load=async id=>{requests.push(id);return model(id,[String(Number(id)+1)]);};
+  const shallow=await collectInstructionPackage(root,'Эталон',{},load,signal(),0);
+  assert.equal(requests.length,0);
+  assert.equal(shallow.omittedLinks,1);
+  const report=await collectInstructionPackage(root,'Эталон',{},load,signal(),4);
+  assert.deepEqual(requests,['1','2','3','4']);
+  assert.equal(report.entries.length,5);
+  assert.equal(report.omittedLinks,1);
+  assert.deepEqual(report.issues,[]);
+  const html=instructionPackageHtml(report);
+  assert.match(html,/Выбранная глубина[^<]*<\/strong> 4/);
+  assert.match(html,/Резерв &lt;длинная дорожка&gt;/);
+  for(const invalid of [-1,21,2.5,NaN]) await assert.rejects(collectInstructionPackage(root,'Эталон',{},load,signal(),invalid),/от 0 до 20/);
+});
 const model=(id,children=[])=>({id,name:id,version:'1',status:'Published',lanes:[],edges:[],nodes:children.map((child,i)=>({id:id+i,name:'Шаг '+i,type:'task',linkedProcessId:child}))});
 const signal=()=>new AbortController().signal;
 test('collection retains repeated child occurrences, caches reads and uses selected versions',async()=>{

@@ -9,7 +9,7 @@ const compiled=await transformWithOxc(readFileSync(new URL('../src/InstructionPa
 const code=compiled.code.replace(/^import[^\n]*\n/gm,'').replace('export function ','function ');
 const root={id:'root',name:'Корень',version:'1',status:'Draft',nodes:[{id:'s',name:'Шаг',type:'task',linkedProcessId:'child'}],edges:[],lanes:[]};
 function setup({bundle,versions={},built='',partial=false,loader=async()=>{throw Error('No automatic request');}}={}) {
-  const states=[bundle,versions,built,false,'',partial];
+  const states=[bundle,versions,built,false,'',partial,''];
   let calls=0,index=0;const ref={current:undefined};
   const Page=new Function('React','useState','useEffect','useRef','loadProcess','loadArchivedProcess','collectInstructionPackage','instructionPackageHtml',code+';return InstructionPackagePanel;')(
     {createElement,Fragment},()=>{const i=index++;return [states[i],v=>states[i]=typeof v==='function'?v(states[i]):v];},()=>{},()=>ref,
@@ -51,4 +51,15 @@ test('cancelling in-flight collection prevents a late result from becoming the r
   resolve({id:'child',version:'1',status:'Published',nodes:[],edges:[],lanes:[]});
   await new Promise(r=>setImmediate(r));
   assert.equal(s.states[0],undefined);assert.equal(s.states[3],false);
+});
+test('changing depth invalidates a previous export and depth zero fetches no children',async()=>{
+  const s=setup({bundle:{entries:[],issues:[],capturedAt:'now'},built:'[]'});
+  s.states[6]='0';
+  assert.equal(button(s.render(),'Скачать инструкцию HTML').props.disabled,true);
+  button(s.render(),'Собрать сквозную инструкцию').props.onClick();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(s.calls(),0);
+  assert.equal(s.states[0].maxDepth,0);
+  assert.equal(s.states[0].omittedLinks,1);
+  assert.equal(button(s.render(),'Скачать инструкцию HTML').props.disabled,false);
 });
