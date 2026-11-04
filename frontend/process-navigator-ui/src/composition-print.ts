@@ -18,20 +18,25 @@ export function compositionPrint(model: ProcessModel, sheetLimit: number, sectio
   const include = (box:Box) => { x=Math.min(x,box.x); y=Math.min(y,box.y); right=Math.max(right,box.right); bottom=Math.max(bottom,box.bottom); };
   for (const [index,node] of model.nodes.entries()) {
     const code='N'+(index+1);
-    legend.push('<li><strong>'+code+'</strong> — '+escapePrint(node.name || node.id)+' ['+escapePrint(node.id)+']'+(node.linkedProcessId?' → '+escapePrint(node.linkedProcessId):'')+'</li>');
+    const kind = node.bpmnType || node.type;
+    legend.push('<li><strong>'+code+'</strong> — '+escapePrint(node.name || node.id)+' ['+escapePrint(node.id)+'] · '+escapePrint(kind)+(node.linkedProcessId?' → '+escapePrint(node.linkedProcessId):'')+'</li>');
     if (![node.x,node.y,node.width,node.height].every(coordinate) || node.width<=0 || node.height<=0) { invalid++; continue; }
     const {x:nx,y:ny,width:w,height:h}=node, cx=nx+w/2, cy=ny+h/2;
     const box={x:nx-30,y:ny-20,right:nx+w+30,bottom:ny+h+20};
     let body=rect(nx,ny,w,h,'rx="7"');
-    if (node.type==='startEvent'||node.type==='endEvent') {
+    const event = /^(start|end|boundary|intermediateCatch|intermediateThrow)Event$/.test(kind);
+    const gateway = /^(exclusive|parallel|inclusive|eventBased|complex)Gateway$/.test(kind);
+    const expanded = kind==='subProcess'||kind==='callActivity';
+    if (event) {
       body='<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+w/2+'" ry="'+h/2+'"/>';
-      if(node.type==='endEvent') body+='<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+w*0.4+'" ry="'+h*0.4+'"/>';
+      if(kind.startsWith('intermediate')||kind==='boundaryEvent') body+='<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+w*0.4+'" ry="'+h*0.4+'"/>';
     }
-    if(node.type==='exclusiveGateway'||node.type==='parallelGateway') {
+    if(gateway) {
       body='<polygon points="'+cx+','+ny+' '+(nx+w)+','+cy+' '+cx+','+(ny+h)+' '+nx+','+cy+'"/>';
     }
-    const mark=node.type==='exclusiveGateway'?'×':node.type==='parallelGateway'?'+':'';
-    shapes.push({box,markup:'<g fill="white" stroke="#29453a" stroke-width="2">'+body+'</g>'+label(cx,cy+5,mark||code)+(mark?label(cx,ny-4,code):'')});
+    const mark=kind==='exclusiveGateway'?'×':kind==='parallelGateway'?'+':kind==='inclusiveGateway'?'○':kind==='complexGateway'?'✳':kind==='eventBasedGateway'?'◇':'';
+    const symbol=mark?label(cx,cy+5,mark):expanded?rect(cx-7,ny+h-16,14,14,'fill="white" stroke="#29453a"')+label(cx,ny+h-4,'+'): '';
+    shapes.push({box,markup:'<g fill="white" stroke="#29453a" stroke-width="'+(kind==='endEvent'||kind==='callActivity'?4:2)+'">'+body+'</g>'+symbol+label(cx,mark||event?ny-4:cy+5,code)});
     include(box);
   }
   const edges:Shape[]=[];
@@ -67,13 +72,14 @@ export function compositionPrint(model: ProcessModel, sheetLimit: number, sectio
   let outputSize=0;
   for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
     const tx=x+col*(width-overlap),ty=y+row*(height-overlap);
-    const tile={x:tx,y:ty,right:tx+width,bottom:ty+height};
+    const tw=Math.min(width,Math.max(100,right-tx)),th=Math.min(height,Math.max(80,bottom-ty));
+    const tile={x:tx,y:ty,right:tx+tw,bottom:ty+th};
     const lanes=model.lanes.map((lane,index)=>{
       if(!coordinate(lane.y)||!coordinate(lane.height)||lane.height<=0||lane.y>tile.bottom||lane.y+lane.height<ty)return '';
       const top=Math.max(ty,lane.y),end=Math.min(tile.bottom,lane.y+lane.height);
-      return rect(tx,top,width,end-top,'fill="#f4f7f4" stroke="#91a097"')+(end-top>=22?label(tx+25,top+18,'L'+(index+1)):'');
+      return rect(tx,top,tw,end-top,'fill="#f4f7f4" stroke="#91a097"')+(end-top>=22?label(tx+25,top+18,'L'+(index+1)):'');
     }).join('');
-    const content='<section class="composition-sheet"><h3>Схема '+section+'</h3><p>Лист '+(row*cols+col+1)+' из '+(rows*cols)+' · ряд '+(row+1)+'/'+rows+' · колонка '+(col+1)+'/'+cols+'</p><svg xmlns="http://www.w3.org/2000/svg" width="'+width+'" height="'+height+'" viewBox="'+tx+' '+ty+' '+width+' '+height+'" role="img" aria-label="Фрагмент схемы">'+lanes+edges.filter(e=>intersects(e.box,tile)).map(e=>e.markup).join('')+shapes.filter(s=>intersects(s.box,tile)).map(s=>s.markup).join('')+'</svg></section>';
+    const content='<section class="composition-sheet"><h3>Схема '+section+'</h3><p>Лист '+(row*cols+col+1)+' из '+(rows*cols)+' · ряд '+(row+1)+'/'+rows+' · колонка '+(col+1)+'/'+cols+'</p><svg xmlns="http://www.w3.org/2000/svg" width="'+tw+'" height="'+th+'" style="--print-width:'+tw*242/width+'mm" viewBox="'+tx+' '+ty+' '+tw+' '+th+'" role="img" aria-label="Фрагмент схемы">'+lanes+edges.filter(e=>intersects(e.box,tile)).map(e=>e.markup).join('')+shapes.filter(s=>intersects(s.box,tile)).map(s=>s.markup).join('')+'</svg></section>';
     outputSize+=content.length;
     if(outputSize>2_000_000) return {sheets:0,html:'<p class="warning">Графика модели превышает предел размера. Ниже сохранено текстовое описание.</p>'};
     tiles.push(content);
