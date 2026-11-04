@@ -1,6 +1,6 @@
 import type { ProcessModel, ProcessNode } from './types';
 import {useState} from 'react';
-import {overviewLaneMap} from './overview-lane-map';
+import {overviewLaneMap,overviewReadability} from './overview-lane-map';
 import {OverviewLinkedBranch} from './OverviewLinkedBranch';
 
 /** Read-only index, never an inferred linear execution plan. */
@@ -16,6 +16,7 @@ export function ProcessRouteOverview({ process, onSelect, ancestors=[process.id]
   const typeName = { task: 'Действие', startEvent: 'Начало', endEvent: 'Завершение', exclusiveGateway: 'Выбор ветви', parallelGateway: 'Параллельные ветви' };
   const link = (id: string) => { const target = nodes.get(id); return target ? onSelect?<button onClick={() => onSelect(target)}>{target.name || id} · {id}</button>:<span>{target.name||id} · {id}</span> : <span>Отсутствует элемент: {id}</span>; };
   const map=overviewLaneMap(process);
+  const readability=overviewReadability(map);
   let nodeBudget=300,edgeBudget=1000;
   return <section className="instruction-card"><h2>Обзор маршрута по дорожкам</h2><p>Это сворачиваемый указатель текущей редакции, не новая схема и не линейный план исполнения. Порядок дорожек и карточек не задаёт последовательность: используйте исходные переходы. События, возвраты и шлюзы не исключаются.</p>
     <p>Элементов: {process.nodes.length}; переходов: {process.edges.length}. По умолчанию раскрываются действующие дочерние редакции. Архивную можно выбрать по номеру; это не исторический снимок всей вложенности.</p>
@@ -25,6 +26,12 @@ export function ProcessRouteOverview({ process, onSelect, ancestors=[process.id]
       <ul className="route-map-pairs">{map.pairs.slice(0,50).map(pair=><li key={pair.from.index+':'+pair.to.index}><strong>{pair.from.name}</strong><span aria-label="переход к">→</span><strong>{pair.to.name}</strong><small>Стрелок: {pair.count}</small></li>)}</ul>
       {map.lanes.length>30&&<p>На карте первые 30 из {map.lanes.length} дорожек.</p>}
       {map.pairs.length>50&&<p>На карте первые 50 из {map.pairs.length} направлений.</p>}
+      <details className="route-map-readability"><summary>Читаемость карты дорожек</summary>
+        {readability.longLanes>0&&<p>Длинных названий дорожек: {readability.longLanes}. На карте они переносятся; при необходимости сократите название в модели.</p>}
+        {readability.hiddenLanes+readability.hiddenPairs>0&&<p>Часть карты не показана: дорожек {readability.hiddenLanes}, направлений {readability.hiddenPairs}. Для полного маршрута используйте исходную схему.</p>}
+        {readability.broken>0&&<p>Оборванных переходов: {readability.broken}. В направления карты они не включены.</p>}
+        {!readability.longLanes&&!readability.hiddenLanes&&!readability.hiddenPairs&&!readability.broken&&<p>По этим критериям замечаний нет. Это не проверка правильности BPMN.</p>}
+      </details>
     </section>
     {lanes.slice(0, 100).map((lane, index) => {
       const items = process.nodes.filter(node => lane === unassigned ? !known.has(node.laneId) : node.laneId === lane.id);

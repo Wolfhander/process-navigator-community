@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs';
 import { transformWithOxc } from 'vite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import {overviewLaneMap} from '../src/overview-lane-map.ts';
+import {overviewLaneMap,overviewReadability} from '../src/overview-lane-map.ts';
 const compiled = await transformWithOxc(readFileSync(new URL('../src/ProcessRouteOverview.tsx',import.meta.url),'utf8'),'ProcessRouteOverview.tsx',{jsx:{runtime:'classic'}});
-const Page = new Function('React','useState','overviewLaneMap','OverviewLinkedBranch',compiled.code.replace(/import[^;]+;/g,'').replace('export function ','function ')+';return ProcessRouteOverview;')({createElement},()=>[undefined,()=>{}],overviewLaneMap,()=>null);
+const Page = new Function('React','useState','overviewLaneMap','overviewReadability','OverviewLinkedBranch',compiled.code.replace(/import[^;]+;/g,'').replace('export function ','function ')+';return ProcessRouteOverview;')({createElement},()=>[undefined,()=>{}],overviewLaneMap,overviewReadability,()=>null);
 const model = {nodes:[{id:'a',name:'Действие',type:'task',laneId:'l',linkedProcessId:'child'},{id:'g',name:'Разделение',type:'parallelGateway',laneId:'unknown'}],lanes:[{id:'l',name:'Отдел'}],edges:[{id:'e1',sourceId:'a',targetId:'g',label:'Да'},{id:'e2',sourceId:'g',targetId:'a',label:'Повтор'},{id:'e3',sourceId:'g',targetId:'missing'},{id:'e4',sourceId:'gone',targetId:'a'}]};
 test('overview preserves loops, parallel meaning, missing references and linked detail without mutation',()=>{
   const before=JSON.stringify(model);
@@ -38,4 +38,11 @@ test('lane map keeps reciprocal directions separate and does not turn broken edg
   const html=renderToStaticMarkup(Page({process:model}));
   assert.match(html,/Карта дорожек/);
   assert.match(html,/оборванных переходов: 2/);
+  assert.match(html,/Читаемость карты дорожек/);
+});
+test('overview diagnostic reports long names and exact hidden counts',()=>{
+  const lanes=Array.from({length:55},(_,i)=>({id:'l'+i,name:i?'Дорожка '+i:'Д'.repeat(200)}));
+  const nodes=lanes.map((lane,i)=>({id:'n'+i,laneId:lane.id,type:'task'}));
+  const edges=nodes.slice(1).map((node,i)=>({id:'e'+i,sourceId:'n0',targetId:node.id}));
+  assert.deepEqual(overviewReadability(overviewLaneMap({lanes,nodes,edges})),{longLanes:1,hiddenLanes:25,hiddenPairs:4,broken:0});
 });

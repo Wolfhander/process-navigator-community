@@ -21,3 +21,12 @@ export function overviewLaneMap(process:ProcessModel) {
   }
   return {lanes:[...lanes.values(),...(unknown.actions||unknown.events?[unknown]:[])],pairs:[...groups.values()],broken,internal};
 }
+
+export function overviewReadability(map:ReturnType<typeof overviewLaneMap>){
+  return {
+    longLanes:map.lanes.filter(lane=>lane.name.length>60).length,
+    hiddenLanes:Math.max(0,map.lanes.length-30),
+    hiddenPairs:Math.max(0,map.pairs.length-50),
+    broken:map.broken,
+  };
+}

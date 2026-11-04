@@ -42,6 +42,13 @@
 .route-map-lanes span,.route-map-pairs small{display:block;margin-top:4px}
 .route-map-pairs li{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:start;gap:7px}
 .route-map-pairs small{grid-column:1/-1}
+.route-map-readability{max-width:100%;overflow-wrap:anywhere;margin:10px 0}
+.route-overview-lane button,.route-linked-branch button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.route-linked-branch input{box-sizing:border-box;max-width:100%}
+@media(max-width:480px){
+  .route-map-pairs li{grid-template-columns:minmax(0,1fr)}
+  .route-map-pairs li>span{transform:rotate(90deg);justify-self:start}
+}
 .route-linked-branch{min-width:0;margin-top:8px;padding:8px;border-left:2px solid var(--line);overflow-wrap:anywhere}
 .route-linked-branch .instruction-card,.route-linked-branch details{padding-left:4px;padding-right:4px}
 .route-linked-branch .route-linked-branch{padding-inline:0;border-left:0}
