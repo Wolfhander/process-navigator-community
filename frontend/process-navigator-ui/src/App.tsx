@@ -114,7 +114,7 @@ export default function App() {
   const changeProcessView = (view: ProcessView) => {
     if (editorOpen || view === processView) return;
     const location = { processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
-      expandedSteps: readProcessLocation(window.location.hash)?.expandedSteps, trail: processTrail.map(item => item.id) };
+      expandedSteps: readProcessLocation(window.location.hash)?.expandedSteps, expandedTargets:readProcessLocation(window.location.hash)?.expandedTargets, trail: processTrail.map(item => item.id) };
     window.history.pushState(null, '', window.location.pathname + window.location.search + processLocationHash(processViewLocation(location, view)));
     setProcessView(view);
   };
@@ -215,6 +215,7 @@ export default function App() {
     const currentLocation = readProcessLocation(window.location.hash);
     const hash = enterpriseOpen ? sectionLocationHash(portfolioAnalyticsOpen ? 'analytics' : homeSection, readAnalyticsTab(window.location.hash)) : processLocationHash({ processId, elementId: selected?.id, draft: draftView, version: archivedVersion,
       expandedSteps: currentLocation?.processId === processId ? currentLocation.expandedSteps : undefined,
+      expandedTargets: currentLocation?.processId === processId ? currentLocation.expandedTargets : undefined,
       trail: processTrail.map(parent => parent.id), view: processView });
     if (window.location.hash !== hash) {
       const meaningful = enterpriseOpen || currentLocation?.processId !== processId;

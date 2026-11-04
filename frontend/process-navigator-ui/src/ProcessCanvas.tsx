@@ -137,6 +137,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
   const [expandedProcesses, setExpandedProcesses] = useState<ExpandedProcess[]>([]);
   const [expandError, setExpandError] = useState('');
   const [restoringExpansion, setRestoringExpansion] = useState(true);
+  const expansionRequest=useRef<AbortController|undefined>(undefined);
   const zoom = world.width / camera.width;
   const selectedNode = process.nodes.find(node => node.id === selectedId);
   const activeLane = process.lanes.find(lane => lane.id === selectedNode?.laneId)
@@ -168,17 +169,17 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
     const location = readProcessLocation(window.location.hash);
     setExpandedProcesses([]); setExpandError(''); setRestoringExpansion(true);
     const steps = location?.processId === process.id ? location.expandedSteps ?? [] : [];
-    restoreExpandedProcesses(process, steps, id => loadProcess(id, controller.signal), controller.signal).then(result => {
+    restoreExpandedProcesses(process, steps, id => loadProcess(id, controller.signal), controller.signal,location?.expandedTargets).then(result => {
       if (controller.signal.aborted) return;
       setExpandedProcesses(result.entries); setExpandError(result.error); setRestoringExpansion(false);
     });
-    return () => controller.abort();
+    return () => {controller.abort();expansionRequest.current?.abort();};
   }, [process.id]);
   useEffect(() => {
     if (restoringExpansion) return;
     const location = readProcessLocation(window.location.hash);
     if (location?.processId !== process.id) return;
-    const hash = processLocationHash({ ...location, expandedSteps: expandedProcesses.map(entry => entry.sourceElementId) });
+    const hash = processLocationHash({ ...location, expandedSteps: expandedProcesses.map(entry => entry.sourceElementId),expandedTargets:expandedProcesses.map(entry=>entry.process.id) });
     window.history.replaceState(null, '', window.location.pathname + window.location.search + hash);
   }, [expandedProcesses, restoringExpansion, process.id]);
   useEffect(() => { if (zoomCommand) setCamera(current => zoomAt(current, zoomCommand.factor, { x: current.x + current.width / 2, y: current.y + current.height / 2 }, world)); }, [zoomCommand, world]);
@@ -243,6 +244,8 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
 
   const toggleDetails = async (processId: string, level: number, source: ProcessNode, sourceProcess: ProcessModel) => {
     if (restoringExpansion) return;
+    expansionRequest.current?.abort();
+    if(level>=20){setExpandError('Достигнут предел раскрытия: 20 уровней.');return;}
     const existing = expandedProcesses[level];
     if (existing?.process.id === processId && existing.sourceElementId === source.id) {
       setExpandedProcesses(current => current.slice(0, Math.max(0, level)));
@@ -254,10 +257,15 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
       return;
     }
     setExpandError('');
+    const request=new AbortController();
+    expansionRequest.current=request;
     try {
-      const child = await loadProcess(processId);
+      const child = await loadProcess(processId,request.signal);
+      if(request.signal.aborted)return;
+      if(child.id!==processId){setExpandError('Загружена другая модель. Ветвь не изменена.');return;}
       setExpandedProcesses(current => [...current.slice(0, level), { process: child, sourceProcessId: sourceProcess.id, sourceProcessName: sourceProcess.name, sourceElementId: source.id, sourceElementName: source.name }]);
     } catch (reason) {
+      if(request.signal.aborted)return;
       setExpandError(reason instanceof Error ? reason.message : 'Не удалось раскрыть связанную схему.');
     }
   };
@@ -283,7 +291,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
     {(expandedProcesses.length > 0 || expandError) && <div className="inline-process-explorer">
       <div className="inline-process-explorer-heading"><span>Развёрнутая детализация</span><small>Уровни раскрываются здесь без ухода с исходной схемы</small></div>
       {expandError && <p className="inline-process-error">{expandError}</p>}
-      {expandedProcesses.map((entry, index) => <InlineProcessLevel key={`${index}:${entry.process.id}:${entry.sourceElementId}`} entry={entry} level={index} onToggle={toggleDetails} onCollapse={level => setExpandedProcesses(current => current.slice(0, level))} onOpen={id => window.dispatchEvent(new CustomEvent('pn:open-linked-process', { detail: id }))}/>) }
+      {expandedProcesses.map((entry, index) => <InlineProcessLevel key={`${index}:${entry.process.id}:${entry.sourceElementId}`} entry={entry} level={index} onToggle={toggleDetails} onCollapse={level => {expansionRequest.current?.abort();setExpandedProcesses(current => current.slice(0, level));}} onOpen={id => window.dispatchEvent(new CustomEvent('pn:open-linked-process', { detail: id }))}/>) }
     </div>}
   </div>;
 }
