@@ -45,7 +45,7 @@ function render(query,catalog=[],permissions=['process.view']){
 }
 test('page states coverage, lack of a demo model and the difference between plan and executed acceptance',()=>{
   const html=render('103');
-  assert.match(html,/Покрыто 72 из 72/);assert.match(html,/Модель отсутствует в текущем контуре/);
+  assert.match(html,/Покрыто 73 из 73/);assert.match(html,/Модель отсутствует в текущем контуре/);
   assert.match(html,/не отметка о том, что вы выполнили сценарий/);assert.match(html,/отдельный учебный контур/);
   assert.doesNotMatch(html,/Матрица требует актуализации/);
 });
