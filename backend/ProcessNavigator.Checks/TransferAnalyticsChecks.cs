@@ -32,6 +32,16 @@ internal static class TransferAnalyticsChecks
         Check(!new ProcessChannelModel("c","paper","Вход", Direction:"input", ObjectId:"drawing").Matches(new("drawing","Чертёж","Output")), "Input channel cannot point at an output binding");
         var json = JsonSerializer.Serialize(exact, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Check(JsonSerializer.Deserialize<NodeModel>(json,new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Channels!.Any(c => c.ObjectId == "other"), "Explicit ID survives context JSON serialization");
+        var paperSource=sourceNode with {Channels=[new("paper","paper","Подлинник",Direction:"output",ObjectId:"drawing")]};
+        var digitalTarget=to with {Channels=[new("erp","system","Электронный вход","ERP",Direction:"input",ObjectId:"drawing")]};
+        var gap=Pair(paperSource,digitalTarget).Single(f=>f.Code=="paper-medium-gap");
+        Check(gap.ObjectIds.SequenceEqual(["drawing"]) && gap.TargetId==digitalTarget.Id && gap.RouteElementIds?.Count==2,"Explicit paper to digital discrepancy identifies document, endpoints and route");
+        Check(!Pair(paperSource,digitalTarget with {Channels=[..digitalTarget.Channels!,new("backup","paper","Приём бумаги",Flow:"alternative",Direction:"input",ObjectId:"drawing")]}).Any(f=>f.Code=="paper-medium-gap"),"Matching alternative paper channel prevents discrepancy");
+        Check(!Pair(paperSource,digitalTarget with {Channels=[new("mail","email","Только параллельная почта",Flow:"parallel",Direction:"input",ObjectId:"drawing")]}).Any(f=>f.Code=="paper-medium-gap"),"No primary channel is unknown, not a paper break");
+        Check(!Pair(paperSource,digitalTarget with {Channels=[new("name","system","Совпадающее название","ERP","Чертёж",Direction:"input")]}).Any(f=>f.Code=="paper-medium-gap"),"Legacy name-only input cannot establish a channel discrepancy");
+        Check(!TransferAnalyticsService.Analyze(process with {Nodes=[paperSource,digitalTarget],Edges=[]}).Any(f=>f.Code=="paper-medium-gap"),"Unconnected candidates do not become a paper break");
+        var intermediate=sourceNode with {Id="intermediate",Type="task",Channels=[],InformationObjects=[]};
+        Check(!TransferAnalyticsService.Analyze(process with {Nodes=[paperSource,intermediate,digitalTarget],Edges=[new("a",paperSource.Id,intermediate.Id,null,[]),new("b",intermediate.Id,digitalTarget.Id,null,[])]}).Any(f=>f.Code=="paper-medium-gap"),"No assumption across an intervening task that could digitize the document");
         Check(!Pair(sourceNode, to with { Channels = [new("a", "system", "PLM", "Учебная PLM"), new("b", "system", "ERP", "ERP")] }).Any(f => f.Code == "system-transition"), "Overlapping system sets cannot prove a change of system");
         Check(TransferAnalyticsService.Analyze(process with { Edges = [new("broken", "missing", "register", null, [])] }).All(f => f.Code != "system-transition"), "Broken edge does not crash analysis");
         Console.WriteLine($"Transfer analytics master checks passed: {count}.");

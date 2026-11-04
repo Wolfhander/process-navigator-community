@@ -1,8 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectTransfers, transfersCsv } from '../src/transfer-analytics.ts';
+import { selectTransfers, transfersCsv, transferLabels } from '../src/transfer-analytics.ts';
 const finding = { processId: 'p', processName: 'Чертёж', code: 'system-transition', elementId: 'a', elementName: 'Создать', targetId: 'b', targetName: 'Принять', sourceSystems: ['PLM'], targetSystems: ['ERP'], objectIds: ['drawing'], explanation: 'Проверить перенос, не доказан повторный ввод' };
 const report = { generatedAt: '2026-10-18T00:00:00Z', processCount: 1, findings: [finding, {...finding, code: 'paper-alternative', objectIds: []}] };
+test('modeled paper gap is independently searchable and exports its document and witness path',()=>{
+  const gap={...finding,code:'paper-medium-gap',routeElementIds:['a','gateway','b'],explanation:'Несогласованность описания, не факт потери'};
+  const data={...report,findings:[...report.findings,gap]};
+  assert.equal(transferLabels[gap.code],'Бумажный разрыв в модели');
+  assert.deepEqual(selectTransfers(data,gap.code,'gateway'),[gap]);
+  const csv=transfersCsv(data,gap.code,'drawing');
+  assert.match(csv,/paper-medium-gap/);
+  assert.match(csv,/a.*gateway.*b/);
+  assert.match(csv,/не факт потери/);
+  assert.equal(csv.split('\r\n').length,2);
+});
 test('filters preserve codes, source IDs and Unicode; never turn alternate paper into required', () => {
   assert.equal(selectTransfers(report, 'paper-alternative', 'чертёж').length, 1);
   assert.equal(selectTransfers(report, '', 'erp').length, 2);

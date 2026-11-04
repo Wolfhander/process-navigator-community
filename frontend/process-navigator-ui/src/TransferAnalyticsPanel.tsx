@@ -25,7 +25,7 @@ export function TransferAnalyticsPanel({ onOpenProcess }: { onOpenProcess: (id: 
   }
   return <section className="portfolio-panel transfer-analysis" aria-label="Проверка каналов и систем">
     <h3>Бумажные каналы и межсистемные переходы</h3>
-    <p>Структурная проверка текущих моделей. Бумага — не обязательно разрыв, переход между системами — не доказательство повторного ввода. Автоматический обмен этой проверкой не подтверждается и не исключается.</p>
+    <p>Структурная проверка текущих моделей. «Бумажный разрыв в модели» означает разные явно заданные среды у выхода и входа одного документа на пути до ближайшей задачи. Другие признаки бумаги сами по себе разрывом не считаются. Факт передачи и повторный ввод проверка не подтверждает.</p>
     <div className="portfolio-toolbar"><label>Поиск<input aria-label="Поиск передач" maxLength={300} value={query} onChange={e => { setQuery(e.target.value); setPage(0); }}/></label><select aria-label="Тип передачи" value={code} onChange={e => { setCode(e.target.value); setPage(0); }}><option value="">Все признаки</option>{Object.entries(transferLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select><button onClick={() => setRevision(value => value + 1)}>Проверить передачи заново</button><button disabled={!report} onClick={download}>CSV передач</button></div>
     {error && <p role="alert">{error}</p>}{!report && !error && <p role="status">Проверяем модели…</p>}
     {report && <><p>Срез: {new Date(report.generatedAt).toLocaleString('ru-RU')}; процессов: {report.processCount}; найдено: {rows.length} из {report.findings.length}. CSV содержит все отфильтрованные записи.</p>

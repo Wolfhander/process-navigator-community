@@ -31,6 +31,23 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
         .Concat(node.ExecutionMode == "system" ? [node.SystemName ?? ""] : Array.Empty<string>())
         .Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToArray();
 
+    // An explicit primary medium on both sides is required. A matching documented
+    // parallel or alternative channel prevents a discrepancy claim.
+    private static bool PaperMediumMismatch(NodeModel source, NodeModel target, string objectId)
+    {
+        var output = (source.InformationObjects ?? []).FirstOrDefault(b => b.Role == "Output" && string.Equals(b.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
+        var input = (target.InformationObjects ?? []).FirstOrDefault(b => b.Role == "Input" && string.Equals(b.ObjectId, objectId, StringComparison.OrdinalIgnoreCase));
+        if (output is null || input is null) return false;
+        static string Medium(ProcessChannelModel c) => c.Kind.ToLowerInvariant() switch { "paper" => "paper", "email" or "system" => "digital", _ => "" };
+        var from = (source.Channels ?? []).Where(c => c.Matches(output)).ToArray();
+        var to = (target.Channels ?? []).Where(c => c.Matches(input)).ToArray();
+        if (from.Concat(to).Any(c => Medium(c) == "")) return false;
+        var sourcePrimary = from.Where(c => c.Flow.Equals("primary", StringComparison.OrdinalIgnoreCase)).Select(Medium).Distinct().ToArray();
+        var targetPrimary = to.Where(c => c.Flow.Equals("primary", StringComparison.OrdinalIgnoreCase)).Select(Medium).Distinct().ToArray();
+        return sourcePrimary.Length == 1 && targetPrimary.Length == 1 &&
+            !from.Select(Medium).Intersect(to.Select(Medium)).Any();
+    }
+
     public static IReadOnlyList<TransferFinding> Analyze(ProcessModel process, CancellationToken cancellationToken = default)
     {
         var result = new List<TransferFinding>();
@@ -77,10 +94,13 @@ public sealed class TransferAnalyticsService(ProcessCatalogService catalog)
         foreach (var route in routes.Routes)
         {
             var source = route.Source; var target = route.Target;
-            var from = WorkSystems(source); var to = WorkSystems(target);
-            if (from.Length == 0 || to.Length == 0 || from.Intersect(to, StringComparer.OrdinalIgnoreCase).Any()) continue;
             var outputs = (source.InformationObjects ?? []).Where(b => b.Role == "Output").Select(b => b.ObjectId).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var shared = (target.InformationObjects ?? []).Where(b => b.Role == "Input" && outputs.Contains(b.ObjectId)).Select(b => b.ObjectId).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToArray();
+            var paperGaps = shared.Where(id => PaperMediumMismatch(source,target,id)).ToArray();
+            if (paperGaps.Length > 0)
+                Add("paper-medium-gap", source, "Для общего ID документа указаны разные среды: бумага на одной стороне и электронный канал на другой. Проверены явные выход и вход на структурном пути до ближайшей задачи. Общей среды среди привязанных каналов нет. Уточните оцифровку или печать; это несогласованность описания, не факт потери или доказательство исполнения ветви.", target, paperGaps, route.ElementIds);
+            var from = WorkSystems(source); var to = WorkSystems(target);
+            if (from.Length == 0 || to.Length == 0 || from.Intersect(to, StringComparer.OrdinalIgnoreCase).Any()) continue;
             Add("system-transition", source, (route.ElementIds.Count > 2 ? "Структурный путь BPMN через шлюзы между разными системами выполнения. Показан один кратчайший путь для пары задач; условия и совместимость ветвей не подтверждены. " : "Прямая связь BPMN между разными системами выполнения. ") +
                 (shared.Length > 0 ? "Есть общие ID выходов и входов. " : "Общий документ по ID не установлен. ") +
                 "Способ переноса не подтверждён: проверьте автоматический обмен или ручной ввод. Повторный ввод не считается доказанным.", target, shared, route.ElementIds);

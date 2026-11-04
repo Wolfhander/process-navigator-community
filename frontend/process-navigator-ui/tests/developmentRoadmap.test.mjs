@@ -35,7 +35,8 @@ test('wrong-parent, orphan and duplicate task identifiers fail rather than vanis
 
 test('accepted master-data points and analytics workspace are complete without closing unrelated work',()=>{
   const steps=parseDevelopmentRoadmap(readFileSync(new URL('../../../docs/development-decomposition.md', import.meta.url),'utf8')).flatMap(s=>s.steps);
-  assert.equal(roadmapProgress(steps).done,75);
+  assert.equal(roadmapProgress(steps).done,76);
+  assert.equal(steps.find(step=>step.id===69).status,'done');
   assert.equal(steps.find(step=>step.id===26).status,'done');
   assert.equal(steps.find(step=>step.id===84).status,'done');
   assert.equal(steps.find(step=>step.id===85).status,'done');
