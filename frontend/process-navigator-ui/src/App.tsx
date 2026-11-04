@@ -567,7 +567,7 @@ export default function App() {
       onPackageImported={async result => { setCatalog(await loadProcessCatalog()); navigateSection('home'); notify(`Импортировано процессов: ${result.imported}`); }}
       onTableImported={async result => { setCatalog(await loadProcessCatalog()); navigateSection('home'); notify(`Черновики из таблицы: создано ${result.created}, обновлено ${result.updated}`); }}/>
     }
-    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'help' && <Suspense fallback={<div className="page-loading"><div className="loader"/>Открываем руководство…</div>}><HelpDialog page user={session.currentUser} onClose={() => navigateSection('home')}/></Suspense>}
+    {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'help' && <Suspense fallback={<div className="page-loading"><div className="loader"/>Открываем руководство…</div>}><HelpDialog page onDemonstrations={()=>navigateSection('demonstrations')} user={session.currentUser} onClose={() => navigateSection('home')}/></Suspense>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'catalog' && <ProcessCatalogDialog page
       catalog={catalog}
       favorites={personalWorkspace.data.favorites}

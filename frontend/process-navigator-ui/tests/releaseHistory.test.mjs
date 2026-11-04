@@ -32,7 +32,7 @@ test('compatibility notes are version-specific and distinguish known cases from 
   const notes=releases.filter(release=>release.dataCompatibility);
   assert.deepEqual(new Set(notes.map(release=>release.dataCompatibility.kind)),new Set(['unchanged','additive','manual']));
   for(const {dataCompatibility:note} of notes) for(const field of ['scope','upgrade','rollback']) assert.ok(note[field]?.trim());
-  assert.equal(releases[0].dataCompatibility.kind,'unchanged');
+  assert.equal(releases.find(release=>release.version==='0.2.0-preview.96-dev').dataCompatibility.kind,'unchanged');
   assert.equal(releases.find(release=>release.version==='0.2.0-preview.95-dev').dataCompatibility,undefined);
 });
 

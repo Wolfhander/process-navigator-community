@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, Check, Search, ShieldCheck, X } from 'lucide-react';
 import type { UserProfile } from './types';
+import learningPath from './manual-learning-path.json';
 import './help.css';
 
-type Props = { user: UserProfile; onClose: () => void; page?: boolean };
+type Props = { user: UserProfile; onClose: () => void; page?: boolean; onDemonstrations?:()=>void };
 type Chapter = { id: string; title: string; lead: string; steps: string[]; note?: string };
 
 const chapters: Chapter[] = [
+  {id:'guided-demo',title:'Первое знакомство на демо-контуре',lead:'Пять упражнений: от карточки шага до расчёта и проверки книги. Применять изменения не нужно.',steps:learningPath.map(item=>item.step),note:'Если демонстрационных моделей нет в вашем фонде, не сбрасывайте рабочие данные. Используйте отдельную учебную установку. Импорт и аналитика могут быть недоступны вашей роли.'},
   {id:'diagnostics',title:'Разобрать сбой по коду операции',lead:'Сохраните код в сообщении об ошибке. Администратору: Настройки → Диагностика и коды операций.',steps:[
     'Обновите срез и найдите событие по коду или его началу. Показываются только завершённые API-запросы текущего сервера.',
     'Проверьте UTC-время, статус, общую категорию и длительность. Отказ запроса не обязательно означает сбой сервера.',
@@ -212,7 +214,7 @@ const roleGuides: Record<string, { title: string; steps: string[] }> = {
   superadministrator: { title: 'СуперАдминистратор', steps: ['Поддерживайте оргструктуру и направления.', 'Проверяйте целостность каталога.', 'Настраивайте пользователей и обслуживание.'] }
 };
 
-export function HelpDialog({ user, onClose, page = false }: Props) {
+export function HelpDialog({ user, onClose, page = false,onDemonstrations }: Props) {
   const [tab, setTab] = useState<'manual' | 'role'>('manual');
   const [chapterId, setChapterId] = useState(chapters[0].id);
   const [query, setQuery] = useState('');
@@ -225,7 +227,7 @@ export function HelpDialog({ user, onClose, page = false }: Props) {
       <nav><button className={tab === 'manual' ? 'is-active' : ''} onClick={() => setTab('manual')}><BookOpen size={15}/> Руководство</button><button className={tab === 'role' ? 'is-active' : ''} onClick={() => setTab('role')}><ShieldCheck size={15}/> Моя роль</button></nav>
       {tab === 'manual' ? <div className="manual-layout">
         <aside><label><Search size={15}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти тему…" aria-label="Найти тему руководства"/></label><div>{visible.map(item => <button key={item.id} className={item.id === chapter.id ? 'is-active' : ''} onClick={() => setChapterId(item.id)}>{item.title}</button>)}{!visible.length && <p>Тема не найдена. Попробуйте другое слово.</p>}</div></aside>
-        <article className="manual-chapter"><small>Раздел {chapters.findIndex(item => item.id === chapter.id) + 1} из {chapters.length}</small><h3>{chapter.title}</h3><p>{chapter.lead}</p><ol>{chapter.steps.map(step => <li key={step}>{step}</li>)}</ol>{chapter.note && <div className="manual-note"><strong>Обратите внимание</strong><span>{chapter.note}</span></div>}<div className="manual-pager"><button disabled={chapter === chapters[0]} onClick={() => setChapterId(chapters[chapters.indexOf(chapter) - 1].id)}>Предыдущая тема</button><button disabled={chapter === chapters.at(-1)} onClick={() => setChapterId(chapters[chapters.indexOf(chapter) + 1].id)}>Следующая тема</button></div></article>
+        <article className="manual-chapter"><small>Раздел {chapters.findIndex(item => item.id === chapter.id) + 1} из {chapters.length}</small><h3>{chapter.title}</h3><p>{chapter.lead}</p><ol>{chapter.steps.map(step => <li key={step}>{step}</li>)}</ol>{chapter.note && <div className="manual-note"><strong>Обратите внимание</strong><span>{chapter.note}</span></div>}{chapter.id==='guided-demo'&&onDemonstrations&&<p><button onClick={onDemonstrations}>Открыть матрицу демонстраций</button></p>}<div className="manual-pager"><button disabled={chapter === chapters[0]} onClick={() => setChapterId(chapters[chapters.indexOf(chapter) - 1].id)}>Предыдущая тема</button><button disabled={chapter === chapters.at(-1)} onClick={() => setChapterId(chapters[chapters.indexOf(chapter) + 1].id)}>Следующая тема</button></div></article>
       </div> : <div className="manual-role"><ShieldCheck size={28}/><span className="eyebrow">Ваша роль</span><h3>{role.title}</h3><ol>{role.steps.map(step => <li key={step}><Check size={16}/>{step}</li>)}</ol><details><summary>Технические разрешения</summary><p>{user.permissions.join(' · ')}</p></details></div>}
     </section>;
   if (!page) return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>{content}</div>;
