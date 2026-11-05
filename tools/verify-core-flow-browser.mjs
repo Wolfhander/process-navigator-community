@@ -47,13 +47,7 @@ server.on('error',error=>{report.serverError=error.message;});
 const check=(name)=>{report.checks.push(name);};
 async function api(url,body,status=200,user=spec.user,method=body?'POST':'GET'){
   const request=()=>fetch(origin+url,{method,headers:{'X-Process-Navigator-User':user,...(body instanceof FormData?{}:body?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});
-  let response=await request();
-  // Only observational polling can retry a transient read during a file swap.
-  // Keep every occurrence in the report; never retry business writes.
-  for(let attempt=0;method==='GET'&&status===200&&response.status===503&&attempt<3;attempt++){
-    (report.transientReads??=[]).push({url,status:503,attempt:attempt+1,detail:await response.text()});
-    await new Promise(resolve=>setTimeout(resolve,50));response=await request();
-  }
+  const response=await request(); // No transient read or business-write retries.
   assert.equal(response.status,status,url+' '+await(response.status!==status?response.text():''));
   return response.status===200||response.status===201?response.json():null;
 }
@@ -318,6 +312,14 @@ try {
   assert.equal((await api('/api/processes/'+spec.id)).id,spec.id);
   assert.equal((await api('/api/processes/'+specialId)).id,specialId);
   check('Sequential import/publication preserves both identities; absent read/delete cannot address another model');
+  stage='concurrent-snapshots';
+  const beforeCount=(await api('/api/processes/'+spec.id+'/instances')).length;
+  await Promise.all([
+    (async()=>{for(let n=0;n<12;n++)await api('/api/processes/'+spec.id+'/instances',{name:'Совместное чтение '+n});})(),
+    ...Array.from({length:3},()=> (async()=>{for(let n=0;n<40;n++)await api('/api/processes/'+spec.id+'/instances');})())
+  ]);
+  assert.equal((await api('/api/processes/'+spec.id+'/instances')).length,beforeCount+12);
+  check('120 HTTP reads during 12 execution writes succeed without retries or lost instances');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){

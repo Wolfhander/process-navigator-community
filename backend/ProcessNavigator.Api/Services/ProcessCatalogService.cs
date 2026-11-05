@@ -160,13 +160,13 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         await contextWriteLock.WaitAsync(cancellationToken); string? temporaryPath = null;
         try
         {
-            var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
+            var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
             var current = root["passport"]?.Deserialize<ProcessPassportModel>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? new ProcessPassportModel();
             var updated = current with { Level = update.Level, Classification = update.Classification, ParentProcessId = parentId };
             root["passport"] = JsonSerializer.SerializeToNode(updated, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             temporaryPath = Path.Combine(Path.GetDirectoryName(paths.Context)!, $".{Guid.NewGuid():N}.context.tmp");
             await File.WriteAllTextAsync(temporaryPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false), cancellationToken);
-            var validated = await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); File.Move(temporaryPath, paths.Context, true); temporaryPath = null;
+            var validated = await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); AtomicTextFile.Commit(temporaryPath, paths.Context); temporaryPath = null;
             return new(validated.Id, validated.Name, validated.Status, updated.Level, updated.Classification, updated.ParentProcessId, []);
         }
         finally { if (temporaryPath is not null) File.Delete(temporaryPath); contextWriteLock.Release(); }
@@ -478,12 +478,12 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         if (!File.Exists(paths.Bpmn) || !File.Exists(paths.Context))
             throw new FileNotFoundException($"Draft for process '{processId}' was not found.");
 
-        var temporaryPath = Path.Combine(Path.GetTempPath(), $"process-navigator-{Guid.NewGuid():N}.bpmn");
+        var temporaryPath = paths.Bpmn + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             await File.WriteAllTextAsync(temporaryPath, xml, new UTF8Encoding(false), cancellationToken);
             var validated = await loader.LoadFilesAsync(temporaryPath, paths.Context, processId, cancellationToken);
-            File.Copy(temporaryPath, paths.Bpmn, overwrite: true);
+            AtomicTextFile.Commit(temporaryPath, paths.Bpmn);
             return new ProcessImportResultModel(ToSummary(validated), ContextWarnings(validated));
         }
         finally
@@ -526,8 +526,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             var validated = await loader.LoadFilesAsync(temporaryBpmn, temporaryContext, processId, cancellationToken);
 
             Directory.CreateDirectory(DraftRoot);
-            File.Move(temporaryBpmn, paths.Bpmn, overwrite: true);
-            File.Move(temporaryContext, paths.Context, overwrite: true);
+            AtomicTextFile.Commit(temporaryBpmn, paths.Bpmn);
+            AtomicTextFile.Commit(temporaryContext, paths.Context);
             return ToSummary(validated);
         }
         finally { temporaryDirectory.Delete(recursive: true); }
@@ -561,7 +561,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             if ((normalized.WorkRules ?? []).Any(rule => rule.Kind == "document" && !(normalized.InformationObjects ?? []).Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
                 throw new InvalidDataException("Требование состояния должно ссылаться на объект, привязанный к этому шагу.");
 
-            var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject()
+            var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject()
                 ?? throw new InvalidDataException("Process context JSON is empty.");
             var elements = root["elements"] as JsonObject ?? new JsonObject();
             root["elements"] = elements;
@@ -572,7 +572,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             await File.WriteAllTextAsync(temporaryPath,
                 root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false), cancellationToken);
             var validated = await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken);
-            File.Move(temporaryPath, paths.Context, overwrite: true);
+            AtomicTextFile.Commit(temporaryPath, paths.Context);
             temporaryPath = null;
             return validated.Nodes.Single(node => string.Equals(node.Id, elementId, StringComparison.Ordinal));
         }
@@ -609,7 +609,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         string? temporaryPath = null;
         try
         {
-            var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject()
+            var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject()
                 ?? throw new InvalidDataException("Process context JSON is empty.");
             root["owner"] = update.Owner.Trim();
             root["ownerLegalEntityId"] = update.OwnerLegalEntityId;
@@ -619,7 +619,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             await File.WriteAllTextAsync(temporaryPath,
                 root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false), cancellationToken);
             var validated = await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken);
-            File.Move(temporaryPath, paths.Context, overwrite: true);
+            AtomicTextFile.Commit(temporaryPath, paths.Context);
             temporaryPath = null;
             return validated;
         }
@@ -709,8 +709,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
 
         var draftPaths = DraftPaths(processId);
         await UpdateContextAsync(draftPaths.Context, draft.Version, "Published", cancellationToken);
-        File.Copy(draftPaths.Bpmn, publishedBpmn, overwrite: true);
-        File.Copy(draftPaths.Context, publishedContext, overwrite: true);
+        await AtomicTextFile.CopyAsync(draftPaths.Bpmn, publishedBpmn, cancellationToken);
+        await AtomicTextFile.CopyAsync(draftPaths.Context, publishedContext, cancellationToken);
         File.Delete(draftPaths.Bpmn);
         File.Delete(draftPaths.Context);
         return ToSummary(await loader.LoadAsync(processId, cancellationToken));
@@ -726,7 +726,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         if (mapped.Count != current.Lanes.Count || current.Lanes.Any(lane => !mapped.ContainsKey(lane.Id)))
             throw new InvalidDataException("Состав дорожек изменился после сохранения оргпривязок. Проверьте их в процессе.");
 
-        var document = XDocument.Parse(await File.ReadAllTextAsync(paths.Bpmn, cancellationToken), LoadOptions.PreserveWhitespace);
+        var document = XDocument.Parse(await AtomicTextFile.ReadAsync(paths.Bpmn, cancellationToken), LoadOptions.PreserveWhitespace);
         var lanes = document.Descendants().Where(item => item.Name.LocalName == "lane" &&
             item.Name.NamespaceName == "http://www.omg.org/spec/BPMN/20100524/MODEL")
             .ToDictionary(item => (string?)item.Attribute("id") ?? "", StringComparer.Ordinal);
@@ -752,7 +752,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             await loader.LoadFilesAsync(temporaryPath, paths.Context, processId, cancellationToken);
             if(stillCurrent is not null&&!await stillCurrent())
                 throw new InvalidDataException("Черновик, оргструктура или блокировка изменились. Повторите просмотр.");
-            File.Move(temporaryPath, paths.Bpmn, overwrite: true);
+            AtomicTextFile.Commit(temporaryPath, paths.Bpmn);
             return renamed;
         }
         finally { File.Delete(temporaryPath); }
@@ -769,7 +769,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     {
         var paths = DraftPaths(processId);
         if (!File.Exists(paths.Context)) throw new FileNotFoundException();
-        var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
+        var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
         var status = root["status"]?.GetValue<string>() ?? "Draft";
         var events = root["workflow"]?.Deserialize<List<ProcessWorkflowEventModel>>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
         return BuildWorkflow(processId, status, root, events);
@@ -789,7 +789,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         await contextWriteLock.WaitAsync(cancellationToken); string? temporaryPath = null;
         try
         {
-            var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
+            var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
             var status = root["status"]?.GetValue<string>() ?? "Draft";
             if (status is not ("Draft" or "ChangesRequested")) throw new InvalidDataException("Маршрут можно менять только в черновике или после возврата на доработку.");
             root["workflowStages"] = JsonSerializer.SerializeToNode(stages, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -797,7 +797,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             root["workflowReviewDueAt"] = request.ReviewDueAt is null ? null : JsonValue.Create(request.ReviewDueAt.Value);
             temporaryPath = Path.Combine(Path.GetDirectoryName(paths.Context)!, $".{Guid.NewGuid():N}.context.tmp");
             await File.WriteAllTextAsync(temporaryPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false), cancellationToken);
-            await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); File.Move(temporaryPath, paths.Context, true); temporaryPath = null;
+            await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); AtomicTextFile.Commit(temporaryPath, paths.Context); temporaryPath = null;
             var events = root["workflow"]?.Deserialize<List<ProcessWorkflowEventModel>>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
             return BuildWorkflow(processId, status, root, events);
         }
@@ -811,7 +811,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         await contextWriteLock.WaitAsync(cancellationToken); string? temporaryPath = null;
         try
         {
-            var root = JsonNode.Parse(await File.ReadAllTextAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
+            var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
             var from = root["status"]?.GetValue<string>() ?? "Draft";
             var stages = ReadWorkflowStages(root);
             var currentStage = Math.Clamp(root["workflowCurrentStage"]?.GetValue<int>() ?? 0, 0, stages.Count - 1);
@@ -843,7 +843,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             root["workflow"] = JsonSerializer.SerializeToNode(events, new JsonSerializerOptions(JsonSerializerDefaults.Web));
             temporaryPath = Path.Combine(Path.GetDirectoryName(paths.Context)!, $".{Guid.NewGuid():N}.context.tmp");
             await File.WriteAllTextAsync(temporaryPath, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false), cancellationToken);
-            await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); File.Move(temporaryPath, paths.Context, true); temporaryPath = null;
+            await loader.LoadFilesAsync(paths.Bpmn, temporaryPath, processId, cancellationToken); AtomicTextFile.Commit(temporaryPath, paths.Context); temporaryPath = null;
             return BuildWorkflow(processId, to, root, events);
         }
         finally { if (temporaryPath is not null) File.Delete(temporaryPath); contextWriteLock.Release(); }
@@ -960,7 +960,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
 
     private static async Task UpdateContextAsync(string path, string version, string status, CancellationToken cancellationToken)
     {
-        var root = JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken))?.AsObject()
+        var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(path, cancellationToken))?.AsObject()
             ?? throw new InvalidDataException("Process context JSON is empty.");
         root["version"] = version;
         root["status"] = status;

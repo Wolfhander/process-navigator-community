@@ -565,7 +565,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
     private async Task<IReadOnlyList<ProcessInstanceModel>> ReadAsync(string processId, CancellationToken cancellationToken)
     {
         var path = PathFor(processId); if (!File.Exists(path)) return [];
-        var items=JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await File.ReadAllTextAsync(path, cancellationToken),
+        var items=JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await AtomicTextFile.ReadAsync(path, cancellationToken),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
         foreach(var item in items)ExecutionOutcome.Validate(item);
         return items;
@@ -575,7 +575,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
     {
         foreach(var item in instances)ExecutionOutcome.Validate(item);
         await writeLock.WaitAsync(cancellationToken);
-        try { Directory.CreateDirectory(root); var path = PathFor(processId); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(instances, new JsonSerializerOptions { WriteIndented = true }), cancellationToken); File.Move(temporary, path, true); }
+        try { Directory.CreateDirectory(root); var path = PathFor(processId); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(instances, new JsonSerializerOptions { WriteIndented = true }), cancellationToken); AtomicTextFile.Commit(temporary, path); }
         finally { writeLock.Release(); }
     }
 

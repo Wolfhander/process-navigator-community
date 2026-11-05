@@ -49,7 +49,8 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                 var length=file.Length; var modified=file.LastWriteTimeUtc; var created=file.CreationTimeUtc;
                 if (!idCache.TryGetValue(path,out var cached) || cached.Length!=length || cached.Modified!=modified || cached.Created!=created)
                 {
-                    var document=XDocument.Load(path,LoadOptions.None);
+                    using var stream = AtomicTextFile.OpenRead(path);
+                    var document=XDocument.Load(stream,LoadOptions.None);
                     var ids=document.Root?.Elements(Bpmn+"process").Select(process=>(string?)process.Attribute("id")).OfType<string>().ToArray() ?? [];
                     cached=new(length,modified,created,ids);
                     file.Refresh();
@@ -89,9 +90,9 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
         if (!File.Exists(bpmnPath) || !File.Exists(contextPath))
             throw new FileNotFoundException("BPMN or context file was not found.");
 
-        await using var bpmnStream = File.OpenRead(bpmnPath);
+        await using var bpmnStream = AtomicTextFile.OpenRead(bpmnPath);
         var document = await XDocument.LoadAsync(bpmnStream, LoadOptions.None, cancellationToken);
-        await using var contextStream = File.OpenRead(contextPath);
+        await using var contextStream = AtomicTextFile.OpenRead(contextPath);
         var context = await JsonSerializer.DeserializeAsync<ProcessContextDocument>(contextStream,
             new JsonSerializerOptions(JsonSerializerDefaults.Web), cancellationToken)
             ?? throw new InvalidDataException("Process context JSON is empty.");
