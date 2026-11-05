@@ -8,3 +8,25 @@
 .workspace-tool-shell .feature-breadcrumb button{border:0;background:transparent;color:#285640;cursor:pointer;padding:8px}
 .workspace-tool-shell button:focus-visible{outline:3px solid #b25c2d;outline-offset:3px}
 @media(max-width:700px){.workspace-tool-page{inset:52px 0 0;padding:12px}.workspace-tool-shell>section{padding:16px!important}}
+.workspace-tool-shell :is(.assignment-lanes,.execution-list,.passport-scroll){max-height:none;overflow:visible;padding-right:0}
+.workspace-tool-shell :is(.assignment-lanes>section>header>div,.version-row>div,.execution-start input,.passport-grid>label,.context-form-grid>label){min-width:0}
+.workspace-tool-shell .assignment-users strong{white-space:normal;text-overflow:clip;overflow:visible;display:block}
+.workspace-tool-shell .assignment-users strong{font-size:13px;line-height:1.35}
+.workspace-tool-shell .assignment-users small{font-size:11px;line-height:1.35}
+.workspace-tool-shell .assignment-lanes>section>header strong{font-size:13px}
+.workspace-tool-shell .assignment-lanes>section>header small{font-size:11px}
+.workspace-tool-shell .assignment-users label{align-items:flex-start;min-width:0}
+.workspace-tool-shell .assignment-users input{flex:0 0 auto}
+.workspace-tool-shell .version-row{grid-template-columns:22px minmax(0,1fr) auto}
+.workspace-tool-shell :is(.execution-actions,.execution-lifecycle-form>div){flex-wrap:wrap}
+.workspace-tool-shell .passport-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.workspace-tool-shell .context-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:1600px){.workspace-tool-shell{max-width:1700px}}
+@media(max-width:700px){
+  .workspace-tool-shell :is(.assignment-users,.passport-grid,.context-form-grid){grid-template-columns:minmax(0,1fr)}
+  .workspace-tool-shell .execution-item{grid-template-columns:minmax(0,1fr)}
+  .workspace-tool-shell .execution-start{flex-wrap:wrap}
+  .workspace-tool-shell .execution-start input{flex-basis:100%}
+  .workspace-tool-shell .version-row{grid-template-columns:22px minmax(0,1fr)}
+  .workspace-tool-shell .version-row>span{grid-column:2}
+}
