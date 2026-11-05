@@ -34,8 +34,13 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
     public string DataRoot => Path.Combine(environment.ContentRootPath, "Data");
 
     public string GetBpmnPath(string processId)
+        => FindBpmnPath(processId) ?? throw new FileNotFoundException($"Process '{processId}' was not found.");
+
+    // Absence is not a writable file path. Legacy __missing__.bpmn files are
+    // still located by their real XML process ID, never by the sentinel name.
+    public string? FindBpmnPath(string processId)
     {
-        if (!Directory.Exists(DataRoot)) return Path.Combine(DataRoot, "__missing__.bpmn");
+        if (!Directory.Exists(DataRoot)) return null;
         foreach (var file in new DirectoryInfo(DataRoot).EnumerateFiles("*.bpmn", SearchOption.TopDirectoryOnly))
         {
             try
@@ -62,7 +67,7 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                 // Invalid drafts are ignored by lookup and reported by explicit import validation.
             }
         }
-        return Path.Combine(DataRoot, "__missing__.bpmn");
+        return null;
     }
 
     public async Task<ProcessModel> LoadAsync(string processId, CancellationToken cancellationToken = default)

@@ -202,7 +202,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         var name = RequiredText(request.Name, 200, "Process name");
         const string owner = "Не назначен";
         const string laneName = "Подразделение";
-        if (File.Exists(loader.GetBpmnPath(id)) || File.Exists(DraftPaths(id).Bpmn))
+        if (loader.FindBpmnPath(id) is not null || File.Exists(DraftPaths(id).Bpmn))
             throw new ProcessConflictException($"Process '{id}' already exists.");
 
         Directory.CreateDirectory(DraftRoot);
@@ -249,7 +249,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                 throw new InvalidDataException("Process ID may contain only Latin letters, digits, dots, underscores and hyphens.");
 
             var draftPaths = DraftPaths(process.Id);
-            if (File.Exists(loader.GetBpmnPath(process.Id)) || File.Exists(draftPaths.Bpmn) || File.Exists(draftPaths.Context))
+            if (loader.FindBpmnPath(process.Id) is not null || File.Exists(draftPaths.Bpmn) || File.Exists(draftPaths.Context))
                 throw new ProcessConflictException($"Process '{process.Id}' already exists.");
 
             // New imports must use the same draft location as every subsequent read,
@@ -339,7 +339,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
                     var metadata = await ReadPackageMetadataAsync(temporaryBpmn, cancellationToken);
                     if (!SafeProcessId().IsMatch(metadata.Id))
                         throw new InvalidDataException($"Process ID '{metadata.Id}' contains unsupported characters.");
-                    if (File.Exists(loader.GetBpmnPath(metadata.Id)) || File.Exists(DraftPaths(metadata.Id).Bpmn))
+                    if (loader.FindBpmnPath(metadata.Id) is not null || File.Exists(DraftPaths(metadata.Id).Bpmn))
                     {
                         items.Add(new(entry.FullName, "Skipped", null, [], $"Process '{metadata.Id}' already exists."));
                         continue;
@@ -458,11 +458,15 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         return await loader.LoadFilesAsync(bpmnPath, contextPath, processId, cancellationToken);
     }
 
-    public string GetBpmnSourcePath(string processId, bool draft)
+    public string GetBpmnSourcePath(string processId, bool draft) =>
+        FindBpmnSourcePath(processId, draft) ?? throw new FileNotFoundException($"Process '{processId}' was not found.");
+
+    public string? FindBpmnSourcePath(string processId, bool draft)
     {
-        if (!draft) return loader.GetBpmnPath(processId);
+        if (!SafeProcessId().IsMatch(processId)) return null;
+        if (!draft) return loader.FindBpmnPath(processId);
         var path = DraftPaths(processId).Bpmn;
-        return File.Exists(path) ? path : Path.Combine(DraftRoot, "__missing__.bpmn");
+        return File.Exists(path) ? path : null;
     }
 
     public async Task<ProcessImportResultModel> SaveDraftXmlAsync(string processId, string xml, CancellationToken cancellationToken = default)
@@ -501,7 +505,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             throw new InvalidDataException("The generated context is empty or exceeds the 2 MB limit.");
 
         var paths = DraftPaths(processId);
-        var publishedPath = loader.GetBpmnPath(processId);
+        var publishedPath = loader.FindBpmnPath(processId);
         var version = "0.1";
         if (File.Exists(paths.Bpmn) && File.Exists(paths.Context))
         {
@@ -688,8 +692,12 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         var draft = await LoadAsync(processId, draft: true, cancellationToken);
         if (!draft.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
             throw new IOException("Перед публикацией редакция должна пройти согласование и получить статус «Одобрено».");
-        var publishedBpmn = loader.GetBpmnPath(processId);
+        if (!SafeProcessId().IsMatch(processId)) throw new InvalidDataException("The process ID is invalid.");
+        var existingPublished = loader.FindBpmnPath(processId);
+        var publishedBpmn = existingPublished ?? Path.Combine(loader.DataRoot, processId + ".bpmn");
         var publishedContext = Path.ChangeExtension(publishedBpmn, ".context.json");
+        if (existingPublished is null && (File.Exists(publishedBpmn) || File.Exists(publishedContext)))
+            throw new ProcessConflictException("The publication destination is occupied by another file. No files were changed.");
         if (File.Exists(publishedBpmn) && File.Exists(publishedContext))
         {
             var published = await loader.LoadAsync(processId, cancellationToken);
@@ -858,10 +866,10 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     public async Task<IReadOnlyList<ProcessVersionModel>> VersionsAsync(string processId, CancellationToken cancellationToken = default)
     {
         var versions = new List<ProcessVersionModel>();
-        if (File.Exists(loader.GetBpmnPath(processId)))
+        if (loader.FindBpmnPath(processId) is { } publishedPath)
         {
             var published = await loader.LoadAsync(processId, cancellationToken);
-            versions.Add(new ProcessVersionModel(published.Version, "Published", File.GetLastWriteTimeUtc(loader.GetBpmnPath(processId))));
+            versions.Add(new ProcessVersionModel(published.Version, "Published", File.GetLastWriteTimeUtc(publishedPath)));
         }
         var processArchive = Path.Combine(VersionRoot, processId);
         if (Directory.Exists(processArchive))
@@ -886,7 +894,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!SafeProcessId().IsMatch(processId)) throw new FileNotFoundException();
-        var publishedBpmn = loader.GetBpmnPath(processId);
+        var publishedBpmn = loader.FindBpmnPath(processId);
         var draft = DraftPaths(processId);
         var archive = Path.Combine(VersionRoot, processId);
         var knownFiles = new[]
@@ -899,7 +907,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             Path.Combine(loader.DataRoot, "Commands", $"{processId}.json")
         };
         if (!knownFiles.Any(File.Exists) && !Directory.Exists(archive)) throw new FileNotFoundException();
-        foreach (var path in knownFiles.Where(File.Exists)) File.Delete(path);
+        foreach (var path in knownFiles.Where(File.Exists)) File.Delete(path!);
         if (Directory.Exists(archive)) Directory.Delete(archive, recursive: true);
         return Task.CompletedTask;
     }
@@ -925,10 +933,13 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
 
     private IEnumerable<string> ProcessFiles(string processId)
     {
-        var published = loader.GetBpmnPath(processId);
+        var published = loader.FindBpmnPath(processId);
         var draft = DraftPaths(processId);
-        yield return published;
-        yield return Path.ChangeExtension(published, ".context.json");
+        if (published is not null)
+        {
+            yield return published;
+            yield return Path.ChangeExtension(published, ".context.json");
+        }
         yield return draft.Bpmn;
         yield return draft.Context;
         var archive = Path.Combine(VersionRoot, processId);

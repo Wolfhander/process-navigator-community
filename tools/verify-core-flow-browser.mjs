@@ -20,6 +20,7 @@ const organization=JSON.parse(files.get('organization.json'));
 const affiliation=organization.crossCompanyProcesses.find(p=>p.processId===spec.sourceModel);
 assert.ok(affiliation,'Synthetic lane affiliations are missing');
 organization.crossCompanyProcesses.push({...affiliation,processId:spec.id});
+organization.crossCompanyProcesses.push({...affiliation,processId:spec.id+'-error-end'});
 fs.writeFileSync(path.join(data,'organization.json'),JSON.stringify(organization));
 const bpmn=source.replaceAll(spec.sourceModel,spec.id);
 // Untrusted imported metadata must never bypass the normal publication workflow.
@@ -45,7 +46,14 @@ fs.closeSync(fd);let browser,stage='startup';const report={version:JSON.parse(fs
 server.on('error',error=>{report.serverError=error.message;});
 const check=(name)=>{report.checks.push(name);};
 async function api(url,body,status=200,user=spec.user,method=body?'POST':'GET'){
-  const response=await fetch(origin+url,{method,headers:{'X-Process-Navigator-User':user,...(body instanceof FormData?{}:body?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});
+  const request=()=>fetch(origin+url,{method,headers:{'X-Process-Navigator-User':user,...(body instanceof FormData?{}:body?{'Content-Type':'application/json'}:{})},body:body instanceof FormData?body:body?JSON.stringify(body):undefined});
+  let response=await request();
+  // Only observational polling can retry a transient read during a file swap.
+  // Keep every occurrence in the report; never retry business writes.
+  for(let attempt=0;method==='GET'&&status===200&&response.status===503&&attempt<3;attempt++){
+    (report.transientReads??=[]).push({url,status:503,attempt:attempt+1,detail:await response.text()});
+    await new Promise(resolve=>setTimeout(resolve,50));response=await request();
+  }
   assert.equal(response.status,status,url+' '+await(response.status!==status?response.text():''));
   return response.status===200||response.status===201?response.json():null;
 }
@@ -293,11 +301,23 @@ try {
   await call('Page.reload');await wait("!!document.querySelector('.canvas')",'outcome model reload');await clickText('Выполнения');
   await wait("document.querySelector('.execution-list').textContent.includes('Учебная ошибка:')",'persisted error outcome');
   const specialId=spec.id+'-error-end';
-  fs.writeFileSync(path.join(data,specialId+'.bpmn'),bpmn.replaceAll(spec.id,specialId).replace('</bpmn:endEvent>','<bpmn:errorEventDefinition id="error_end"/></bpmn:endEvent>'));
-  fs.writeFileSync(path.join(data,specialId+'.context.json'),JSON.stringify(context));
+  const specialForm=new FormData();
+  specialForm.set('bpmnFile',new Blob([bpmn.replaceAll(spec.id,specialId).replace('</bpmn:endEvent>','<bpmn:errorEventDefinition id="error_end"/></bpmn:endEvent>')]),'special.bpmn');
+  specialForm.set('contextFile',new Blob([JSON.stringify(context)]),'special.context.json');
+  await api('/api/processes/import',specialForm,201);
+  await api('/api/processes/'+specialId+'/draft/workflow/submit',{comment:'Учебная проверка специального события'});
+  for(let n=0;n<10;n++){if((await api('/api/processes/'+specialId+'/draft/workflow')).status==='Approved')break;await api('/api/processes/'+specialId+'/draft/workflow/approve',{comment:'Учебное согласование'});}
+  await api('/api/processes/'+specialId+'/publish',{});
   assert.equal((await api('/api/processes/'+specialId)).nodes.find(n=>n.type==='endEvent').endEventDefinitions,'errorEventDefinition');
   await api('/api/processes/'+specialId+'/instances',{name:'Не должен запуститься'},422);
   check('Browser error closure preserves facts; reopen persists outcome; special BPMN end rejects execution');
+  assert.ok(fs.existsSync(path.join(data,spec.id+'.bpmn')),'First publication has its own file');
+  assert.ok(fs.existsSync(path.join(data,specialId+'.bpmn')),'Second publication has its own file');
+  await api('/api/processes/not-present/bpmn',undefined,404);
+  await api('/api/processes/not-present',undefined,404,spec.user,'DELETE');
+  assert.equal((await api('/api/processes/'+spec.id)).id,spec.id);
+  assert.equal((await api('/api/processes/'+specialId)).id,specialId);
+  check('Sequential import/publication preserves both identities; absent read/delete cannot address another model');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){

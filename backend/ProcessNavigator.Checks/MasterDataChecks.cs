@@ -197,14 +197,14 @@ internal static class MasterDataChecks
             var bpmnMs=watch.Elapsed.TotalMilliseconds;
             Check(largeModel.Nodes.Count==3000,"Large BPMN retains all nodes");
             watch.Restart();
-            for(var i=0;i<12;i++) _=new BpmnProcessLoader(performanceHost).GetBpmnPath("absent");
+            for(var i=0;i<12;i++) _=new BpmnProcessLoader(performanceHost).FindBpmnPath("absent");
             var coldMs=watch.Elapsed.TotalMilliseconds;
             watch.Restart();
-            for(var i=0;i<12;i++) _=performanceLoader.GetBpmnPath("absent");
+            for(var i=0;i<12;i++) _=performanceLoader.FindBpmnPath("absent");
             Console.WriteLine($"Large fund (301 files, 12 complete scans): uncached {coldMs:F0} ms; cached {watch.Elapsed.TotalMilliseconds:F0} ms; large BPMN load {bpmnMs:F0} ms.");
             Check(performanceLoader.GetBpmnPath("large")==largePath,"Cache locates published model");
             File.WriteAllText(largePath,"<broken>");
-            Check(!File.Exists(performanceLoader.GetBpmnPath("large")),"Cache does not retain replaced BPMN ID");
+            Check(performanceLoader.FindBpmnPath("large") is null,"Cache does not retain replaced BPMN ID");
             WritePerformanceBpmn(performanceLoader.DataRoot,"large",1);
             Check(performanceLoader.GetBpmnPath("large")==largePath,"Restored file is readable after invalidation");
             Passed("large-fund");

@@ -845,8 +845,8 @@ app.MapPost("/api/processes/{processId}/publish", async (string processId, HttpC
 
 app.MapGet("/api/processes/{processId}/bpmn", (string processId, BpmnProcessLoader loader) =>
 {
-    var path = loader.GetBpmnPath(processId);
-    if (!File.Exists(path))
+    var path = loader.FindBpmnPath(processId);
+    if (path is null)
         return Results.NotFound(new { message = $"Process '{processId}' was not found." });
     return Results.File(path, "application/xml; charset=utf-8", enableRangeProcessing: true);
 });
@@ -854,7 +854,7 @@ app.MapGet("/api/processes/{processId}/bpmn", (string processId, BpmnProcessLoad
 app.MapGet("/api/processes/{processId}/draft/bpmn", (string processId, HttpContext context, ProcessCatalogService catalog, AccessControlService access) =>
 {
     if (!CanOpenDraft(context, access)) return Forbidden("process.draft.view");
-    var path = catalog.GetBpmnSourcePath(processId, draft: true);
+    var path = catalog.FindBpmnSourcePath(processId, draft: true);
     return File.Exists(path)
         ? Results.File(path, "application/xml; charset=utf-8", enableRangeProcessing: true)
         : Results.NotFound(new { message = $"Draft for process '{processId}' was not found." });
