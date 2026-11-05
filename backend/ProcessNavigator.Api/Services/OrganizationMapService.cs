@@ -251,6 +251,8 @@ public sealed class OrganizationMapService(IWebHostEnvironment environment, Proc
             if (entity.Directions.Any(item => string.IsNullOrWhiteSpace(item.Id) || string.IsNullOrWhiteSpace(item.Name)))
                 throw new InvalidDataException($"Every direction in '{entity.Name}' must have an ID and name.");
             ValidateUnits(entity);
+            if (entity.Calendar is not null) _ = new ScheduleWorkCalendar(entity.Calendar);
+            foreach (var unit in entity.Units ?? []) if (unit.Calendar is not null) _ = new ScheduleWorkCalendar(unit.Calendar);
         }
         foreach (var process in model.CrossCompanyProcesses)
         {

@@ -13,14 +13,16 @@ public sealed record LegalEntityModel(
     string Name,
     string Description,
     IReadOnlyList<BusinessDirectionModel> Directions,
-    IReadOnlyList<OrganizationUnitModel>? Units = null);
+    IReadOnlyList<OrganizationUnitModel>? Units = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleCalendarModel? Calendar = null);
 
 public sealed record OrganizationUnitModel(
     string Id,
     string? ParentId,
     string Name,
     string ShortName,
-    string ManagerPosition);
+    string ManagerPosition,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleCalendarModel? Calendar = null);
 
 public sealed record BusinessDirectionModel(
     string Id,

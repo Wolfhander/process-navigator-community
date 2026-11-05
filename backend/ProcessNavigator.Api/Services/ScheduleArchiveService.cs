@@ -48,6 +48,8 @@ public sealed class ScheduleArchiveService(IWebHostEnvironment environment, Proc
         var changes = new List<string>();
         var previous = baseline.Result;
         if (previous.Sources!.Algorithm != current.Sources!.Algorithm) changes.Add("Изменился алгоритм расчёта.");
+        if (JsonSerializer.Serialize(previous.Sources.Organization,json)!=JsonSerializer.Serialize(current.Sources.Organization,json))
+            changes.Add("Изменились оргструктура или наследуемые календари.");
         if (JsonSerializer.Serialize(previous.Sources.Processes, json) != JsonSerializer.Serialize(current.Sources.Processes, json))
             changes.Add("Изменились исходные модели, их версии или состав. Изменения содержимого обнаруживаются и без смены версии.");
         if (JsonSerializer.Serialize(previous.Sources.Objects, json) != JsonSerializer.Serialize(current.Sources.Objects, json))

@@ -268,7 +268,7 @@ internal static class ScheduleChecks
             await Reject(service, request with { Checkpoints = new Dictionary<string, DateTimeOffset> { ["source"] = DateTimeOffset.MaxValue } });
             await Reject(service, custom with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["unknown"] = profile } });
             await Reject(service, custom with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["target"] = profile with { NonWorkingDates = ["bad"] } } });
-            await Reject(service, custom with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["target"] = profile with { WorkdayStart = "17:00", WorkdayEnd = "09:00" } } });
+            await Reject(service, custom with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["target"] = profile with { WorkdayStart = "17:00", WorkdayEnd = "17:00" } } });
             await Reject(service, custom with { ProcessCalendars = new Dictionary<string, ScheduleCalendarModel> { ["target"] = null! } });
             var saved = JsonSerializer.Serialize(different);
             var reloaded = JsonSerializer.Deserialize<ProcessScheduleModel>(saved)!;

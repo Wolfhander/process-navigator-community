@@ -16,12 +16,17 @@ public sealed record ProcessScheduleRequestModel(
     int? UtcOffsetMinutes = null,
     IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? ProcessBranches = null,
-    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null);
+    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool UseOrganizationCalendars = false,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, IReadOnlyDictionary<string, ScheduleCalendarModel>>? StepCalendars = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null);
 
 public sealed record ScheduleRepetitionModel(string ReturnEdgeId, int PlannedRepeats, int MaximumRepeats);
 
 public sealed record ScheduleCalendarModel(string WorkdayStart, string WorkdayEnd,
-    IReadOnlyList<int> WorkingDays, IReadOnlyList<string> NonWorkingDates, int UtcOffsetMinutes);
+    IReadOnlyList<int> WorkingDays, IReadOnlyList<string> NonWorkingDates, int UtcOffsetMinutes, [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null);
+
+public sealed record ScheduleStepDateModel(string ElementId, string CalendarSource, DateTimeOffset StartAt, DateTimeOffset EndAt);
 
 public sealed record ProcessScheduleItemModel(
     string ProcessId,
@@ -42,7 +47,8 @@ public sealed record ProcessScheduleItemModel(
     bool HasInternalCycle,
     double? MaximumDurationHours = null,
     DateTimeOffset? MaximumStartAt = null,
-    DateTimeOffset? MaximumEndAt = null);
+    DateTimeOffset? MaximumEndAt = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleStepDateModel>? Steps = null);
 
 public sealed record ProcessScheduleDependencyModel(
     string SourceProcessId,
@@ -74,7 +80,10 @@ public sealed record ProcessScheduleAssumptionsModel(
     int UtcOffsetMinutes = 0,
     IReadOnlyDictionary<string, ScheduleCalendarModel>? ProcessCalendars = null,
     IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? ProcessBranches = null,
-    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null);
+    IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool UseOrganizationCalendars = false,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, IReadOnlyDictionary<string, ScheduleCalendarModel>>? StepCalendars = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null);
 
 public sealed record ProcessScheduleModel(
     string Direction,
@@ -94,4 +103,5 @@ public sealed record ProcessScheduleModel(
     DateTimeOffset? MaximumEndAt = null);
 
 public sealed record ScheduleSourceSnapshotModel(string Algorithm, DateTimeOffset CapturedAt,
-    IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects);
+    IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] OrganizationMapModel? Organization = null);

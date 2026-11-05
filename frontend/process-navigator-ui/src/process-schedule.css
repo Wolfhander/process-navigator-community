@@ -37,3 +37,4 @@
 .schedule-route-editor small { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
 .schedule-route-editor fieldset { min-width: 0; border: 1px solid #d7e0da; border-radius: 10px; }
 .schedule-route-editor select { width: 100%; }
+.schedule-list article>details{grid-column:1/-1;min-width:0;overflow-wrap:anywhere}

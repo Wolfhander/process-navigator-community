@@ -7,7 +7,7 @@ const date = (value: unknown) => typeof value === 'string' && Number.isFinite(Da
 const strings = (value: unknown) => Array.isArray(value) && value.every(item => typeof item === 'string');
 const finite = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
 const calendar = (value: unknown) => isRecord(value) && typeof value.workdayStart === 'string' && typeof value.workdayEnd === 'string'
-  && Array.isArray(value.workingDays) && value.workingDays.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && strings(value.nonWorkingDates) && finite(value.utcOffsetMinutes);
+  && Array.isArray(value.workingDays) && value.workingDays.every(day => Number.isInteger(day) && day >= 0 && day <= 6) && strings(value.nonWorkingDates) && finite(value.utcOffsetMinutes) && (value.timeZoneId==null||typeof value.timeZoneId==='string');
 const routes = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(choices => isRecord(choices) && Object.values(choices).every(choice => typeof choice === 'string')));
 const repetitions = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(repeat => isRecord(repeat) && typeof repeat.returnEdgeId === 'string' && Number.isInteger(repeat.plannedRepeats) && Number.isInteger(repeat.maximumRepeats) && Number(repeat.plannedRepeats) >= 0 && Number(repeat.plannedRepeats) <= Number(repeat.maximumRepeats) && Number(repeat.maximumRepeats) <= 50));
 const optionalDate = (value: unknown) => value == null || date(value);
@@ -20,6 +20,11 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
     if (!isRecord(saved) || typeof saved.id !== 'string' || typeof saved.name !== 'string' || !date(saved.savedAt) || !isRecord(saved.request) || !isRecord(saved.result)) throw new Error('Повреждён снимок расчёта.');
     const result = saved.result;
     const request = saved.request;
+    for(const options of [request,result.assumptions]){
+      if(!isRecord(options)||(options.useOrganizationCalendars!==undefined&&typeof options.useOrganizationCalendars!=='boolean')||
+        (options.timeZoneId!=null&&typeof options.timeZoneId!=='string')||
+        (options.stepCalendars!=null&&(!isRecord(options.stepCalendars)||!Object.values(options.stepCalendars).every(steps=>isRecord(steps)&&Object.values(steps).every(calendar)))))throw Error('Повреждены календари шагов.');
+    }
     if (!routes(request.processBranches) || !repetitions(request.processRepetitions) || !optionalDate(result.maximumStartAt) || !optionalDate(result.maximumEndAt)) throw new Error('Повреждены решения, повторения или предельные даты.');
     if (typeof request.rootProcessId !== 'string' || !['Forward', 'Backward'].includes(String(request.direction)) || !date(request.anchorDate) ||
       !calendar({ ...request, utcOffsetMinutes: request.utcOffsetMinutes ?? 0 }) || typeof request.includeWaitTime !== 'boolean' ||
@@ -30,6 +35,7 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
       !Array.isArray(result.processes) || !Array.isArray(result.dependencies) || !Array.isArray(result.issues) || !isRecord(result.assumptions) ||
       !finite(result.durationHours) || !finite(result.criticalDurationHours) || typeof result.complete !== 'boolean') throw new Error('Повреждены результаты расчёта.');
     for (const item of result.processes) {
+      if(isRecord(item)&&item.steps!=null&&(!Array.isArray(item.steps)||item.steps.length>10000||!item.steps.every(step=>isRecord(step)&&typeof step.elementId==='string'&&typeof step.calendarSource==='string'&&date(step.startAt)&&date(step.endAt))))throw Error('Повреждены даты календарных шагов.');
       if (!isRecord(item) || typeof item.processId !== 'string' || typeof item.processName !== 'string' || !date(item.startAt) || !date(item.endAt) || !strings(item.uncertaintyReasons) ||
         !['durationHours', 'baseDurationHours', 'appliedDurationScalePercent', 'slackHours', 'missingDurationCount'].every(key => finite(item[key])) ||
         !['isDateReliable', 'hasInternalCycle', 'isCritical', 'isCheckpointMissed'].every(key => typeof item[key] === 'boolean') ||

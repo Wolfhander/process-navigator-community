@@ -4,6 +4,7 @@ import { saveOrganization } from './api';
 import { OrganizationUnitEditor } from './OrganizationUnitEditor';
 import type { BusinessDirection, LegalEntity, OrganizationMap, ProcessSummary } from './types';
 import './organization-admin.css';
+import {CalendarProfileEditor} from './CalendarProfileEditor';
 
 type Props = {
   organization: OrganizationMap;
@@ -69,7 +70,8 @@ export function OrganizationAdminDialog({ organization, catalog, onClose, onSave
     setBusy(true);
     setError('');
     try {
-      onSaved(await saveOrganization(draft));
+      const clean=(calendar:LegalEntity['calendar'])=>calendar?{...calendar,nonWorkingDates:calendar.nonWorkingDates.map(d=>d.trim()).filter(Boolean),timeZoneId:calendar.timeZoneId?.trim()||undefined}:undefined;
+      onSaved(await saveOrganization({...draft,legalEntities:draft.legalEntities.map(entity=>({...entity,calendar:clean(entity.calendar),units:entity.units?.map(unit=>({...unit,calendar:clean(unit.calendar)}))}))}));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить структуру.');
     } finally {
@@ -100,6 +102,7 @@ export function OrganizationAdminDialog({ organization, catalog, onClose, onSave
           <div className="entity-fields">
             <label>Наименование<input value={selected.name} onChange={event => updateEntity({ name: event.target.value })}/></label>
             <label>Описание<textarea value={selected.description} onChange={event => updateEntity({ description: event.target.value })}/></label>
+            <details><summary>Календарь организации</summary><CalendarProfileEditor value={selected.calendar} onChange={calendar=>updateEntity({calendar})}/></details>
           </div>
           <nav className="organization-section-tabs">
             <button className={section === 'directions' ? 'is-active' : ''} onClick={() => setSection('directions')}><Building2 size={14}/>Направления ({selected.directions.length})</button>

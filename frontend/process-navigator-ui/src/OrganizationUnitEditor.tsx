@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { OrganizationUnit } from './types';
 import './organization-unit-editor.css';
+import {CalendarProfileEditor} from './CalendarProfileEditor';
 
 type Props = { units: OrganizationUnit[]; usedBy: Record<string, string[]>; onChange: (units: OrganizationUnit[]) => void };
 const createId = () => `unit-${crypto.randomUUID().slice(0, 8)}`;
@@ -21,6 +22,7 @@ export function OrganizationUnitEditor({ units, usedBy, onChange }: Props) {
       <div className="unit-editor-main"><label>Название<input value={unit.name} onChange={event => update(unit.id, { name: event.target.value })}/></label><label>Сокращение<input value={unit.shortName} onChange={event => update(unit.id, { shortName: event.target.value })}/></label><label>Руководящая должность<input value={unit.managerPosition} onChange={event => update(unit.id, { managerPosition: event.target.value })}/></label></div>
       <div className="unit-editor-relations"><label>Подчиняется<select value={unit.parentId ?? ''} onChange={event => update(unit.id, { parentId: event.target.value || undefined })}><option value="">Нет — корневой уровень</option>{units.filter(candidate => candidate.id !== unit.id).map(candidate => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}</select></label><button onClick={() => add(unit.id)}><Plus size={14}/>Подразделение</button><button className="unit-remove" disabled={hasChildren(unit.id) || !!usedBy[unit.id]?.length} title={hasChildren(unit.id) ? 'Сначала удалите или перенесите подчинённые подразделения' : usedBy[unit.id]?.length ? 'Сначала переназначьте дорожки связанных процессов' : 'Удалить'} onClick={() => remove(unit.id)}><Trash2 size={14}/></button></div>
       {!!usedBy[unit.id]?.length && <p className="unit-editor-usage">Участвует в процессах: {usedBy[unit.id].join(', ')}. Перед удалением переназначьте их дорожки.</p>}
+      <details><summary>Календарь подразделения</summary><CalendarProfileEditor value={unit.calendar} onChange={calendar=>update(unit.id,{calendar})}/><p>Без своего графика наследуется ближайшее вышестоящее подразделение, затем организация.</p></details>
     </article>)}</div>
   </section>;
 }

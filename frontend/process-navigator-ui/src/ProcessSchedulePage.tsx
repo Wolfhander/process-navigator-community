@@ -3,6 +3,7 @@ import type {ObjectScheduleSeed} from './object-route-scenario';
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, CalendarX2, CheckCircle2, Clock3, Download, Gauge, Milestone, Network, Play, Plus, RotateCcw, Settings2, Trash2 } from 'lucide-react';
 import { calculateProcessSchedule } from './api';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
+import {ScheduleStepCalendarEditor} from './ScheduleStepCalendarEditor';
 import { scheduleCsv } from './schedule-export';
 import { ScheduleRouteEditor } from './ScheduleRouteEditor';
 import { ScheduleArchive } from './ScheduleArchive';
@@ -38,6 +39,9 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
   const [checkpoints, setCheckpoints] = useState<Record<string, string>>({});
   const [utcOffsetMinutes, setUtcOffsetMinutes] = useState(-new Date().getTimezoneOffset());
   const [processCalendars, setProcessCalendars] = useState<Record<string, ScheduleCalendar>>({});
+  const [useOrganizationCalendars,setUseOrganizationCalendars]=useState(false);
+  const [stepCalendars,setStepCalendars]=useState<Record<string,Record<string,ScheduleCalendar>>>({});
+  const [timeZoneId,setTimeZoneId]=useState('');
   const [processBranches, setProcessBranches] = useState<Record<string, Record<string, string>>>(seed&&seedAvailable?{[seed.processId]:{...seed.choices}}:{});
   const [processRepetitions, setProcessRepetitions] = useState<Record<string, ScheduleRepetition>>({});
   const [lastRequest, setLastRequest] = useState<ProcessScheduleRequest>();
@@ -50,7 +54,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     result.dependencies.filter(dependency => direction === 'Forward' ? dependency.targetProcessId === item.processId : dependency.sourceProcessId === item.processId)]) ?? []), [result, direction]);
   const timeRange = result ? Math.max(1, new Date(result.endAt).getTime() - new Date(result.startAt).getTime()) : 1;
 
-  const resetChain = () => { setResult(undefined); setProcessScales({}); setCheckpoints({}); setProcessCalendars({}); setProcessBranches({}); setProcessRepetitions({}); setLastRequest(undefined); setScenarioDirty(false); };
+  const resetChain = () => { setResult(undefined); setProcessScales({}); setCheckpoints({}); setProcessCalendars({}); setStepCalendars({}); setProcessBranches({}); setProcessRepetitions({}); setLastRequest(undefined); setScenarioDirty(false); };
   const addNonWorkingDate = () => {
     if (!newNonWorkingDate || nonWorkingDates.includes(newNonWorkingDate)) return;
     setNonWorkingDates(value => [...value, newNonWorkingDate].sort()); setNewNonWorkingDate(''); setScenarioDirty(true);
@@ -62,6 +66,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       const request: ProcessScheduleRequest = {
         rootProcessId, direction, anchorDate: new Date(anchorDate).toISOString(), includeWaitTime, workdayStart, workdayEnd,
         workingDays, durationScalePercent, transferDelayHours, nonWorkingDates, utcOffsetMinutes, processBranches, processRepetitions,
+        useOrganizationCalendars,stepCalendars:Object.fromEntries(Object.entries(stepCalendars).map(([id,steps])=>[id,Object.fromEntries(Object.entries(steps).map(([key,cal])=>[key,{...cal,nonWorkingDates:cal.nonWorkingDates.map(s=>s.trim()).filter(Boolean)}]))])),timeZoneId:timeZoneId||undefined,
         processCalendars: Object.fromEntries(Object.entries(processCalendars).map(([id, calendar]) => [id, { ...calendar, nonWorkingDates: calendar.nonWorkingDates.map(value => value.trim()).filter(Boolean) }])),
         processDurationScalePercent: Object.fromEntries(Object.entries(processScales).filter(([, value]) => value !== 100)),
         checkpoints: Object.fromEntries(Object.entries(checkpoints).filter(([, value]) => value).map(([id, value]) => [id, new Date(value).toISOString()]))
@@ -80,6 +85,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     setNonWorkingDates(value.nonWorkingDates); setProcessScales(value.processDurationScalePercent); setUtcOffsetMinutes(value.utcOffsetMinutes ?? 0);
     setProcessCalendars(value.processCalendars ?? {}); setCheckpoints(Object.fromEntries(Object.entries(value.checkpoints).map(([id, date]) => [id, localInputValue(date)])));
     setProcessBranches(value.processBranches ?? {}); setProcessRepetitions(value.processRepetitions ?? {});
+    setUseOrganizationCalendars(value.useOrganizationCalendars??false);setStepCalendars(value.stepCalendars??{});setTimeZoneId(value.timeZoneId??'');
     setLastRequest(value); setResult(snapshot.result); setScenarioDirty(false); setError('');
   };
   const exportCsv = () => {
@@ -98,7 +104,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       <label><span>{direction === 'Forward' ? 'Начальный процесс' : 'Конечный процесс'}</span><select value={rootProcessId} onChange={event => { setRootProcessId(event.target.value); resetChain(); }}>{catalog.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label><span>Направление</span><select value={direction} onChange={event => { setDirection(event.target.value as 'Forward' | 'Backward'); resetChain(); }}><option value="Forward">Прямой расчёт от старта</option><option value="Backward">Обратный расчёт от результата</option></select></label>
       <label><span>{direction === 'Forward' ? 'Дата начала' : 'Требуемая дата результата'}</span><input disabled={busy} type="datetime-local" value={anchorDate} onChange={event => { setAnchorDate(event.target.value); setScenarioDirty(true); }}/></label>
-      <p className="schedule-zone-note">Дата ввода и отображаемые даты — в часовом поясе браузера. Рабочие часы применяются в явно заданном UTC-сдвиге календаря.</p><button className="schedule-settings" aria-expanded={assumptionsOpen} onClick={() => setAssumptionsOpen(value => !value)}><Settings2 size={17}/>Календарь</button>
+      <p className="schedule-zone-note">Дата ввода и отображаемые даты — в часовом поясе браузера. Рабочие часы применяются в часовом поясе или фиксированном UTC-сдвиге выбранного графика; источник виден в датах шагов.</p><button className="schedule-settings" aria-expanded={assumptionsOpen} onClick={() => setAssumptionsOpen(value => !value)}><Settings2 size={17}/>Календарь</button>
       <button className="schedule-run" disabled={busy || !rootProcessId || !workingDays.length} onClick={calculate}>{busy ? <RotateCcw className="is-spinning" size={17}/> : <Play size={17}/>}Рассчитать</button>
       {assumptionsOpen && <div className="schedule-assumptions">
         <label><span>Сдвиг общего календаря UTC, минуты</span><input disabled={busy} type="number" min="-720" max="840" value={utcOffsetMinutes} onChange={event => { setUtcOffsetMinutes(Number(event.target.value)); setScenarioDirty(true); }}/></label><label><span>Начало рабочего дня</span><input disabled={busy} type="time" value={workdayStart} onChange={event => { setWorkdayStart(event.target.value); setScenarioDirty(true); }}/></label>
@@ -111,7 +117,9 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       </div>}
     </section>
     </fieldset>
-    <ScheduleCalendarEditor processes={result?.processes ?? []} defaults={{ workdayStart, workdayEnd, workingDays, nonWorkingDates, utcOffsetMinutes }} value={processCalendars} disabled={busy} onChange={value => { setProcessCalendars(value); setScenarioDirty(true); }}/>
+    <section className="schedule-scenario"><label><input disabled={busy} type="checkbox" checked={useOrganizationCalendars} onChange={e=>{setUseOrganizationCalendars(e.target.checked);setScenarioDirty(true);}}/>Календари шагов из оргструктуры</label><label>Часовой пояс общего графика<input disabled={busy} placeholder="Europe/Berlin; пусто — фиксированный UTC" value={timeZoneId} onChange={e=>{setTimeZoneId(e.target.value);setScenarioDirty(true);}}/></label><p>Календари задаются в настройках организации и подразделений. В расчёте используются оргпривязки дорожек, в архиве — их сохранённый снимок. Ночные смены допускаются; часы работы считаются как реальное прошедшее время. Календари шагов пока несовместимы с дополнительными проходами циклов: такой сценарий отклоняется явно.</p></section>
+    <ScheduleCalendarEditor processes={result?.processes ?? []} defaults={{ workdayStart, workdayEnd, workingDays, nonWorkingDates, utcOffsetMinutes,timeZoneId:timeZoneId||undefined }} value={processCalendars} disabled={busy} onChange={value => { setProcessCalendars(value); setScenarioDirty(true); }}/>
+    <ScheduleStepCalendarEditor models={result?.sources?.processes??[]} value={stepCalendars} disabled={busy} onChange={value=>{setStepCalendars(value);setScenarioDirty(true);}}/>
     <ScheduleRouteEditor models={result?.sources?.processes ?? []} branches={processBranches} repetitions={processRepetitions} disabled={busy} onChange={(branches, repetitions) => { setProcessBranches(branches); setProcessRepetitions(repetitions); setScenarioDirty(true); }}/>
     <ScheduleArchive userId={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
     <ScheduleServerArchive key={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
@@ -122,8 +130,8 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       {scenarioDirty && <div className="schedule-dirty"><AlertTriangle size={16}/>Параметры изменены. Нажмите «Рассчитать», чтобы обновить даты.</div>}
       {result.maximumStartAt && result.maximumEndAt && (result.maximumStartAt !== result.startAt || result.maximumEndAt !== result.endAt) && <section className="schedule-scenario"><h2>Предельный вариант по числу повторов</h2><p>{result.direction === "Forward" ? "Расчётная дата результата при предельном числе дополнительных проходов:" : "Расчётный предельный старт для заданного числа дополнительных проходов:"} <strong>{displayDate(result.direction === "Forward" ? result.maximumEndAt : result.maximumStartAt)}</strong>.</p><p>Это сценарный предел заданных повторов, а не вероятностный прогноз и не гарантия фактического срока. Остальные допущения и неопределённости сохраняются.</p></section>}
       <section className="schedule-kpis"><article><strong>{result.processes.length}</strong><span>процессов в цепочке</span></article><article><strong>{displayHours(result.durationHours)}</strong><span>сумма расчётных длительностей</span></article><article><strong>{displayHours(result.criticalDurationHours)}</strong><span>критическая цепочка</span></article><article><strong>{displayDate(result.startAt)}</strong><span>начало цепочки</span></article><article><strong>{displayDate(result.endAt)}</strong><span>завершение цепочки</span></article><article className={result.complete ? 'is-ready' : 'is-alert'}>{result.complete ? <CheckCircle2 size={20}/> : <AlertTriangle size={20}/>}<strong>{result.complete ? 'Расчёт полный' : 'Есть пробелы'}</strong><span>{result.issues.length} замечаний</span></article></section>
-      {result.sources && <details className="schedule-scenario"><summary>Исходные версии и календари снимка</summary><p>{result.sources.algorithm} · {displayDate(result.sources.capturedAt)} · общий сдвиг UTC {result.assumptions.utcOffsetMinutes ?? 0} минут</p>{result.sources.processes.map(model => <p key={model.id}>{model.name} · {model.version} · {model.status}{result.assumptions.processCalendars?.[model.id] ? ` · отдельный график ${result.assumptions.processCalendars[model.id].workdayStart}–${result.assumptions.processCalendars[model.id].workdayEnd}, UTC ${result.assumptions.processCalendars[model.id].utcOffsetMinutes} мин` : " · общий график"}</p>)}</details>}
-      <section className="schedule-summary"><span><strong>Календарь:</strong> {result.assumptions.workdayStart}–{result.assumptions.workdayEnd}</span><span><strong>Исключения:</strong> {result.assumptions.nonWorkingDates.length}</span><span><strong>Длительность:</strong> {result.assumptions.durationScalePercent}%</span><span><strong>Передача:</strong> {displayHours(result.assumptions.transferDelayHours)}</span><span><strong>Ожидание:</strong> {result.assumptions.includeWaitTime ? 'учтено' : 'не учтено'}</span></section>
+      {result.sources && <details className="schedule-scenario"><summary>Исходные версии и календари снимка</summary><p>{result.sources.algorithm} · {displayDate(result.sources.capturedAt)} · общий сдвиг UTC {result.assumptions.utcOffsetMinutes ?? 0} минут</p>{result.sources.processes.map(model => <p key={model.id}>{model.name} · {model.version} · {model.status}{result.assumptions.processCalendars?.[model.id] ? ` · отдельный график ${result.assumptions.processCalendars[model.id].workdayStart}–${result.assumptions.processCalendars[model.id].workdayEnd}, UTC ${result.assumptions.processCalendars[model.id].utcOffsetMinutes} мин` : result.assumptions.useOrganizationCalendars ? " · наследуемые оргкалендари, см. даты шагов" : " · общий график"}</p>)}</details>}
+      <section className="schedule-summary"><span><strong>Общий резервный календарь:</strong> {result.assumptions.workdayStart}–{result.assumptions.workdayEnd}</span><span><strong>Исключения:</strong> {result.assumptions.nonWorkingDates.length}</span><span><strong>Длительность:</strong> {result.assumptions.durationScalePercent}%</span><span><strong>Передача:</strong> {displayHours(result.assumptions.transferDelayHours)}</span><span><strong>Ожидание:</strong> {result.assumptions.includeWaitTime ? 'учтено' : 'не учтено'}</span></section>
       <section className="schedule-scenario"><header><div><span className="eyebrow">Сценарий «что если»</span><h2>Длительности и контрольные даты</h2><p>Измените длительность конкретного процесса или задайте дату, к которой он должен завершиться, затем пересчитайте цепочку.</p></div><button disabled={busy} onClick={() => { setProcessScales({}); setCheckpoints({}); setScenarioDirty(true); }}><RotateCcw size={15}/>Сбросить сценарий</button></header><div className="schedule-scenario-grid">
         {result.processes.map(item => <div key={item.processId}><span><strong>{item.processName}</strong><small>{item.processId}</small></span><label><Gauge size={15}/><span>Длительность, %</span><input disabled={busy} type="number" min="1" max="1000" value={processScales[item.processId] ?? 100} onChange={event => { setProcessScales(value => ({ ...value, [item.processId]: Number(event.target.value) })); setScenarioDirty(true); }}/></label><label><Milestone size={15}/><span>Контрольная дата</span><input disabled={busy} type="datetime-local" value={checkpoints[item.processId] ?? ''} onChange={event => { setCheckpoints(value => ({ ...value, [item.processId]: event.target.value })); setScenarioDirty(true); }}/></label></div>)}
       </div></section>
@@ -136,6 +144,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
           {(dependencies.get(item.processId)?.length ?? 0) > 0 && <div className="schedule-objects">{dependencies.get(item.processId)!.map(dependency => <span key={`${dependency.objectId}:${dependency.sourceProcessId}:${dependency.targetProcessId}`}>{dependency.objectName}{!dependency.required && <small>необязательный</small>}</span>)}</div>}
           {(item.missingDurationCount > 0 || item.hasInternalCycle) && <div className="schedule-flags">{item.missingDurationCount > 0 && <span>{item.missingDurationCount} шагов без нормы</span>}{item.hasInternalCycle && <span>возвратный цикл</span>}</div>}
           {!item.isDateReliable && <div className="schedule-uncertainty"><strong>Почему даты предварительные</strong>{item.uncertaintyReasons.map(reason => <span key={reason}>{reason}</span>)}</div>}
+          {item.steps&&<details><summary>Графики и даты шагов ({item.steps.length})</summary><ul>{item.steps.map(step=><li key={step.elementId}><strong>{result.sources?.processes.find(model=>model.id===item.processId)?.nodes?.find(node=>node.id===step.elementId)?.name??step.elementId}</strong> · {step.calendarSource}: {displayDate(step.startAt)} — {displayDate(step.endAt)}</li>)}</ul></details>}
         </article>)}</div>
       </section>
     </>}

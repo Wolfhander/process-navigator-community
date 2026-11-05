@@ -15,6 +15,7 @@ count += await ExecutionTimingChecks.RunAsync();
 count += await ExecutionOutcomeChecks.RunAsync();
 count += await ProcessIdentityChecks.RunAsync();
 count += await ConcurrentSnapshotChecks.RunAsync();
+count += await OrganizationCalendarChecks.RunAsync();
 count += OrganizationHeatmapChecks.Run();
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); count++; }
 var input = new InformationObjectBindingModel("request", "Заявка", "Input", Version: "1");

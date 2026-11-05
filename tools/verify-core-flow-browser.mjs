@@ -320,6 +320,25 @@ try {
   ]);
   assert.equal((await api('/api/processes/'+spec.id+'/instances')).length,beforeCount+12);
   check('120 HTTP reads during 12 execution writes succeed without retries or lost instances');
+  stage='organization-calendars';
+  const calendarOrg=await api('/api/organization');
+  for(const entity of calendarOrg.legalEntities)entity.calendar={workdayStart:'22:00',workdayEnd:'06:00',workingDays:[0,1,2,3,4,5,6],nonWorkingDates:[],utcOffsetMinutes:0,timeZoneId:'Europe/Berlin'};
+  await api('/api/admin/organization',calendarOrg,200,spec.user,'PUT');
+  await navigate('page=schedule');await wait("!!document.querySelector('.schedule-form')",'org calendar calculator');
+  await set('.schedule-form select',spec.id);
+  await set('.schedule-form input[type=datetime-local]','2026-11-10T00:00');
+  await clickText('Календари шагов из оргструктуры','label');
+  await click('.schedule-run','organization calendar calculation');
+  await wait("!!document.querySelector('.schedule-list')&&document.querySelector('.schedule-list').textContent.includes('Europe/Berlin')",'step calendar sources and dates');
+  await clickText('Графики и даты шагов (4)','summary');
+  const calendarResult=await api('/api/processes/schedule',{rootProcessId:spec.id,direction:'Forward',anchorDate:'2026-11-09T21:00:00Z',utcOffsetMinutes:0,useOrganizationCalendars:true});
+  assert.equal(calendarResult.sources.algorithm,'schedule-v4-step-calendar');
+  assert.equal(calendarResult.processes[0].steps.length,4);
+  assert.equal(Date.parse(calendarResult.endAt),Date.parse('2026-11-10T01:00:00Z'));
+  const calendarReverse=await api('/api/processes/schedule',{rootProcessId:spec.id,direction:'Backward',anchorDate:calendarResult.endAt,utcOffsetMinutes:0,useOrganizationCalendars:true});
+  assert.equal(Date.parse(calendarReverse.startAt),Date.parse('2026-11-09T21:00:00Z'));
+  const calendarShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'org-calendars.png'),Buffer.from(calendarShot.data,'base64'));
+  check('Saved organization night calendar drives browser step dates and both API directions with seasonal zone');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){

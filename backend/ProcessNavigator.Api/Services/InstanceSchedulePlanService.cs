@@ -35,7 +35,8 @@ public sealed class InstanceSchedulePlanService(IWebHostEnvironment environment,
             throw new InvalidDataException("Расчёт изменился. Пересчитайте сроки и проверьте новые даты перед назначением.");
         if (update.ExpectedSources is null || calculated.Sources!.Algorithm != update.ExpectedSources.Algorithm ||
             JsonSerializer.Serialize(calculated.Sources.Processes, json) != JsonSerializer.Serialize(update.ExpectedSources.Processes, json) ||
-            JsonSerializer.Serialize(calculated.Sources.Objects, json) != JsonSerializer.Serialize(update.ExpectedSources.Objects, json))
+            JsonSerializer.Serialize(calculated.Sources.Objects, json) != JsonSerializer.Serialize(update.ExpectedSources.Objects, json) ||
+            JsonSerializer.Serialize(calculated.Sources.Organization,json)!=JsonSerializer.Serialize(update.ExpectedSources.Organization,json))
             throw new InvalidDataException("Исходные данные расчёта изменились или отсутствуют. Пересчитайте сроки перед назначением.");
         if (!item.IsDateReliable || !calculated.Complete)
             throw new InvalidDataException("Предварительный расчёт с пробелами нельзя назначить базовым планом. Сначала устраните замечания.");
@@ -89,6 +90,8 @@ public sealed class InstanceSchedulePlanService(IWebHostEnvironment environment,
         if (baseline.Sources.Algorithm != current.Sources.Algorithm)
             changes.Add(new("Algorithm", "algorithm", "Алгоритм", $"{baseline.Sources.Algorithm} → {current.Sources.Algorithm}"));
         var oldModels = baseline.Sources.Processes.ToDictionary(item => item.Id, StringComparer.Ordinal);
+        if(JsonSerializer.Serialize(baseline.Sources.Organization,json)!=JsonSerializer.Serialize(current.Sources.Organization,json))
+            changes.Add(new("Calendar","organization","Оргкалендари","Изменились оргструктура или календари назначения."));
         var newModels = current.Sources.Processes.ToDictionary(item => item.Id, StringComparer.Ordinal);
         foreach (var id in oldModels.Keys.Union(newModels.Keys).Order(StringComparer.Ordinal))
         {

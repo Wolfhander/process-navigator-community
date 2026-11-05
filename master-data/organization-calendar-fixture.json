@@ -1,0 +1,12 @@
+{
+  "purpose": "Согласованный учебный шаблон календарей, соответствует OrganizationCalendarChecks.cs",
+  "organization": {"workdayStart":"09:00","workdayEnd":"17:00","workingDays":[0,1,2,3,4,5,6],"nonWorkingDates":[],"utcOffsetMinutes":0},
+  "units": {
+    "author":{"workdayStart":"09:00","workdayEnd":"12:00","workingDays":[0,1,2,3,4,5,6],"nonWorkingDates":[],"utcOffsetMinutes":0},
+    "review":{"workdayStart":"13:00","workdayEnd":"17:00","workingDays":[0,1,2,3,4,5,6],"nonWorkingDates":[],"utcOffsetMinutes":0}
+  },
+  "night": {"workdayStart":"22:00","workdayEnd":"06:00","workingDays":[0,1,2,3,4,5,6],"nonWorkingDates":[],"utcOffsetMinutes":0,"timeZoneId":"Europe/Berlin"},
+  "sourceBpmn":"backend/ProcessNavigator.Api/Data/demo-showcase-l4-drawing.bpmn",
+  "hoursPerStep":1,
+  "expected":{"forwardStart":"2026-11-09T09:00:00Z","forwardEnd":"2026-11-09T15:00:00Z","backwardLatestStart":"2026-11-09T10:00:00Z","nightStart":"2026-11-09T21:00:00Z","nightEnd":"2026-11-10T01:00:00Z"}
+}

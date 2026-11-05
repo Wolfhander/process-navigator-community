@@ -25,5 +25,8 @@ export function scheduleCsv(result: ProcessSchedule) {
     ['Начальная дата ISO', result.anchorDate], ['Общий коэффициент, %', result.assumptions.durationScalePercent],
     ['Передача в календаре получателя, ч', result.assumptions.transferDelayHours], ['Учитывать ожидание', result.assumptions.includeWaitTime],
     ['Критичность', 'Номинальные рабочие часы; при разных календарях не является точной календарной критичностью']);
+  rows.push([],['Оргкалендари',!!result.assumptions.useOrganizationCalendars],['Общий часовой пояс',result.assumptions.timeZoneId??'фиксированный UTC']);
+  rows.push([],['Процесс ID','Шаг ID','Источник и график','Начало шага ISO','Конец шага ISO']);
+  for(const item of result.processes)for(const step of item.steps??[])rows.push([item.processId,step.elementId,step.calendarSource,step.startAt,step.endAt]);
   return '\uFEFF' + rows.map(row => row.map(scheduleCsvCell).join(';')).join('\r\n');
 }
