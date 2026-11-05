@@ -27,6 +27,7 @@ backend/ProcessNavigator.Api/Data/SchedulePlans/
 backend/ProcessNavigator.Api/Data/ScheduleArchive/
 backend/ProcessNavigator.Api/Data/PortfolioHistory/
 backend/ProcessNavigator.Api/Data/EvidenceReviews/
+backend/ProcessNavigator.Api/Data/ReconciliationReviews/
 backend/ProcessNavigator.Api/Data/SourceMaterials/
 backend/ProcessNavigator.Api/Data/Commands/
 backend/ProcessNavigator.Api/Data/Comments/

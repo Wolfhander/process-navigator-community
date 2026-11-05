@@ -1,0 +1,13 @@
+{
+  "processId":"demo-showcase-l3-warehouse",
+  "requirementId":"trace-receipt-order",
+  "text":"Результат физической приёмки фиксируется перед регистрацией документа поступления.",
+  "source":"TRACE-001",
+  "locator":"раздел 1",
+  "elementIds":["Task_PhysicalReceipt","Task_ReceiptOrder"],
+  "checkSequence":true,
+  "original":"master-data/v1/documents/TRACE-001.md",
+  "reason":"Проверен раздел 1 TRACE-001: после физической приёмки регистрируется поступление; условия передачи оценены вручную.",
+  "browserRequirementId":"trace-drawing-registration",
+  "browserText":"После создания модели и чертежа результат передаётся на регистрацию версии."
+}

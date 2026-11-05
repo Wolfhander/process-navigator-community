@@ -1,6 +1,6 @@
 import type { ProcessModel, StepEvidence } from './types';
 
-export type EvidenceEntry = Omit<StepEvidence, 'status'> & { status: StepEvidence['status'] | 'missing' | 'unmapped' | 'stale' | 'mapped' | 'routeMismatch'; processId: string; processName: string; elementId: string; elementName: string; edition: 'Draft' | 'Published'; version: string; index: number };
+export type EvidenceEntry = Omit<StepEvidence, 'status'> & { status: StepEvidence['status'] | 'missing' | 'unmapped' | 'stale' | 'mapped' | 'routeMismatch'; processId: string; processName: string; elementId: string; elementName: string; edition: 'Draft' | 'Published'; version: string; index: number; requirementId?:string; requirementSnapshot?:import("./types").SourceRequirement };
 export function sourceRouteGaps(process: ProcessModel, ids: string[]): string[] {
   const known = new Set(process.nodes.map(node => node.id));
   const outgoing = new Map<string, string[]>();
@@ -30,7 +30,7 @@ export function collectEvidence(process: ProcessModel, edition: EvidenceEntry['e
     const nodes = ids.map(id => process.nodes.find(node => node.id === id));
     const gaps = requirement.checkSequence ? sourceRouteGaps(process, ids) : [];
     const status = !ids.length ? 'unmapped' : nodes.some(node => !node) ? 'stale' : gaps.length || (requirement.checkSequence && ids.length < 2) ? 'routeMismatch' : 'mapped';
-    entries.push({ processId: process.id, processName: process.name, version: process.version, edition,
+    entries.push({ processId: process.id, processName: process.name, version: process.version, edition,requirementId:requirement.id,requirementSnapshot:{...requirement,elementIds:[...(requirement.elementIds??[])]},
       elementId: nodes.find(node => node)?.id ?? '', elementName: ids.length ? nodes.map((node, i) => node?.name ?? `Не найден: ${ids[i]}`).join('; ') : 'Нет привязки к схеме',
       status, statement: requirement.text + (requirement.checkSequence ? `\nПроверка пути: ${ids.length < 2 ? 'недостаточно элементов' : nodes.some(node => !node) ? 'есть отсутствующие элементы, полная проверка невозможна' : gaps.length ? 'нет маршрута ' + gaps.join('; ') : 'разрывов между соседними элементами не найдено'}. Условия переходов и обязательность порядка не проверены.` : ''), source: requirement.source, locator: requirement.locator, index: -1000 - index });
   }

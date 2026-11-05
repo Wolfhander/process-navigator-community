@@ -9,6 +9,7 @@ import {isolatedEdge} from './isolated-edge.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const spec=JSON.parse(fs.readFileSync(path.join(root,'master-data/core-flow-fixture.json'),'utf8'));
+const reconciliationSpec=JSON.parse(fs.readFileSync(path.join(root,'master-data/reconciliation-fixture.json'),'utf8'));
 const artifacts=path.join(root,'artifacts');fs.mkdirSync(artifacts,{recursive:true});
 const folder=fs.mkdtempSync(path.join(artifacts,'core-flow-browser-')),data=path.join(folder,'Data');
 const files=createDemoContour().files;
@@ -24,7 +25,8 @@ const bpmn=source.replaceAll(spec.sourceModel,spec.id);
 // Untrusted imported metadata must never bypass the normal publication workflow.
 const context={version:'9.9',status:'Published',owner:sourceContext.owner,ownerLegalEntityId:sourceContext.ownerLegalEntityId,
   ownerUnitId:sourceContext.ownerUnitId,laneOrganizations:sourceContext.laneOrganizations,
-  passport:{level:4,purpose:spec.name,trigger:'Получено учебное задание',result:'Учебный чертёж выпущен'},
+  passport:{level:4,purpose:spec.name,trigger:'Получено учебное задание',result:'Учебный чертёж выпущен',
+    sourceRequirements:[{id:reconciliationSpec.browserRequirementId,text:reconciliationSpec.browserText,source:'TRACE-001',locator:'раздел 2',elementIds:spec.steps.slice(0,2),checkSequence:true}]},
   elements:Object.fromEntries(spec.steps.map(id=>[id,{description:'Учебное действие для сквозной приёмки',duration:spec.hoursPerStep+' час',
     responsible:sourceContext.elements[id]?.responsible,expectedResult:'Учебный результат',completionCriteria:'Зафиксирован результат'}]))};
 for(const step of spec.steps)assert.ok(sourceContext.elements[step],step+' is missing');
@@ -246,6 +248,30 @@ try {
   const sourceShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'provenance.png'),Buffer.from(sourceShot.data,'base64'));
   await clickText('Открыть модель');await wait("!!document.querySelector('.edges .is-focused')",'source transition navigation');
   check('Browser creates cited transition source, verifies original SHA-256 and opens focused edge');
+  stage='reconciliation';
+  await navigate('page=evidenceRegister');await wait("!!document.querySelector('.evidence-filters')",'evidence register');
+  await set('.evidence-filters label:nth-child(2) select','requirements');
+  await set('.evidence-filters label:nth-child(4) select',spec.id);
+  await clickText('Предметная сверка пункта');
+  await wait("!!document.querySelector('.reconciliation-review select')",'manual reconciliation page');
+  await set('select[aria-label="Оригинал для подтверждения"]',materials[0].id);
+  await set('textarea[aria-label="Причина сверки"]','Проверен раздел 2 TRACE-001: смысл передачи оценён вручную.');
+  await clickText('Подтвердить сверку по оригиналу');
+  await wait("document.querySelector('.reconciliation-review').textContent.includes('Есть ручное подтверждение снимка')",'confirmed source reconciliation');
+  const reviewUrl='/api/processes/'+spec.id+'/requirements/'+reconciliationSpec.browserRequirementId+'/reviews';
+  let reviewed=await api(reviewUrl);assert.equal(reviewed.state,'reviewed');assert.equal(reviewed.history[0].material.id,materials[0].id);
+  const reviewShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'reconciliation.png'),Buffer.from(reviewShot.data,'base64'));
+  await call('Emulation.setDeviceMetricsOverride',{width:360,height:1000,deviceScaleFactor:1,mobile:false});
+  await run("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
+  assert.equal(await run("(()=>{const e=document.querySelector('.reconciliation-review');return e.scrollWidth<=e.clientWidth+1})()"),true);
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+  await set('textarea[aria-label="Причина сверки"]','Учебный отзыв: требуется повторная оценка условия.');
+  await clickText('Отозвать подтверждение');
+  await wait("document.querySelector('.reconciliation-review').textContent.includes('Подтверждение отозвано')",'withdrawn reconciliation');
+  reviewed=await api(reviewUrl);assert.equal(reviewed.state,'withdrawn');assert.equal(reviewed.history.length,2);
+  await clickText('← Источники и вопросы');await clickText('Предметная сверка пункта');
+  await wait("document.querySelector('.reconciliation-review').textContent.includes('Подтверждение отозвано')",'reopened reconciliation journal');
+  check('Browser records/withdraws/reopens exact source requirement review with server-persisted history');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){

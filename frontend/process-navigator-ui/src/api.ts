@@ -9,6 +9,12 @@ const hostContext = readHostContext();
 let activeUser = hostContext.userId ?? localStorage.getItem('pn.demoUser') ?? 'demo-employee';
 export function setActiveUser(userId: string) { activeUser = userId; localStorage.setItem('pn.demoUser', userId); }
 const roleHeaders = () => ({ 'X-Process-Navigator-User': activeUser });
+export async function reconciliationReviewCall(processId:string,requirementId:string,draft:boolean,body?:import('./reconciliation-review').ReconciliationRequest,signal?:AbortSignal):Promise<import('./reconciliation-review').ReconciliationReport>{
+  const response=await fetch('/api/processes/'+encodeURIComponent(processId)+'/requirements/'+encodeURIComponent(requirementId)+'/reviews?draft='+draft,
+    {method:body?'POST':'GET',headers:{...roleHeaders(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,signal});
+  if(!response.ok)throw Error(await errorMessage(response,'Сверка недоступна.'));
+  return response.json();
+}
 export async function importRecipeCall<T>(suffix='',options:RequestInit={}):Promise<T>{
   const response=await fetch('/api/import-recipes'+suffix,{...options,headers:{...roleHeaders(),...options.headers}});
   if(!response.ok)throw new Error(await errorMessage(response,'Не удалось обработать регламент.'));

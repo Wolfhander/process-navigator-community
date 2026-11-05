@@ -26,6 +26,7 @@ builder.Services.AddSingleton<TransferAnalyticsService>();
 builder.Services.AddSingleton<OrganizationHeatmapService>();
 builder.Services.AddSingleton<PortfolioHistoryService>();
 builder.Services.AddSingleton<EvidenceReviewService>();
+builder.Services.AddSingleton<ReconciliationReviewService>();
 builder.Services.AddSingleton<SourceMaterialService>();
 builder.Services.AddSingleton<ImportRecipeService>();
 builder.Services.AddSingleton<DraftLanePlanService>();
@@ -1104,6 +1105,21 @@ app.MapDelete("/api/processes/table-selection-sets/{id}", async (string id, Http
 });
 
 app.MapSourceMaterials(CanOpenDraft);
+app.MapGet("/api/processes/{processId}/requirements/{requirementId}/reviews",async(string processId,string requirementId,bool? draft,
+    HttpContext context,ReconciliationReviewService reviews,AccessControlService access,CancellationToken ct)=>{
+    if(!access.Has(context,ProcessPermissions.View)||draft==true&&!CanOpenDraft(context,access))return Results.StatusCode(403);
+    try{return Results.Ok(await reviews.LoadAsync(processId,requirementId,draft==true,ct));}
+    catch(FileNotFoundException){return Results.NotFound();}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422);}
+});
+app.MapPost("/api/processes/{processId}/requirements/{requirementId}/reviews",async(string processId,string requirementId,bool? draft,
+    ReconciliationReviewRequest request,HttpContext context,ReconciliationReviewService reviews,AccessControlService access,CancellationToken ct)=>{
+    if(!access.Has(context,ProcessPermissions.View)||!access.Has(context,ProcessPermissions.EditContext)||draft==true&&!CanOpenDraft(context,access))return Results.StatusCode(403);
+    var actor=access.CurrentUser(context);
+    try{return Results.Ok(await reviews.RecordAsync(processId,requirementId,draft==true,request,actor.Id,actor.DisplayName,ct));}
+    catch(FileNotFoundException){return Results.NotFound();}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422);}
+});
 app.MapTableReferences(CanOpenDraft);
 app.MapImportRecipes(CanOpenDraft);
 app.MapGet("/api/processes/{processId}/elements/{elementId}/evidence-reviews", async (string processId,string elementId,bool? draft,
