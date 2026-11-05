@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { loadInstanceSchedulePlans } from './api';
 import type { InstanceSchedulePlan } from './instance-schedule-plan';
 import type { ProcessInstance } from './types';
-import { compareScheduleFact } from './schedule-fact';
+import {PlanFactComparison} from './PlanFactComparison';
 import { SchedulePlanFreshnessPanel } from './SchedulePlanFreshnessPanel';
 
 export function InstanceScheduleSummary({ instance }: { instance: ProcessInstance }) {
@@ -17,22 +17,13 @@ export function InstanceScheduleSummary({ instance }: { instance: ProcessInstanc
     finally { setBusy(false); }
   };
   const baseline = plans?.at(-1);
-  let fact = '';
-  try {
-    if (baseline) {
-      const compared = compareScheduleFact(baseline.item, instance, now);
-      fact = compared.state === 'cancelled' ? 'Выполнение отменено; завершение не оценивается.'
-        : compared.state === 'missing-fact' ? 'Дата фактического завершения отсутствует.'
-        : `${compared.state === 'completed' ? 'Отклонение окончания' : 'Текущая просрочка'}: ${Number(compared.finishDeltaHours!.toFixed(2))} календарных ч.`;
-    }
-  } catch { fact = 'Не удалось сопоставить даты плана и выполнения.'; }
   const date = (value: string) => new Date(value).toLocaleString('ru-RU');
   return <details className="execution-history" onToggle={event => { if (event.currentTarget.open && plans === undefined && !busy && !error) void load(); }}>
     <summary>Календарный план и факт</summary>
     {busy && <p>Загружаем план…</p>}{error && <p role="alert">{error}</p>}
     {!busy && <button onClick={load}>Обновить план</button>}
     {plans && !plans.length && <p>Базовый план не назначен. Назначить его можно на странице «Расчёт сроков».</p>}
-    {baseline && <><p>Базовое окончание: {date(baseline.item.endAt)}. {fact}</p><p>По состоянию на {date(now)}. Пауза не переносит календарный срок. Отрицательное отклонение — раньше плана.</p>
+    {baseline && <><PlanFactComparison plan={baseline.item} instance={instance} now={now} baseline={baseline}/>
       <SchedulePlanFreshnessPanel key={baseline.id} plan={baseline}/>
       {plans!.slice().reverse().map(plan => <div key={plan.id}><strong>{date(plan.assignedAt)} · {plan.assignedBy}</strong><span>{date(plan.item.startAt)} → {date(plan.item.endAt)} · {plan.reason}</span></div>)}
     </>}

@@ -69,7 +69,13 @@ try {
   await call('Emulation.setTimezoneOverride',{timezoneId:'Europe/Moscow'});
   await call('Page.addScriptToEvaluateOnNewDocument',{source:"localStorage.setItem('pn.demoUser',"+JSON.stringify(spec.user)+")"});
   const press=async(expression)=>{
-    const point=await run("(()=>{const e=("+expression+");e.scrollIntoView({block:'center',inline:'center'});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+    let point;
+    // Wait for reload/async layout, but never retry the business click itself.
+    for(let n=0;n<100;n++){
+      point=await run("(async()=>{const e=("+expression+");if(!e||e.disabled||e.closest('[inert]'))return null;e.scrollIntoView({behavior:'instant',block:'center',inline:'center'});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));if(!e.isConnected)return null;const r=e.getBoundingClientRect();const p={x:r.x+r.width/2,y:r.y+r.height/2};const hit=document.elementFromPoint(p.x,p.y);return hit===e||e.contains(hit)?p:null;})()");
+      if(point)break;await new Promise(r=>setTimeout(r,100));
+    }
+    assert.ok(point,'Click target remained absent or obstructed');
     await call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
     await call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
   };
@@ -134,6 +140,25 @@ try {
   await wait("!document.querySelector('.execution-start')",'execution opened');
   let instances=await api('/api/processes/'+spec.id+'/instances');assert.equal(instances.length,1);
   const instanceId=instances[0].id;
+  stage='baseline';
+  const planRequest={rootProcessId:spec.id,direction:'Forward',anchorDate:spec.anchorDate,utcOffsetMinutes:spec.utcOffsetMinutes};
+  const calculation=await api('/api/processes/schedule',planRequest);
+  assert.equal(calculation.complete,true);
+  const calculated=calculation.processes.find(p=>p.processId===spec.id);
+  const update={request:planRequest,expectedStartAt:calculated.startAt,expectedEndAt:calculated.endAt,
+    expectedVersion:instances[0].processVersion,previousPlanId:null,reason:'Первоначальный учебный план',expectedSources:calculation.sources};
+  const planUrl='/api/processes/'+spec.id+'/instances/'+instanceId+'/schedule-plans';
+  const executionBefore=JSON.stringify(instances[0]);
+  const initialPlan=await api(planUrl,update);
+  await api(planUrl,update,422); // stale PreviousPlanId
+  await api(planUrl,{...update,previousPlanId:initialPlan.id,expectedVersion:'other'},422);
+  const replacement=await api(planUrl,{...update,previousPlanId:initialPlan.id,reason:'Уточнение учебного плана'});
+  const history=await api(planUrl);assert.equal(history.length,2);assert.equal(history[0].id,initialPlan.id);
+  assert.equal(history[1].id,replacement.id);
+  assert.equal(JSON.stringify((await api('/api/processes/'+spec.id+'/instances'))[0]),executionBefore);
+  assert.equal((await api(planUrl+'/check')).status,'Current');
+  check('Baseline assigned/replaced; stale and wrong version rejected; history and execution unchanged');
+  stage='execution';
   for(const id of spec.steps){
     await click('.node[aria-label='+JSON.stringify((await api('/api/processes/'+spec.id)).nodes.find(n=>n.id===id).name)+']','step '+id);
     await clickText('Начать шаг');await clickText('Завершить шаг');
@@ -144,6 +169,30 @@ try {
   }
   assert.equal(instances[0].id,instanceId);assert.equal(instances[0].status,'Completed');
   check('Browser starts instance and completes every step; API confirms Completed');
+  stage='plan-fact';
+  await api(planUrl,{...update,previousPlanId:replacement.id},422);
+  await clickText(instances[0].name);
+  await click('.execution-item .execution-history summary','load baseline in execution list');
+  await wait("!!document.querySelector('.plan-fact-report table')",'baseline fact comparison');
+  const comparisonText=await run("document.querySelector('.plan-fact-report').textContent");
+  assert.ok(comparisonText.includes('Назначенный базовый план'));assert.ok(comparisonText.includes('Завершено'));
+  assert.ok(comparisonText.includes(replacement.id));
+  const downloads=path.join(folder,'downloads');fs.mkdirSync(downloads);
+  await call('Browser.setDownloadBehavior',{behavior:'allow',downloadPath:downloads});
+  await clickText('Выгрузить план / факт CSV');
+  const csvFile=path.join(downloads,'plan-fact-'+instanceId+'.csv');
+  for(let n=0;n<100&&!fs.existsSync(csvFile);n++)await new Promise(r=>setTimeout(r,50));
+  assert.ok(fs.existsSync(csvFile),'Browser comparison CSV was not downloaded');
+  const csv=fs.readFileSync(csvFile,'utf8');assert.ok(csv.includes(instanceId)&&csv.includes(replacement.id)&&csv.includes('Уточнение учебного плана'));
+  assert.equal((await api(planUrl)).length,2);
+  await call('Emulation.setDeviceMetricsOverride',{width:360,height:1000,deviceScaleFactor:1,mobile:false});
+  await run("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
+  assert.equal(await run("(()=>{const e=document.querySelector('.plan-fact-report');return e.scrollWidth<=e.clientWidth+1})()"),true);
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+  const factShot=await call('Page.captureScreenshot',{format:'png'});
+  fs.writeFileSync(path.join(folder,'plan-fact.png'),Buffer.from(factShot.data,'base64'));
+  check('Completed baseline comparison and actual CSV download; finished instance cannot be replanned');
+  await clickText('← Вернуться');
   stage='navigation';await navigate('page=catalog');
   await wait("!!document.querySelector('.process-catalog-page-content')",'catalog navigation');
   await call('Page.reload');await wait("!!document.querySelector('.process-catalog-page-content')",'catalog after reload');

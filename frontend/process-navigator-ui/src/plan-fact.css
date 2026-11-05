@@ -1,0 +1,10 @@
+.plan-fact-report{padding:12px;border:1px solid #cedbd2;border-radius:10px;background:#f8fbf7;min-width:0;overflow-wrap:anywhere}
+.plan-fact-report>header{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:10px;padding:0;background:transparent;border:0}
+.plan-fact-report p{font-size:12px;line-height:1.5;margin:8px 0}
+.plan-fact-report button{padding:8px;border:1px solid #819d8b;border-radius:6px;background:white;color:#274f3a}
+.plan-fact-table{max-width:100%;overflow:auto}
+.plan-fact-table table{border-collapse:collapse;width:100%;font-size:12px}
+.plan-fact-table caption{text-align:left;padding:8px 0;font-weight:600}
+.plan-fact-table th,.plan-fact-table td{text-align:left;border-bottom:1px solid #d5ddd5;padding:8px;vertical-align:top;min-width:100px}
+.plan-fact-report>header>div{display:block;min-width:0;margin:0}
+.plan-fact-report .plan-fact-table{display:block;width:100%;margin-top:0}
