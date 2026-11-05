@@ -1,4 +1,6 @@
 import {WorkspaceToolPage} from './WorkspaceToolPage';
+import {pageReadRequest} from './page-read-request';
+import {PageReadState} from './PageReadState';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, PlugZap, Save, ServerCog, X } from 'lucide-react';
 import { loadOneCSettings, saveOneCSettings, testOneCConnection } from './api';
@@ -13,7 +15,8 @@ export function OneCIntegrationDialog({ onClose }: Props) {
   const [status, setStatus] = useState<OneCConnectionStatus>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  useEffect(() => { loadOneCSettings().then(settings => { setDraft({ enabled: settings.enabled, baseUrl: settings.baseUrl, healthPath: settings.healthPath, commandPath: settings.commandPath, username: settings.username, timeoutSeconds: settings.timeoutSeconds }); setPasswordConfigured(settings.passwordConfigured); }).catch(reason => setError(reason.message)); }, []);
+  const [revision,setRevision]=useState(0);
+  useEffect(() => {setDraft(undefined);setError('');return pageReadRequest(()=>loadOneCSettings(),settings => { setDraft({ enabled: settings.enabled, baseUrl: settings.baseUrl, healthPath: settings.healthPath, commandPath: settings.commandPath, username: settings.username, timeoutSeconds: settings.timeoutSeconds }); setPasswordConfigured(settings.passwordConfigured); },setError);}, [revision]);
 
   const save = async () => {
     if (!draft) return; setBusy(true); setError(''); setStatus(undefined);
@@ -24,7 +27,7 @@ export function OneCIntegrationDialog({ onClose }: Props) {
 
   return <WorkspaceToolPage title="Настройки интеграции" onBack={onClose}><section className="one-c-dialog" role="region" aria-label="Интеграция с 1С">
     <header><div><span className="eyebrow">Системная интеграция</span><h2>Подключение к 1С:ERP</h2><p>Process Navigator вызывает опубликованный HTTP-сервис внутреннего сервера 1С. Доступ в интернет не требуется.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
-    {!draft ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем настройки…'}</div> : <div className="one-c-form">
+    {!draft ? <PageReadState error={error} loading="Загружаем настройки…" onRetry={()=>setRevision(n=>n+1)}/> : <div className="one-c-form">
       <label className="integration-toggle"><input type="checkbox" checked={draft.enabled} onChange={event => setDraft({ ...draft, enabled: event.target.checked })}/><span><strong>Использовать реальную 1С</strong><small>{draft.enabled ? 'ERP-команды направляются в настроенный HTTP-сервис' : 'Сохраняется безопасный демонстрационный адаптер'}</small></span></label>
       <label className="dialog-field">Адрес сервера 1С<input value={draft.baseUrl} onChange={event => setDraft({ ...draft, baseUrl: event.target.value })} placeholder="http://erp-server/enterprise"/></label>
       <div className="dialog-field-grid"><label className="dialog-field">Путь проверки<input value={draft.healthPath} onChange={event => setDraft({ ...draft, healthPath: event.target.value })}/></label><label className="dialog-field">Путь команд<input value={draft.commandPath} onChange={event => setDraft({ ...draft, commandPath: event.target.value })}/></label></div>

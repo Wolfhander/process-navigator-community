@@ -1,3 +1,5 @@
+import {pageReadRequest} from './page-read-request';
+import {PageReadState} from './PageReadState';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { loadOrganization, saveProcessDirections, type ProcessDirectionSelection } from './api';
@@ -23,7 +25,8 @@ export function ProcessDirectionMatrixDialog({ catalog, onClose, onSaved, page =
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadOrganization().then(map => { const values = initialSelections(map, catalog); setOrganization(map); setBaseline(values); setAssignments(values); }).catch(reason => setError(reason.message)); }, [catalog]);
+  const [revision,setRevision]=useState(0);
+  useEffect(() => {setOrganization(undefined);setError('');return pageReadRequest(()=>loadOrganization(),map=>{const values=initialSelections(map,catalog);setOrganization(map);setBaseline(values);setAssignments(values);},setError);}, [catalog,revision]);
   const directions = useMemo(() => organization?.legalEntities.flatMap(entity => entity.directions.map(direction => ({
     ref: { legalEntityId: entity.id, directionId: direction.id }, label: `${entity.name} / ${direction.name}`
   }))) ?? [], [organization]);
@@ -54,7 +57,7 @@ export function ProcessDirectionMatrixDialog({ catalog, onClose, onSaved, page =
   const content = <section className={`direction-matrix${page ? ' direction-matrix-page-content' : ''}`} role={page ? 'region' : 'dialog'} aria-modal={page ? undefined : true} aria-label="Распределение процессов по направлениям">
     <header><div><span className="eyebrow">Настройки · Каталог процессов</span><h2>Распределение по направлениям</h2><p>Выберите процесс и отметьте направления справа. Для массового назначения отметьте несколько строк.</p></div>{!page && <button className="dialog-close" onClick={onClose} aria-label="Закрыть">×</button>}</header>
     {error && <p className="direction-matrix-error" role="alert">{error}</p>}
-    {!organization ? <p className="direction-matrix-loading">Загружаем организационную структуру…</p> : <>
+    {!organization ? <PageReadState error={error} loading="Загружаем организационную структуру…" onRetry={()=>setRevision(n=>n+1)}/> : <>
       <div className="direction-matrix-toolbar"><input aria-label="Поиск процесса" placeholder="Найти процесс по названию или коду" value={query} onChange={event => setQuery(event.target.value)}/><label><input type="checkbox" checked={unassignedOnly} onChange={event => setUnassignedOnly(event.target.checked)}/> Без направления ({catalog.filter(process => !(assignments[process.id]?.length)).length})</label></div>
       <div className="direction-matrix-main"><div className="direction-matrix-list"><div className="direction-matrix-list-head"><label><input type="checkbox" checked={visible.length > 0 && visible.every(item => selected.includes(item.id))} onChange={event => setSelected(event.target.checked ? [...new Set([...selected, ...visible.map(item => item.id)])] : selected.filter(id => !visible.some(item => item.id === id)))}/> Выбрать видимые</label><span>{visible.length} из {catalog.length}</span></div>
         {visible.map(process => <div key={process.id} className={`direction-matrix-row ${active === process.id ? 'active' : ''}`}><input type="checkbox" aria-label={`Выбрать ${process.name}`} checked={selected.includes(process.id)} onChange={event => setSelected(event.target.checked ? [...selected, process.id] : selected.filter(id => id !== process.id))}/><button onClick={() => setActive(process.id)}><strong>{process.name}</strong><small>{process.id} · {(assignments[process.id] ?? []).map(ref => directions.find(item => key(item.ref) === key(ref))?.label ?? ref.directionId).join(', ') || 'Без направления'}</small></button>{!same(assignments[process.id], baseline[process.id]) && <span title="Не сохранено">●</span>}</div>)}

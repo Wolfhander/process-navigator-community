@@ -1,3 +1,5 @@
+import {pageReadRequest} from './page-read-request';
+import {PageReadState} from './PageReadState';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ArrowLeft, CheckCircle2, Save, ShieldCheck, UserRound, X } from 'lucide-react';
@@ -18,8 +20,10 @@ export function UserAdminDialog({ currentUserId, onClose, onChanged, page = fals
   const [saved, setSaved] = useState('');
   const [organization, setOrganization] = useState<OrganizationMap>();
 
-  useEffect(() => { loadUserDirectory().then(data => { setDirectory(data); setSelectedId(data.users[0]?.id ?? ''); }).catch(reason => setError(reason.message)); }, []);
-  useEffect(() => { loadOrganization().then(setOrganization).catch(() => undefined); }, []);
+  const [revision,setRevision]=useState(0);
+  const [organizationError,setOrganizationError]=useState('');
+  useEffect(() => {setDirectory(undefined);setError('');return pageReadRequest(()=>loadUserDirectory(),data=>{setDirectory(data);setSelectedId(data.users[0]?.id??'');},setError);}, [revision]);
+  useEffect(() => {setOrganization(undefined);setOrganizationError('');return pageReadRequest(()=>loadOrganization(),setOrganization,()=>setOrganizationError('Оргструктура недоступна; назначения подразделений не проверены.'));}, [revision]);
   useEffect(() => setDraft(directory?.users.find(user => user.id === selectedId)), [directory, selectedId]);
 
   const save = async () => {
@@ -37,7 +41,8 @@ export function UserAdminDialog({ currentUserId, onClose, onChanged, page = fals
       {!page && <button className="icon-button dialog-close" onClick={onClose} aria-label="Закрыть"><X size={18}/></button>}
       <span className="eyebrow">Администрирование доступа</span><h2 id="users-title">Пользователи и роли</h2>
       <p>Назначайте организационные роли и временно отключайте доступ. Набор разрешений определяется выбранной ролью.</p>
-      {!directory ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем пользователей…'}</div> : <div className="user-admin-layout">
+      {organizationError&&<p role="status">{organizationError}</p>}
+      {!directory ? <PageReadState error={error} loading="Загружаем пользователей…" onRetry={()=>setRevision(n=>n+1)}/> : !directory.users.length?<p role="status">В каталоге пользователей нет записей.</p>:<div className="user-admin-layout">
         <div className="user-list">{directory.users.map(user => <button key={user.id} className={user.id === selectedId ? 'is-selected' : ''} onClick={() => { setSelectedId(user.id); setError(''); setSaved(''); }}><UserRound size={17}/><span><strong>{user.displayName}</strong><small>{user.roleName}{!user.isActive ? ' · отключён' : ''}</small></span></button>)}</div>
         {draft && <div className="user-edit-card">
           <div className="user-edit-title"><ShieldCheck size={19}/><div><strong>{draft.displayName}</strong><small>{draft.id}</small></div></div>

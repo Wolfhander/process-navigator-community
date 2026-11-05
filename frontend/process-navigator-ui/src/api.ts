@@ -288,8 +288,8 @@ export async function saveAssignments(processId: string, assignments: ProcessAss
   return response.json() as Promise<ProcessAssignments>;
 }
 
-export async function loadInstances(processId: string): Promise<ProcessInstance[]> {
-  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances`, { headers: roleHeaders() });
+export async function loadInstances(processId: string,signal?:AbortSignal): Promise<ProcessInstance[]> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances`, { signal,headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить выполнения процесса.'));
   return response.json() as Promise<ProcessInstance[]>;
 }
@@ -510,8 +510,8 @@ export async function configureProcessWorkflow(id: string, stages: import('./typ
   return response.json() as Promise<import('./types').ProcessWorkflow>;
 }
 
-export async function loadVersions(id: string): Promise<ProcessVersion[]> {
-  const response = await fetch(`/api/processes/${encodeURIComponent(id)}/versions`, { headers: roleHeaders() });
+export async function loadVersions(id: string,signal?:AbortSignal): Promise<ProcessVersion[]> {
+  const response = await fetch(`/api/processes/${encodeURIComponent(id)}/versions`, { signal,headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить историю версий.'));
   return response.json() as Promise<ProcessVersion[]>;
 }

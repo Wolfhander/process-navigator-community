@@ -1,3 +1,5 @@
+import {pageReadRequest} from './page-read-request';
+import {PageReadState} from './PageReadState';
 import { useEffect, useMemo, useState } from 'react';
 import { Archive, ArrowLeft, Download, ListChecks, RotateCcw, Search, X } from 'lucide-react';
 import { createBackup, downloadBackup, exportAuditLog, loadAuditLog, loadBackups, previewBackupRestore, restoreBackup } from './api';
@@ -7,14 +9,25 @@ import './backup-restore.css';
 
 export function AuditLogDialog({ onClose, page = false }: { onClose: () => void; page?: boolean }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]); const [backups, setBackups] = useState<BackupInfo[]>([]); const [query, setQuery] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { Promise.all([loadAuditLog(), loadBackups()]).then(([audit, copies]) => { setEntries(audit); setBackups(copies); }).catch(reason => setError(reason instanceof Error ? reason.message : 'Не удалось загрузить журнал.')); }, []);
+  const [loaded,setLoaded]=useState(false),[revision,setRevision]=useState(0);
+  const [partial,setPartial]=useState('');
+  useEffect(() => {setLoaded(false);setError('');setPartial('');setEntries([]);setBackups([]);
+    return pageReadRequest(()=>Promise.allSettled([loadAuditLog(),loadBackups()]),([audit,copies])=>{
+      if(audit.status==='fulfilled')setEntries(audit.value as AuditEntry[]);
+      if(copies.status==='fulfilled')setBackups(copies.value as BackupInfo[]);
+      if(audit.status==='rejected'||copies.status==='rejected')setPartial([audit.status==='rejected'?'Журнал недоступен':'',copies.status==='rejected'?'Список копий недоступен':''].filter(Boolean).join('. '));
+      setLoaded(true);
+    },setError);
+  },[revision]);
   const visible = useMemo(() => { const value = query.trim().toLocaleLowerCase('ru'); return value ? entries.filter(item => `${item.userName} ${item.description} ${item.objectId}`.toLocaleLowerCase('ru').includes(value)) : entries; }, [entries, query]);
   const fail = (reason: unknown) => setError(reason instanceof Error ? reason.message : 'Операция не выполнена.');
   const content = <section className={`import-dialog audit-log-dialog${page ? ' audit-log-page-content' : ''}`} role={page ? 'region' : 'dialog'} aria-modal={page ? undefined : true} aria-label="Журнал аудита">
     {!page && <button className="dialog-close" onClick={onClose} aria-label="Закрыть"><X size={17}/></button>}<span className="eyebrow">Системное администрирование</span><h2>Аудит и резервные копии</h2><p>История успешных изменений и автономные снимки всего репозитория данных.</p>
     <div className="audit-tools"><button onClick={() => exportAuditLog().catch(fail)}><Download size={15}/>Выгрузить журнал CSV</button><button disabled={busy} onClick={async () => { setBusy(true); setError(''); try { const backup = await createBackup(); setBackups(items => [backup, ...items]); await downloadBackup(backup.fileName); } catch (reason) { fail(reason); } finally { setBusy(false); } }}><Archive size={15}/>{busy ? 'Выполняется…' : 'Создать и скачать копию'}</button><label className="restore-upload"><RotateCcw size={15}/>Проверить и восстановить<input type="file" accept=".zip,application/zip" disabled={busy} onChange={async event => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; setBusy(true); setError(''); try { const preview = await previewBackupRestore(file); const accepted = window.confirm(`Копия от ${new Date(preview.createdAt).toLocaleString('ru-RU')} содержит ${preview.fileCount} файлов. Будет заменено существующих файлов: ${preview.existingFileCount}. Перед восстановлением автоматически создастся страховочная копия. Продолжить?`); if (!accepted) return; const result = await restoreBackup(file); window.alert(`Восстановлено файлов: ${result.restoredFileCount}. Страховочная копия: ${result.safetyBackupFileName}. Перезапустите Process Navigator.`); } catch (reason) { fail(reason); } finally { setBusy(false); } }}/></label></div>
+    {partial&&<p role="status">{partial}. Показана доступная часть. <button onClick={()=>setRevision(n=>n+1)}>Повторить загрузку</button></p>}
+    {loaded&&!partial&&!backups.length&&<p>Резервных копий пока нет.</p>}
     {!!backups.length && <div className="backup-latest"><Archive size={15}/><span>Последняя копия: <strong>{new Date(backups[0].createdAt).toLocaleString('ru-RU')}</strong> · {backups[0].fileCount} файлов · {(backups[0].size / 1048576).toFixed(1)} МБ</span><button onClick={() => downloadBackup(backups[0].fileName).catch(fail)}><Download size={14}/>Скачать</button></div>}
-    <label className="audit-search"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти пользователя, действие или объект…"/></label>{error && <div className="import-message is-error">{error}</div>}{!entries.length && !error && <div className="version-loading"><div className="loader"/>Загружаем историю…</div>}
+    <label className="audit-search"><Search size={17}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти пользователя, действие или объект…"/></label>{error && <div className="import-message is-error">{error}</div>}{!loaded&&<PageReadState error={error} loading="Загружаем историю…" onRetry={()=>setRevision(n=>n+1)}/>} {loaded&&!partial&&!entries.length&&<p role="status">История изменений пока пуста.</p>}
     {!!entries.length && <div className="audit-list">{visible.map(entry => <article key={entry.id}><span className="audit-icon"><ListChecks size={16}/></span><div><strong>{entry.description}</strong><small>{entry.userName} · {new Date(entry.occurredAt).toLocaleString('ru-RU')}</small></div><code>{entry.objectId || entry.objectType}</code></article>)}{!visible.length && <div className="empty-collection">По заданному фильтру записей нет.</div>}</div>}<div className="audit-footer">Показано записей: {visible.length} из {entries.length}</div>
   </section>;
   if (!page) return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>{content}</div>;

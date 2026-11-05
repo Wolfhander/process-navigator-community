@@ -1,4 +1,6 @@
 import {WorkspaceToolPage} from './WorkspaceToolPage';
+import {pageReadRequest} from './page-read-request';
+import {PageReadState} from './PageReadState';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, Plus, RotateCcw, Save, Send, Trash2, Undo2, UsersRound, X } from 'lucide-react';
 import { configureProcessWorkflow, loadProcessWorkflow, transitionProcessWorkflow } from './api';
@@ -20,7 +22,8 @@ export function LifecycleDialog({ processId, currentUserId, users, canEdit, canA
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => { loadProcessWorkflow(processId).then(data => { setWorkflow(data); setStages(data.stages); setReviewDueAt(dateInput(data.reviewDueAt)); }).catch(reason => setError(reason instanceof Error ? reason.message : 'Не удалось загрузить согласование.')); }, [processId]);
+  const [revision,setRevision]=useState(0);
+  useEffect(() => {setWorkflow(undefined);setError('');return pageReadRequest(()=>loadProcessWorkflow(processId),data => { setWorkflow(data); setStages(data.stages); setReviewDueAt(dateInput(data.reviewDueAt)); },setError);}, [processId,revision]);
   const apply = (next: ProcessWorkflow) => { setWorkflow(next); setStages(next.stages); setReviewDueAt(dateInput(next.reviewDueAt)); };
   const act = async (action: string) => { setBusy(true); setError(''); try { apply(await transitionProcessWorkflow(processId, action, comment)); setComment(''); await onChanged(); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось изменить статус.'); } finally { setBusy(false); } };
   const saveRoute = async () => { setBusy(true); setError(''); try { apply(await configureProcessWorkflow(processId, stages, reviewDueAt ? new Date(`${reviewDueAt}T12:00:00`).toISOString() : undefined)); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить маршрут.'); } finally { setBusy(false); } };
@@ -31,7 +34,7 @@ export function LifecycleDialog({ processId, currentUserId, users, canEdit, canA
 
   return <WorkspaceToolPage title="Согласование редакции" onBack={onClose}><section className="lifecycle-dialog" role="region" aria-label="Согласование редакции">
     <header><div><span className="eyebrow">Жизненный цикл</span><h2>Согласование редакции</h2><p>Настройте последовательность этапов, ответственных и срок следующего пересмотра.</p></div><button onClick={onClose}><X size={17}/></button></header>
-    {!workflow ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем историю…'}</div> : <div className="lifecycle-body">
+    {!workflow ? <PageReadState error={error} loading="Загружаем историю…" onRetry={()=>setRevision(n=>n+1)}/> : <div className="lifecycle-body">
       <div className="lifecycle-status"><Clock3 size={20}/><span><small>Текущий статус</small><strong>{statusName[workflow.status] ?? workflow.status}{workflow.status === 'InReview' ? ` · ${stage?.name}` : ''}</strong></span>{workflow.status === 'InReview' && stage && <em>{workflow.currentStageApproverIds.length} из {stage.requiredApprovals}</em>}</div>
       <section className="lifecycle-route"><div className="lifecycle-section-title"><span><UsersRound size={16}/><strong>Маршрут согласования</strong></span>{editableRoute && <button onClick={() => setStages(value => [...value, { name: `Этап ${value.length + 1}`, requiredApprovals: 1, approverUserIds: [] }])}><Plus size={14}/>Этап</button>}</div>
         {stages.map((item, index) => <article className={workflow.status === 'InReview' && index === workflow.currentStageIndex ? 'is-current' : ''} key={index}><b>{index + 1}</b><div><input value={item.name} disabled={!editableRoute} onChange={event => changeStage(index, { name: event.target.value })}/><label>Нужно решений <input type="number" min="1" max="20" value={item.requiredApprovals} disabled={!editableRoute} onChange={event => changeStage(index, { requiredApprovals: Number(event.target.value) })}/></label><div className="lifecycle-approvers">{users.filter(user => user.isActive && user.permissions.includes('process.publish')).map(user => <label key={user.id}><input type="checkbox" disabled={!editableRoute} checked={item.approverUserIds.includes(user.id)} onChange={event => changeStage(index, { approverUserIds: event.target.checked ? [...item.approverUserIds, user.id] : item.approverUserIds.filter(id => id !== user.id) })}/>{user.displayName}</label>)}<small>Если никого не выбрать, этап доступен любому пользователю с правом публикации.</small></div></div>{editableRoute && stages.length > 1 && <button className="icon-danger" onClick={() => setStages(value => value.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={14}/></button>}</article>)}
