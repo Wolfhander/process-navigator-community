@@ -534,7 +534,7 @@ export default function App() {
     {executionsOpen && <ExecutionDialog processId={processId} canStart={can('process.execute')}
       onClose={() => setExecutionsOpen(false)}
       onOpen={instance => { setActiveInstance(instance); setExecutionsOpen(false); setSelected(undefined); notify(`Открыто выполнение «${instance.name}»`); }}
-      onChanged={instance => { if (activeInstance?.id === instance.id) setActiveInstance(instance); notify(instance.status === 'Paused' ? 'Выполнение приостановлено' : instance.status === 'Cancelled' ? 'Выполнение отменено, история сохранена' : 'Выполнение возобновлено'); }}
+      onChanged={instance => { if (activeInstance?.id === instance.id) setActiveInstance(instance); notify(instance.status === 'Paused' ? 'Выполнение приостановлено' : instance.status === 'Cancelled' ? 'Выполнение закрыто без успеха, исход и история сохранены' : 'Выполнение возобновлено'); }}
     />}
     {analyticsOpen && process && <AnalyticsDialog processId={processId} processName={process.name}
       onClose={() => setAnalyticsOpen(false)}

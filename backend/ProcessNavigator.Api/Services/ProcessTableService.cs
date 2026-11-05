@@ -307,6 +307,8 @@ public sealed partial class ProcessTableService(
             ProcessModel existing;
             try { existing = await catalog.LoadAsync(processId, summary.HasDraft || summary.Status == "Draft", cancellationToken); }
             catch (FileNotFoundException) { continue; }
+            if(existing.Nodes.Any(n=>n.EndEventDefinitions is not null))
+                issues.Add(new("Error","Шаги",0,"Тип BPMN","Специальные события завершения нельзя пересоздать таблицей без потери семантики. Используйте BPMN-редактор/импорт.",processId));
             foreach (var row in incoming.Where(row => existing.Nodes.Any(node => node.Id == row.Get("ID шага") && node.BpmnType is "subProcess" or "callActivity")))
                 issues.Add(new("Error", row.Sheet, row.Number, "Тип BPMN", "Встроенные подпроцессы и вызовы со специальными параметрами изменяются через BPMN-редактор или BPMN-импорт; таблица не переносит их внутреннее содержимое.", processId, row.Get("ID шага")));
             var processMapping = organization.CrossCompanyProcesses.FirstOrDefault(item => item.ProcessId.Equals(processId, StringComparison.OrdinalIgnoreCase));

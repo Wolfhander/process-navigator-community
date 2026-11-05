@@ -8,6 +8,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
     private DateTimeOffset Now=>(timeProvider??TimeProvider.System).GetUtcNow();
     private readonly string root = Path.Combine(environment.ContentRootPath, "Data", "Executions");
     private readonly SemaphoreSlim writeLock = new(1, 1);
+    private readonly SemaphoreSlim mutationLock = new(1, 1);
 
     public async Task<IReadOnlyList<ProcessInstanceModel>> ListAsync(string processId, CancellationToken cancellationToken) =>
         (await ReadAsync(processId, cancellationToken)).OrderByDescending(instance => instance.StartedAt).ToArray();
@@ -34,7 +35,10 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
     }
 
     public async Task<ProcessInstanceModel> StartAsync(ProcessModel process, string userId, string? name, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
+        if(process.Nodes.Any(n=>n.EndEventDefinitions is not null))throw new InvalidDataException("Модель содержит специальное событие завершения. Его BPMN-семантика пока не исполняется; запуск заблокирован, чтобы не объявить ошибку или terminate успешным результатом.");
         var startedAt = Now;
         var instance = new ProcessInstanceModel(Guid.NewGuid().ToString("N"), process.Id, process.Version,
             string.IsNullOrWhiteSpace(name) ? $"Выполнение от {Now.ToLocalTime():dd.MM.yyyy HH:mm}" : name.Trim(), "Active",
@@ -43,12 +47,16 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         instance = RefreshAvailablePlans(process, instance, startedAt);
         var instances = (await ReadAsync(process.Id, cancellationToken)).Append(instance).ToArray();
         await WriteAsync(process.Id, instances, cancellationToken); return instance;
+        } finally {mutationLock.Release();}
     }
 
     public async Task<ProcessInstanceModel> UpdateStepAsync(ProcessModel process, string instanceId, string elementId, string status,
         string userId, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         if (status is not ("InProgress" or "Completed")) throw new InvalidDataException("Допустимы состояния InProgress и Completed.");
+        if(process.Nodes.Any(n=>n.EndEventDefinitions is not null))throw new InvalidDataException("Специальные события завершения пока не исполняются. Шаг не изменён.");
         if (!process.Nodes.Any(node => node.Id == elementId && node.Type == "task")) throw new KeyNotFoundException("BPMN element");
         var instances = (await ReadAsync(process.Id, cancellationToken)).ToArray();
         var index = Array.FindIndex(instances, item => item.Id == instanceId);
@@ -99,14 +107,18 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         var completed = steps.All(step => step.Status is "Completed" or "Skipped");
         var decisions = (current.BranchDecisions ?? []).Concat(branchChoice.Decisions)
             .GroupBy(item => item.GatewayId, StringComparer.Ordinal).Select(group => group.First()).ToArray();
-        var updated = current with { Steps = steps, BranchDecisions = decisions, Status = completed ? "Completed" : "Active", CompletedAt = completed ? now : null };
+        var updated = current with { Steps = steps, BranchDecisions = decisions, Status = completed ? "Completed" : "Active", CompletedAt = completed ? now : null,
+            Outcome=completed?new("Success","Завершены все применимые действия выбранного маршрута.",now,userId,[]):null };
         if (!completed) updated = RefreshAvailablePlans(process, updated, now);
         instances[index] = updated; await WriteAsync(process.Id, instances, cancellationToken); return updated;
+        } finally {mutationLock.Release();}
     }
 
     public async Task<ProcessInstanceModel> ReturnStepAsync(ProcessModel process, string instanceId, string fromElementId,
         string targetElementId, string reason, string userId, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 500)
             throw new InvalidDataException("Укажите причину возврата длиной от 3 до 500 символов.");
         var nodes = process.Nodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
@@ -196,11 +208,14 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         instances[index] = updated;
         await WriteAsync(process.Id, instances, cancellationToken);
         return updated;
+        } finally {mutationLock.Release();}
     }
 
     public async Task<ProcessInstanceModel> SaveStepResultAsync(ProcessModel process, string instanceId, string elementId,
         string? resultText, IReadOnlyList<string>? objectIds, string userId, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         var node = process.Nodes.FirstOrDefault(item => item.Id == elementId && item.Type == "task")
             ?? throw new KeyNotFoundException("BPMN element");
         var cleanText = string.IsNullOrWhiteSpace(resultText) ? null : resultText.Trim();
@@ -227,11 +242,14 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         instances[index] = updated;
         await WriteAsync(process.Id, instances, cancellationToken);
         return updated;
+        } finally {mutationLock.Release();}
     }
 
     public async Task<ProcessInstanceModel> AddStepAttachmentAsync(ProcessModel process, string instanceId, string elementId,
         RepositoryArtifactUploadModel artifact, string fileName, long size, string userId, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         if (!process.Nodes.Any(item => item.Id == elementId && item.Type == "task")) throw new KeyNotFoundException("BPMN element");
         var instances = (await ReadAsync(process.Id, cancellationToken)).ToArray();
         var index = Array.FindIndex(instances, item => item.Id == instanceId);
@@ -248,12 +266,15 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         instances[index] = updated;
         await WriteAsync(process.Id, instances, cancellationToken);
         return updated;
+        } finally {mutationLock.Release();}
     }
 
     public async Task<ProcessInstanceModel> AssignStepAsync(ProcessModel process, string instanceId, string elementId,
         string targetUserId, string reason, string assignedBy, ProcessAssignmentsModel assignments,
         CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         var node = process.Nodes.FirstOrDefault(item => item.Id == elementId && item.Type == "task")
             ?? throw new KeyNotFoundException("BPMN element");
         var cleanReason = string.IsNullOrWhiteSpace(reason) ? string.Empty : reason.Trim();
@@ -288,6 +309,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         instances[index] = updated;
         await WriteAsync(process.Id, instances, cancellationToken);
         return updated;
+        } finally {mutationLock.Release();}
     }
 
     public async Task ValidateStepAttachmentAsync(ProcessModel process, string instanceId, string elementId,
@@ -378,13 +400,15 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
 
     public async Task<ProcessInstanceModel> ChangeLifecycleAsync(string processId, string instanceId, string action,
         string? reason, string userId, CancellationToken cancellationToken)
-    {
+{
+        await mutationLock.WaitAsync(cancellationToken);
+        try {
         if (string.IsNullOrWhiteSpace(action)) throw new InvalidDataException("Укажите действие с экземпляром.");
         var normalized = action.Trim().ToLowerInvariant();
-        if (normalized is not ("pause" or "resume" or "cancel"))
-            throw new InvalidDataException("Допустимы действия Pause, Resume и Cancel.");
+        if (normalized is not ("pause" or "resume" or "cancel" or "refuse" or "fail"))
+            throw new InvalidDataException("Допустимы действия Pause, Resume, Cancel, Refuse и Fail.");
         var cleanReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
-        if (normalized is "pause" or "cancel" && (cleanReason?.Length ?? 0) is < 3 or > 500)
+        if (normalized is "pause" or "cancel" or "refuse" or "fail" && (cleanReason?.Length ?? 0) is < 3 or > 500)
             throw new InvalidDataException("Укажите причину длиной от 3 до 500 символов.");
 
         var instances = (await ReadAsync(processId, cancellationToken)).ToArray();
@@ -395,7 +419,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         {
             "pause" when current.Status == "Active" => "Paused",
             "resume" when current.Status == "Paused" => "Active",
-            "cancel" when current.Status is "Active" or "Paused" => "Cancelled",
+            "cancel" or "refuse" or "fail" when current.Status is "Active" or "Paused" => "Cancelled",
             "pause" => throw new InvalidDataException("Приостановить можно только активный экземпляр."),
             "resume" => throw new InvalidDataException("Возобновить можно только приостановленный экземпляр."),
             _ => throw new InvalidDataException("Отменить можно только активный или приостановленный экземпляр.")
@@ -418,11 +442,14 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         {
             Status = nextStatus,
             Steps = steps,
+            Outcome=nextStatus=="Cancelled"?new(normalized=="fail"?"Error":normalized=="refuse"?"Refusal":"Cancellation",cleanReason!,now,userId,
+                steps.Where(s=>s.Status is not ("Completed" or "Skipped")).Select(s=>s.ElementId).ToArray()):current.Outcome,
             LifecycleEvents = (current.LifecycleEvents ?? []).Append(lifecycleEvent).ToArray()
         };
         instances[index] = updated;
         await WriteAsync(processId, instances, cancellationToken);
         return updated;
+        } finally {mutationLock.Release();}
     }
 
     private sealed record SkippedBranchStep(string ElementId, string Reason);
@@ -538,12 +565,15 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
     private async Task<IReadOnlyList<ProcessInstanceModel>> ReadAsync(string processId, CancellationToken cancellationToken)
     {
         var path = PathFor(processId); if (!File.Exists(path)) return [];
-        return JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await File.ReadAllTextAsync(path, cancellationToken),
+        var items=JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await File.ReadAllTextAsync(path, cancellationToken),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+        foreach(var item in items)ExecutionOutcome.Validate(item);
+        return items;
     }
 
     private async Task WriteAsync(string processId, IReadOnlyList<ProcessInstanceModel> instances, CancellationToken cancellationToken)
     {
+        foreach(var item in instances)ExecutionOutcome.Validate(item);
         await writeLock.WaitAsync(cancellationToken);
         try { Directory.CreateDirectory(root); var path = PathFor(processId); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(instances, new JsonSerializerOptions { WriteIndented = true }), cancellationToken); File.Move(temporary, path, true); }
         finally { writeLock.Release(); }
@@ -600,6 +630,8 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         "pause" => "Экземпляр приостановлен",
         "resume" => "Экземпляр возобновлён",
         "cancel" => "Экземпляр отменён",
+        "refuse" => "Экземпляр закрыт с отказом",
+        "fail" => "Экземпляр закрыт с ошибкой",
         _ => "Состояние экземпляра изменено"
     };
 

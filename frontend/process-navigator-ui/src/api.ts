@@ -357,7 +357,7 @@ export async function returnStep(processId: string, instanceId: string, fromElem
   return response.json() as Promise<ProcessInstance>;
 }
 
-export async function changeInstanceLifecycle(processId: string, instanceId: string, action: 'pause' | 'resume' | 'cancel', reason?: string): Promise<ProcessInstance> {
+export async function changeInstanceLifecycle(processId: string, instanceId: string, action: 'pause' | 'resume' | 'cancel' | 'refuse' | 'fail', reason?: string): Promise<ProcessInstance> {
   const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/lifecycle`, {
     method: 'POST', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ action, reason })
   });

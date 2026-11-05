@@ -164,7 +164,9 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                     elementContext?.Channels ?? [],
                     elementContext?.InformationObjects ?? [],
                     element.Name.LocalName,
-                    elementContext?.ExecutorKind ?? (element.Name.LocalName is "manualTask" or "userTask" ? "human" : element.Name.LocalName == "serviceTask" ? "system" : null), elementContext?.Evidence, workRules);
+                    elementContext?.ExecutorKind ?? (element.Name.LocalName is "manualTask" or "userTask" ? "human" : element.Name.LocalName == "serviceTask" ? "system" : null), elementContext?.Evidence, workRules,
+                    element.Name.LocalName=="endEvent"&&element.Elements().Any(e=>e.Name.LocalName.EndsWith("EventDefinition"))
+                        ?string.Join(",",element.Elements().Where(e=>e.Name.LocalName.EndsWith("EventDefinition")).Select(e=>e.Name.LocalName)):null);
             }).ToArray();
 
         if (nodes.Length == 0) throw new InvalidDataException("The BPMN process contains no supported flow nodes.");

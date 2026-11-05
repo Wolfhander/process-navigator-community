@@ -1,4 +1,5 @@
 namespace ProcessNavigator.Api.Models;
+public sealed record ProcessOutcomeModel(string Kind,string Reason,DateTimeOffset RecordedAt,string RecordedBy,IReadOnlyList<string> UnfinishedElementIds);
 
 public sealed record StepExecutionIterationModel(int Iteration, string Status, DateTimeOffset? StartedAt, DateTimeOffset? CompletedAt,
     string? UserId, DateTimeOffset? SkippedAt, string? SkipReason, DateTimeOffset ArchivedAt, string ArchivedBy, string ReturnReason,
@@ -30,7 +31,8 @@ public sealed record StepAssignmentEventModel(string ElementId, string ElementNa
 public sealed record ProcessInstanceModel(string Id, string ProcessId, string ProcessVersion, string Name, string Status,
     DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string StartedBy, IReadOnlyList<StepExecutionModel> Steps,
     IReadOnlyList<BranchDecisionModel>? BranchDecisions = null, IReadOnlyList<ProcessReturnEventModel>? ReturnEvents = null,
-    IReadOnlyList<ProcessLifecycleEventModel>? LifecycleEvents = null, IReadOnlyList<StepAssignmentEventModel>? AssignmentEvents = null);
+    IReadOnlyList<ProcessLifecycleEventModel>? LifecycleEvents = null, IReadOnlyList<StepAssignmentEventModel>? AssignmentEvents = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ProcessOutcomeModel? Outcome=null);
 public sealed record StartProcessInstanceModel(string? Name);
 public sealed record StepStatusUpdateModel(string Status);
 public sealed record ReturnStepModel(string TargetElementId, string Reason);

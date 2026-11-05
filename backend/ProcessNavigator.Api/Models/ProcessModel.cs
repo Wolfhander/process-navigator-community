@@ -97,7 +97,8 @@ public sealed record NodeModel(
     string? BpmnType = null,
     string? ExecutorKind = null,
     IReadOnlyList<StepEvidenceModel>? Evidence = null,
-    IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
+    IReadOnlyList<StepWorkRuleModel>? WorkRules = null,
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] string? EndEventDefinitions=null);
 
 public sealed record EdgeModel(
     string Id,

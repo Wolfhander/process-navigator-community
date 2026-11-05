@@ -540,6 +540,7 @@ app.MapPost("/api/processes/{processId}/instances", async (string processId, Sta
     if (!access.Has(context, ProcessPermissions.Execute)) return Forbidden(ProcessPermissions.Execute);
     try { return Results.Ok(await executions.StartAsync(await catalog.LoadAsync(processId, false, cancellationToken), access.CurrentUser(context).Id, request.Name, cancellationToken)); }
     catch (FileNotFoundException) { return Results.NotFound(new { message = $"Process '{processId}' was not found." }); }
+    catch (InvalidDataException exception) { return Results.Problem(exception.Message,statusCode:422,title:"Execution model is unsupported"); }
 });
 
 app.MapPut("/api/processes/{processId}/instances/{instanceId}/steps/{elementId}", async (string processId, string instanceId,

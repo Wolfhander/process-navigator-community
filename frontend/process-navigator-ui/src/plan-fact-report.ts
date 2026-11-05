@@ -2,6 +2,7 @@ import type {ProcessInstance,ProcessScheduleItem} from './types';
 import type {InstanceSchedulePlan} from './instance-schedule-plan';
 import {compareScheduleFact} from './schedule-fact.ts';
 import {scheduleCsvCell} from './schedule-export.ts';
+import {outcomeLabel} from './execution-outcome.ts';
 
 export function planFactReport(plan:ProcessScheduleItem,instance:ProcessInstance,now:string,
   baseline?:InstanceSchedulePlan,sourceVersion?:string) {
@@ -19,7 +20,8 @@ export function planFactReport(plan:ProcessScheduleItem,instance:ProcessInstance
     instanceVersion:instance.processVersion,planVersion:version??'',planId:baseline?.id??'',
     basis:baseline?'Назначенный базовый план':'Показанный расчёт — не назначен',
     assignedBy:baseline?.assignedBy??'',assignedAt:baseline?.assignedAt??'',reason:baseline?.reason??'',
-    capturedAt:now,preliminary,stateLabel:state,plannedStart:plan.startAt,plannedEnd:plan.endAt,actualStart:instance.startedAt,
+    capturedAt:now,preliminary,stateLabel:instance.outcome&&instance.outcome.kind!=='Success'?outcomeLabel(instance):state,
+    outcome:instance.outcome,plannedStart:plan.startAt,plannedEnd:plan.endAt,actualStart:instance.startedAt,
     actualEnd:comparison.state==='completed'?instance.completedAt!:'',...comparison};
 }
 export type PlanFactReport=ReturnType<typeof planFactReport>;
@@ -31,6 +33,7 @@ export function planFactCsv(report:PlanFactReport) {
     ['Состояние на ISO',report.capturedAt],['Предварительное сравнение',report.preliminary],['Статус',report.stateLabel],
     ['План начала ISO',report.plannedStart],['Факт начала ISO',report.actualStart],['Отклонение начала, календарные часы',report.startDeltaHours],
     ['План окончания ISO',report.plannedEnd],['Факт завершения ISO',report.actualEnd],
+    ['Исход',report.outcome?.kind??'Не зафиксирован'],['Причина исхода',report.outcome?.reason??''],['Закрыто ISO',report.outcome?.recordedAt??''],
     [report.state==='completed'?'Отклонение окончания, календарные часы':'Текущая просрочка, календарные часы',report.finishDeltaHours??''],
     ['Методика','Календарные часы, не рабочие нормы. Пауза не переносит срок; отмена не является завершением.']
   ];

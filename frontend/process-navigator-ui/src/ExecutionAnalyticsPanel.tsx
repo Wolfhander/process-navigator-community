@@ -21,7 +21,7 @@ export function ExecutionAnalyticsPanel({onOpenProcess}:{onOpenProcess:(id:strin
     {data&&<><p>Срез UTC: {data.capturedAt} · {data.algorithm} · {data.complete?'Чтение без ошибок':'Есть исключённые/непрочитанные данные'}. Отпечаток: <code>{data.fingerprint}</code></p>
       <details><summary>Диагностика: {data.issueCount} (показано {data.issues.length}, максимум 1000)</summary>{data.issues.map((i,n)=><p key={n}>{i.source}: {i.message}</p>)}</details>
       <div className="execution-filters"><label>Процесс или экземпляр<input value={query} maxLength={300} onChange={e=>{setQuery(e.target.value);resetPage();}}/></label>
-        <label>Состояние экземпляра<select value={status} onChange={e=>{setStatus(e.target.value);resetPage();}}><option value="">Все</option><option value="Active">Активен</option><option value="Paused">Пауза</option><option value="Cancelled">Отменён</option><option value="Completed">Завершён</option></select></label>
+        <label>Состояние экземпляра<select value={status} onChange={e=>{setStatus(e.target.value);resetPage();}}><option value="">Все</option><option value="Active">Активен</option><option value="Paused">Пауза</option><option value="Cancelled">Закрыт без успеха</option><option value="Completed">Завершён</option></select></label>
         <label>Запуск с (UTC)<input type="date" value={from} onChange={e=>{setFrom(e.target.value);resetPage();}}/></label><label>Запуск по (UTC, включительно)<input type="date" value={to} onChange={e=>{setTo(e.target.value);resetPage();}}/></label>
         <button disabled={!!filterError} onClick={download}>CSV всей выбранной выборки</button></div>
       {filterError&&<p role="alert">{filterError}</p>}
