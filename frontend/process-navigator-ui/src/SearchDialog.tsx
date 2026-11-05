@@ -25,7 +25,7 @@ export function SearchDialog({ onClose, onOpen }: Props) {
 
   return <div className="modal-backdrop search-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <section className="search-dialog" role="dialog" aria-modal="true" aria-label="Поиск по Process Navigator">
-      <div className="search-field"><Search size={20}/><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Процесс, шаг, роль, инструкция или команда…"/><button onClick={onClose} aria-label="Закрыть"><X size={17}/></button></div>
+      <div className="search-field"><Search size={20}/><input aria-label="Поиск процессов и шагов" autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Процесс, шаг, роль, инструкция или команда…"/><button onClick={onClose} aria-label="Закрыть"><X size={17}/></button></div>
       <div className="search-results">
         {loading && <div className="search-empty"><div className="loader"/>Ищем во всех опубликованных процессах…</div>}
         {error && <div className="search-empty is-error">{error}</div>}

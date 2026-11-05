@@ -8,7 +8,7 @@ export function NotificationDialog({ notifications, onClose, onReadAll, onOpen }
   const unread = notifications.filter(item => !item.readAt).length;
   return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
     <section className="notification-dialog" role="dialog" aria-modal="true" aria-label="Уведомления">
-      <header><div><span className="eyebrow">Рабочие события</span><h2>Уведомления</h2><p>{unread ? `Непрочитанных: ${unread}` : 'Новых уведомлений нет'}</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
+      <header><div><span className="eyebrow">Рабочие события</span><h2>Уведомления</h2><p>{unread ? `Непрочитанных: ${unread}` : 'Новых уведомлений нет'}</p></div><button className="dialog-close" aria-label="Закрыть уведомления" onClick={onClose}><X size={17}/></button></header>
       {unread > 0 && <button className="notification-read-all" onClick={onReadAll}><CheckCheck size={15}/>Прочитать все</button>}
       <div className="notification-list">
         {notifications.map(item => <button key={item.id} className={item.readAt ? '' : 'is-unread'} onClick={() => onOpen(item)}>

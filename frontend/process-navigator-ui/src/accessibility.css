@@ -1,0 +1,15 @@
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible {
+  outline:3px solid #164b8a !important;outline-offset:3px;box-shadow:0 0 0 2px #fff !important;
+}
+.node:focus-visible {outline:none !important;opacity:1 !important;}
+.node:focus-visible>rect,.node:focus-visible>circle,.node:focus-visible>path:first-child,
+.inline-expand-control:focus-visible>circle {stroke:#164b8a;stroke-width:5;stroke-dasharray:6 3;}
+.skip-content {position:fixed;top:8px;left:8px;z-index:10000;transform:translateY(-160%);padding:12px 18px;border:2px solid #164b8a;border-radius:6px;background:white;color:#164b8a;font-weight:700;}
+.skip-content:focus {transform:none;}
+@media (forced-colors:active) {
+  :where(button,a,input,select,textarea,summary,[tabindex]):focus-visible {outline-color:Highlight !important;}
+  .node:focus-visible>rect,.node:focus-visible>circle,.node:focus-visible>path:first-child {stroke:Highlight;}
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after {scroll-behavior:auto !important;animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+}

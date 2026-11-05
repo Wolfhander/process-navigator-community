@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import {focusMainContent} from './accessibility';
 import { processLocationHash, readProcessLocation, type ProcessView } from './process-location';
 import {isSectionAvailable,readSectionLocation,readAnalyticsTab,sectionLocationHash,type AppSection,type HomeSection} from './section-location';
 import { Activity, BarChart3, Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleHelp, ClipboardList, FilePenLine, GitPullRequest, History, Home, Maximize2, Minus, Network, PanelTop, PencilRuler, PlugZap, Plus, Rocket, RotateCcw, Search, Upload, UserCog, Users } from 'lucide-react';
@@ -487,6 +488,7 @@ export default function App() {
   const sectionAccessible = !enterpriseOpen || isSectionAvailable(portfolioAnalyticsOpen ? 'analytics' : homeSection,session.currentUser.permissions);
 
   return <div className="app-shell">
+    <button className="skip-content" onClick={()=>focusMainContent()}>Перейти к содержимому</button>
     <header className="workspace-header"><button className="brand app-home-button" onClick={() => navigateSection('home')} aria-label="Главная"><span className="brand-mark">PN</span><span>Process Navigator</span></button>
       <nav aria-label="Основные разделы"><button className={enterpriseOpen && homeSection === 'home' && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('home')}>Главная</button><button className={(!enterpriseOpen || homeSection === 'map') && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('map')}>Бизнес-процессы</button>{can('analytics.view') && <button className={portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('analytics')}>Аналитика</button>}<button className={enterpriseOpen && ['settings', 'version', 'organization', 'users', 'directions', 'auditLog', 'importHistory', 'laneSync', 'draftRepairs', 'diagnostics'].includes(homeSection) && !portfolioAnalyticsOpen ? 'is-active' : ''} onClick={() => navigateSection('settings')}>Настройки</button></nav>
       <button className="header-action notification-button" onClick={() => setNotificationsOpen(true)} aria-label="Уведомления" title="Уведомления"><Bell size={17}/>{unreadNotifications > 0 && <span>{unreadNotifications}</span>}</button><UserMenu session={session} onChange={changeUser}/><button className="search" onClick={() => setSearchOpen(true)} aria-label="Поиск" title="Поиск"><Search size={17}/></button>

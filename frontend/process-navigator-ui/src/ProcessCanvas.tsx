@@ -1,3 +1,4 @@
+import {activateByKeyboard} from './accessibility';
 import {diagramEdgeLabelPoint as labelPoint,diagramTaskTypography} from './diagram-labels';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { processLocationHash, readProcessLocation } from './process-location';
@@ -83,7 +84,7 @@ const shortSystemName = (name: string) => name
   .replace(/^1С:PLM.*$/i, '1С:PLM')
   .replace(/^1С:ERP.*$/i, '1С:ERP');
 
-function NodeShape({ node, selected, related, personal, muted, executionStatus, executionAvailable = false, showOverlays, onSelect, onToggleDetails }: { node: ProcessNode; selected: boolean; related: boolean; personal: boolean; muted: boolean; executionStatus?: string; executionAvailable?: boolean; showOverlays: boolean; onSelect: () => void; onToggleDetails: (processId: string, node: ProcessNode) => void }) {
+function NodeShape({ node, selected, related, personal, muted, executionStatus, executionAvailable = false, showOverlays, onSelect, onToggleDetails, onFocus }: { node: ProcessNode; selected: boolean; related: boolean; personal: boolean; muted: boolean; executionStatus?: string; executionAvailable?: boolean; showOverlays: boolean; onSelect: () => void; onToggleDetails: (processId: string, node: ProcessNode) => void; onFocus?:()=>void }) {
   const capabilities = resolveCapabilities(node);
   const actionCount = capabilities.filter(capability => capability.kind === 'action').length;
   const artifactCount = capabilities.filter(capability => capability.kind === 'artifact').length;
@@ -95,17 +96,20 @@ function NodeShape({ node, selected, related, personal, muted, executionStatus, 
   const common = {
     className: `node node--${node.type}${selected ? ' is-selected' : ''}${related ? ' is-related' : ''}${personal ? ' is-personal' : ''}${executionStatus ? ` execution-${executionStatus.toLowerCase()}` : ''}${executionAvailable ? ' execution-available' : ''}${muted ? ' is-muted' : ''}`,
     onClick: onSelect,
+    onFocus,
     onPointerDown: (event: React.PointerEvent) => event.stopPropagation(),
     role: 'button',
+    'aria-label': node.name || 'Без названия',
+    'aria-pressed': selected,
     tabIndex: 0,
-    onKeyDown: (event: React.KeyboardEvent) => (event.key === 'Enter' || event.key === ' ') && onSelect()
+    onKeyDown: (event: React.KeyboardEvent) => activateByKeyboard(event,onSelect)
   };
   const cx = node.x + node.width / 2, cy = node.y + node.height / 2;
   if (node.type === 'startEvent' || node.type === 'endEvent') return <g {...common}><circle cx={cx} cy={cy} r={node.width / 2 - 3}/>{node.type === 'endEvent' && <circle cx={cx} cy={cy} r={node.width / 2 - 7}/>}<title>{node.name}</title></g>;
   if (node.type === 'exclusiveGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx-9} ${cy-9} L ${cx+9} ${cy+9} M ${cx+9} ${cy-9} L ${cx-9} ${cy+9}`}/><title>{node.name}</title></g>;
   if (node.type === 'parallelGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx} ${cy-11} V ${cy+11} M ${cx-11} ${cy} H ${cx+11}`}/><title>{node.name}</title></g>;
   const labelDensity = diagramTaskTypography(node.name).density;
-  return <g {...common}><rect x={node.x} y={node.y} width={node.width} height={node.height} rx="12"/><foreignObject x={node.x + 10} y={node.y + 8} width={node.width - 20} height={node.height - 16}><div className={`node-label${labelDensity}`} title={node.name}><span>{node.name}</span></div></foreignObject>{showOverlays && overlayLabel && <g className="capability-overlay" transform={`translate(${node.x + node.width - 5} ${node.y - 5})`}><rect x={-overlayWidth} y={-18} width={overlayWidth} height={22} rx={11}/><text x={-overlayWidth / 2} y={-4} textAnchor="middle">{overlayLabel}</text></g>}{node.linkedProcessId && <g className="inline-expand-control" transform={`translate(${node.x + node.width + 8} ${node.y + node.height / 2})`} onClick={event => { event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); } }} role="button" tabIndex={0} aria-label={`Развернуть детализацию «${node.name}»`}><circle r="13"/><path d="M -5 0 H 5 M 0 -5 V 5"/></g>}</g>;
+  return <><g {...common}><rect x={node.x} y={node.y} width={node.width} height={node.height} rx="12"/><foreignObject x={node.x + 10} y={node.y + 8} width={node.width - 20} height={node.height - 16}><div className={`node-label${labelDensity}`} title={node.name}><span>{node.name}</span></div></foreignObject>{showOverlays && overlayLabel && <g className="capability-overlay" transform={`translate(${node.x + node.width - 5} ${node.y - 5})`}><rect x={-overlayWidth} y={-18} width={overlayWidth} height={22} rx={11}/><text x={-overlayWidth / 2} y={-4} textAnchor="middle">{overlayLabel}</text></g>}</g>{node.linkedProcessId && <g className="inline-expand-control" transform={`translate(${node.x + node.width + 8} ${node.y + node.height / 2})`} onClick={event => { event.stopPropagation(); onToggleDetails(node.linkedProcessId!, node); }} onKeyDown={event => activateByKeyboard(event,()=>onToggleDetails(node.linkedProcessId!,node))} role="button" tabIndex={0} aria-label={`Развернуть детализацию «${node.name}»`}><circle r="13"/><path d="M -5 0 H 5 M 0 -5 V 5"/></g>}</>;
 }
 
 function InlineProcessLevel({ entry, level, onToggle, onCollapse, onOpen }: { entry: ExpandedProcess; level: number; onToggle: (processId: string, level: number, source: ProcessNode, sourceProcess: ProcessModel) => void; onCollapse: (level: number) => void; onOpen: (processId: string) => void }) {
@@ -276,7 +280,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
       <rect width={world.width} height={world.height} fill="url(#grid)"/>
       <g className="lanes">{process.lanes.map(lane => { const affiliation = laneOrganization(lane.id); return <g key={lane.id} className={personalMode ? personalLanes.has(lane.id) ? 'is-personal' : 'is-muted' : ''}><rect className="lane" x="45" y={lane.y} width={world.width - 90} height={lane.height}/><foreignObject x="45" y={lane.y} width="55" height={lane.height}><div className="lane-title">{affiliation?.laneName ?? lane.name}</div></foreignObject>{affiliation && <foreignObject x={world.width - 345} y={lane.y + 10} width="285" height="34"><div className="lane-organization"><strong>{affiliation.entityName}</strong><span>{affiliation.department}</span></div></foreignObject>}</g>; })}</g>
       <g className="edges">{process.edges.map(edge => { const label = labelPoint(edge); const focused = edge.id===focusedEdgeId || (!!selectedId && focusedEdges.has(edge.id)); const personal = personalMode && (personalNodes.has(edge.sourceId) || personalNodes.has(edge.targetId)); const muted = selectedId ? !focused : personalMode && !personal; return <g key={edge.id} className={`${focused ? 'is-focused' : personal ? 'is-personal' : ''}${muted ? ' is-muted' : ''}`}><path d={pathFor(edge)} markerEnd={focused || personal ? 'url(#arrow-focus)' : 'url(#arrow)'}/>{edge.label && <text x={label.x} y={label.y} textAnchor="middle">{edge.label}<title>{edge.label}</title></text>}</g>; })}</g>
-      <g className="nodes" onClick={event => event.stopPropagation()}>{process.nodes.map(node => <NodeShape key={node.id} node={node} selected={node.id === selectedId} related={!!selectedId && relatedNodes.has(node.id) && node.id !== selectedId} personal={personalMode && personalNodes.has(node.id)} muted={selectedId ? !relatedNodes.has(node.id) : personalMode && !personalNodes.has(node.id)} executionStatus={stepStatuses[node.id]} executionAvailable={availableSteps.has(node.id)} showOverlays={zoom >= 1.25 || node.id === selectedId} onSelect={() => onSelect(node)} onToggleDetails={(id, source) => toggleDetails(id, 0, source, process)}/>)}</g>
+      <g className="nodes" onClick={event => event.stopPropagation()}>{process.nodes.map(node => <NodeShape key={node.id} node={node} selected={node.id === selectedId} related={!!selectedId && relatedNodes.has(node.id) && node.id !== selectedId} personal={personalMode && personalNodes.has(node.id)} muted={selectedId ? !relatedNodes.has(node.id) : personalMode && !personalNodes.has(node.id)} executionStatus={stepStatuses[node.id]} executionAvailable={availableSteps.has(node.id)} showOverlays={zoom >= 1.25 || node.id === selectedId} onSelect={() => onSelect(node)} onFocus={() => setCamera(current => node.x>=current.x&&node.y>=current.y&&node.x+node.width<=current.x+current.width&&node.y+node.height<=current.y+current.height?current:clampCamera({...current,x:node.x+node.width/2-current.width/2,y:node.y+node.height/2-current.height/2},world))} onToggleDetails={(id, source) => toggleDetails(id, 0, source, process)}/>)}</g>
     </svg>
     <div className="zoom-readout">{Math.round(zoom * 100)}%</div>
     {activeLane && (zoom >= 1.2 || selectedNode) && <div className="lane-badge"><span>{selectedNode ? 'Ответственная дорожка' : 'Текущая дорожка'}</span><strong>{laneOrganization(activeLane.id)?.laneName ?? activeLane.name}</strong>{laneOrganization(activeLane.id) && <em>{laneOrganization(activeLane.id)?.entityName}</em>}</div>}
@@ -287,7 +291,7 @@ export function ProcessCanvas({ process, selectedId, onSelect, zoomCommand, fitC
       {process.nodes.map(node => <rect key={node.id} className={`minimap-node${node.id === selectedId ? ' is-selected' : ''}`} x={node.x} y={node.y} width={Math.max(node.width, 35)} height={Math.max(node.height, 35)}/>)}
       <rect className="minimap-viewport" x={camera.x} y={camera.y} width={camera.width} height={camera.height}/>
     </svg>
-    <div className="canvas-hint">Колесо — масштаб · перетаскивание — обзор · двойной щелчок — весь процесс</div>
+    <div className="canvas-hint">Tab — следующий этап · Enter / пробел — открыть · колесо — масштаб · перетаскивание — обзор</div>
     {(expandedProcesses.length > 0 || expandError) && <div className="inline-process-explorer">
       <div className="inline-process-explorer-heading"><span>Развёрнутая детализация</span><small>Уровни раскрываются здесь без ухода с исходной схемы</small></div>
       {expandError && <p className="inline-process-error">{expandError}</p>}
