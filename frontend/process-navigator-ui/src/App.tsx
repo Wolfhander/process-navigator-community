@@ -614,7 +614,7 @@ export default function App() {
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'sourceMaterials' && <SourceMaterialsPage key={session.currentUser.id+':'+session.currentUser.permissions.join(',')} catalog={catalog} canUpload={can('process.context.edit')} onBack={()=>navigateSection('home')} onOpen={target=>{
       openProcess(target.processId);setProcess(undefined);setDraftView(target.draft);
       setArchivedVersion(!target.draft&&catalog.find(p=>p.id===target.processId)?.version!==target.processVersion?target.processVersion:undefined);
-      setReloadKey(v=>v+1);setPendingAuditTarget(target.elementId?{processId:target.processId,elementId:target.elementId}:undefined);
+      setReloadKey(v=>v+1);setPendingAuditTarget(target.edgeId||target.elementId?{processId:target.processId,elementId:(target.edgeId||target.elementId)!}:undefined);
     }}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'schedule' && <ProcessSchedulePage key={session.currentUser.id} userId={session.currentUser.id} canAssign={can('process.execute')} catalog={catalog} onBack={() => navigateSection('home')} onOpen={openProcess} initialScenario={objectScheduleSeed?.owner===session.currentUser.id?objectScheduleSeed.value:undefined} onSeedConsumed={()=>setObjectScheduleSeed(undefined)}/>}
     {enterpriseOpen && !portfolioAnalyticsOpen && homeSection === 'organization' && (organizationEditor ? <OrganizationAdminDialog page

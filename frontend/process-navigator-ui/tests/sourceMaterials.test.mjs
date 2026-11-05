@@ -9,8 +9,8 @@ const source=readFileSync(new URL('../src/SourceMaterialsPage.tsx',import.meta.u
 const compiled=await transformWithOxc(source,'SourceMaterialsPage.tsx',{jsx:{runtime:'classic'}});
 const code=compiled.code.replace(/^import [^\n]+;$/gm,'').replace('export function ','function ');
 const material={id:'material-1',fileName:'PKG-001.md',size:128,sha256:'a'.repeat(64),uploadedByName:'Учебный профиль',uploadedAt:'2026-10-31T09:00:00Z',target:{name:'Исходный паспорт',kind:'passport',documentVersion:'1',processId:'demo',processName:'Приёмка',processVersion:'1.4',draft:false,elementId:'step',elementName:'Физическая приёмка',objectId:'receipt',objectName:'Результат приёмки'}};
-function render({list={materials:[material],unreadable:0,limited:false},canUpload=true,loading=false,error='',filter='',preview}={}) {
-  const values=[list,error,'',false,loading,{processId:'demo',draft:false,name:'',kind:'passport',documentVersion:'1'},undefined,undefined,preview,{},filter,0,0];
+function render({list={materials:[material],unreadable:0,limited:false},canUpload=true,loading=false,error='',filter='',preview,target={processId:'demo',draft:false,name:'',kind:'passport',documentVersion:'1'}}={}) {
+  const values=[list,error,'',false,loading,target,undefined,undefined,preview,{},filter,0,0];
   const icons=['ArrowLeft','Download','FileText','RefreshCw','Upload'];
   const Page=new Function('React','useState','useEffect','sourceObjects','sourceTimestamp',...icons,code+';return SourceMaterialsPage;')({createElement,Fragment},()=>[values.shift(),()=>{}],()=>{},sourceObjects,sourceTimestamp,...icons.map(()=>'span'));
   return renderToStaticMarkup(createElement(Page,{catalog:[{id:'demo',name:'Приёмка',status:'Published',version:'1.4'}],canUpload,onBack(){},onOpen(){}}));
@@ -36,6 +36,19 @@ test('source page explains scope and needs a checked target before saving',()=>{
 test('reader has no upload form but can obtain and recheck accessible originals',()=>{
   const html=render({canUpload:false});assert.doesNotMatch(html,/Добавить исходник|type="file"|Сохранить оригинал/);
   assert.match(html,/Скачать оригинал/);assert.match(html,/Сверить с моделью/);
+});
+
+test('provenance has separate status, statement, locator and informational author; old files need no assertion',()=>{
+  const html=render();assert.match(html,/Переход схемы/);assert.match(html,/Только файл, без утверждения/);
+  assert.doesNotMatch(html,/aria-label="Содержание основания"/);
+  const citation={status:'fact',statement:'Утверждение из исходника',locator:'Лист 1, строка 7',author:'Справочный автор'};
+  const editable=render({target:{processId:'demo',draft:false,name:'',kind:'passport',documentVersion:'1',citation}});
+  assert.match(editable,/Содержание основания/);assert.match(editable,/не профиль загрузившего/);
+  const cited={...material,target:{...material.target,elementId:undefined,objectId:undefined,edgeId:'flow',edgeName:'Передать результат',citation}};
+  const listed=render({list:{materials:[cited],unreadable:0,limited:false},filter:'строка 7'});
+  assert.match(listed,/Показано 1/);for(const text of ['Передать результат','Справочный автор','Утверждение из исходника','Переход ID: flow'])assert.ok(listed.includes(text),text);
+  const unsafe={...cited,target:{...cited.target,citation:{...citation,statement:'<script>bad</script>'}}};
+  assert.doesNotMatch(render({list:{materials:[unsafe],unreadable:0,limited:false}}),/<script>/);
 });
 test('empty, loading, damaged and failed states are explicit',()=>{
   assert.match(render({loading:true}),/Загрузка…/);

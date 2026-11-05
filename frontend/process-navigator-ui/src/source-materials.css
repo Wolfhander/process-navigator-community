@@ -16,3 +16,6 @@
 .source-list dd{margin:5px 0 15px;font-size:13px}.source-list summary{cursor:pointer}
 .source-error{color:#9d3529!important;padding:12px;background:#fff0eb;border-radius:8px}.source-preview{padding:16px;background:#edf6ed;border-radius:9px}
 @media(max-width:900px){.source-columns{grid-template-columns:minmax(0,1fr)}.source-card{padding:16px}}
+.source-content textarea{width:100%;max-width:100%;min-width:0;min-height:100px;padding:10px;border:1px solid #c6d5ca;border-radius:7px;resize:vertical;font:inherit;box-sizing:border-box}
+.source-citation{padding:12px;border-left:3px solid #315b41;background:#f4f8f2;overflow-wrap:anywhere}
+.source-citation p{white-space:pre-wrap}

@@ -21,6 +21,13 @@ public sealed partial class SourceMaterialService(IWebHostEnvironment environmen
     private string DirectoryFor(string id){if(!IdPattern().IsMatch(id??""))throw new FileNotFoundException();return Path.Combine(root,id!);}
     private static string Text(string? value,int max,string label)=>!string.IsNullOrWhiteSpace(value)&&value.Trim().Length<=max
         ?value.Trim():throw new InvalidDataException(label+" — обязательное поле до "+max+" символов.");
+    private static SourceMaterialCitation? Citation(SourceMaterialCitation? value)
+    {
+        if(value is null)return null;
+        if(value.Status is not ("fact" or "assumption" or "question"))throw new InvalidDataException("Неверный статус основания.");
+        string? Optional(string? text,int limit,string label)=>string.IsNullOrWhiteSpace(text)?null:Text(text,limit,label);
+        return new(value.Status,Text(value.Statement,2000,"Содержание основания"),Optional(value.Locator,300,"Место в источнике"),Optional(value.Author,200,"Автор сведений"));
+    }
     public async Task<SourceMaterialSnapshot> PreviewAsync(SourceMaterialTarget request,CancellationToken ct=default)
     {
         var processId=Text(request.ProcessId,150,"Процесс");
@@ -32,12 +39,21 @@ public sealed partial class SourceMaterialService(IWebHostEnvironment environmen
         if(model.Id!=processId)throw new FileNotFoundException();
         if(!request.Draft&&model.Status!="Published")throw new InvalidDataException("Редакция не опубликована. Выберите черновик.");
         var elementId=string.IsNullOrWhiteSpace(request.ElementId)?null:request.ElementId;
+        var edgeId=string.IsNullOrWhiteSpace(request.EdgeId)?null:Text(request.EdgeId,200,"Переход");
+        if(edgeId is not null&&(!string.IsNullOrWhiteSpace(request.ElementId)||!string.IsNullOrWhiteSpace(request.ObjectId)))
+            throw new InvalidDataException("Основание перехода нельзя одновременно привязать к этапу или документу.");
+        var edge=edgeId is null?null:model.Edges.SingleOrDefault(e=>e.Id==edgeId)??throw new InvalidDataException("Переход не найден в выбранной редакции.");
+        var edgeName=edge is null?null:(!string.IsNullOrWhiteSpace(edge.Label)?edge.Label:$"{model.Nodes.FirstOrDefault(n=>n.Id==edge.SourceId)?.Name??edge.SourceId} → {model.Nodes.FirstOrDefault(n=>n.Id==edge.TargetId)?.Name??edge.TargetId}");
+        var citation=Citation(request.Citation);
         var node=elementId is null?null:model.Nodes.SingleOrDefault(n=>n.Id==elementId)??throw new InvalidDataException("Этап не найден в выбранной редакции.");
         var objectId=string.IsNullOrWhiteSpace(request.ObjectId)?null:request.ObjectId;
         var binding=objectId is null?null:(node is null?model.Nodes.SelectMany(n=>n.InformationObjects??[]):node.InformationObjects??[])
             .FirstOrDefault(b=>b.ObjectId==objectId)??throw new InvalidDataException("Объект не привязан к выбранному этапу или модели.");
-        var fingerprint=Hash(JsonSerializer.SerializeToUtf8Bytes(new{model,request.Draft,elementId,objectId,name,request.Kind,version},Json));
-        return new(model.Id,model.Name,model.Version,request.Draft,name,request.Kind,version,elementId,node?.Name,objectId,binding?.Name,fingerprint);
+        // Preserve the fingerprint of old materials without the new optional fields.
+        var fingerprint=edgeId is null&&citation is null
+            ?Hash(JsonSerializer.SerializeToUtf8Bytes(new{model,request.Draft,elementId,objectId,name,request.Kind,version},Json))
+            :Hash(JsonSerializer.SerializeToUtf8Bytes(new{model,request.Draft,elementId,objectId,name,request.Kind,version,edgeId,citation},Json));
+        return new(model.Id,model.Name,model.Version,request.Draft,name,request.Kind,version,elementId,node?.Name,objectId,binding?.Name,fingerprint,edgeId,edgeName,citation);
     }
     private async Task<SourceMaterialRecord> Read(string id,CancellationToken ct)
     {
@@ -56,6 +72,9 @@ public sealed partial class SourceMaterialService(IWebHostEnvironment environmen
                 string.IsNullOrWhiteSpace(record.UploadedBy)||string.IsNullOrWhiteSpace(record.UploadedByName)||record.UploadedAt==default)
                 throw new InvalidDataException("Неверные метаданные материала.");
             var content=Path.Combine(directory,"content.bin");
+            _=Citation(record.Target.Citation);
+            if(record.Target.EdgeId is not null&&(record.Target.EdgeId.Length>200||string.IsNullOrWhiteSpace(record.Target.EdgeId)||record.Target.ElementId is not null||record.Target.ObjectId is not null))
+                throw new InvalidDataException("Повреждена привязка перехода.");
             if(!File.Exists(content)||new FileInfo(content).Length!=record.Size)throw new InvalidDataException("Файл материала отсутствует или имеет другой размер.");
             return record;
         }
@@ -123,10 +142,14 @@ public sealed partial class SourceMaterialService(IWebHostEnvironment environmen
     public async Task<SourceMaterialCheck> CheckAsync(SourceMaterialRecord record,CancellationToken ct=default)
     {
         var s=record.Target;
+        // Availability means verified local bytes, not an external URL or factual truth.
+        try { _=await ContentAsync(record.Id,ct); }
+        catch(Exception e)when(e is IOException or InvalidDataException or UnauthorizedAccessException)
+        {return new("unavailable","Оригинал недоступен или контрольная сумма не совпадает. Доступность источника не подтверждена.");}
         try
         {
-            var current=await PreviewAsync(new(s.ProcessId,s.Draft,s.Name,s.Kind,s.DocumentVersion,s.ElementId,s.ObjectId),ct);
-            return current.Fingerprint==s.Fingerprint?new("matches","Содержимое модели совпадает с зафиксированной привязкой."):new("historical","Модель или её версия изменились. Сохранена историческая привязка.");
+            var current=await PreviewAsync(new(s.ProcessId,s.Draft,s.Name,s.Kind,s.DocumentVersion,s.ElementId,s.ObjectId,EdgeId:s.EdgeId,Citation:s.Citation),ct);
+            return current.Fingerprint==s.Fingerprint?new("matches","Оригинал доступен, SHA-256 совпадает; модель совпадает с зафиксированной привязкой. Это не проверка истинности сведений."):new("historical","Оригинал доступен и проверен по SHA-256. Модель или её версия изменились; сохранена историческая привязка.");
         }
         catch(Exception e)when(e is FileNotFoundException or InvalidDataException){return new("unavailable","Цель недоступна или привязка больше не разрешается. Исходник сохранён.");}
     }

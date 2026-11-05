@@ -1,0 +1,13 @@
+{
+  "processId":"demo-showcase-l3-warehouse",
+  "elementId":"Task_PhysicalReceipt",
+  "objectId":"demo-receipt-inspection",
+  "status":"fact",
+  "statement":"Результат приёмки фиксируется перед передачей следующему участнику.",
+  "locator":"TRACE-001, раздел 1",
+  "author":"Учебный аналитик",
+  "source":"master-data/v1/documents/TRACE-001.md",
+  "browserStatement":"После создания модели и чертежа результат передаётся на регистрацию версии.",
+  "browserLocator":"TRACE-001, раздел 2",
+  "limits":"Сведения учебные; SHA-256 проверяет оригинал, а не истинность заявления."
+}

@@ -31,7 +31,7 @@ public static class SourceMaterialEndpoints
             if(!a.Has(c,ProcessPermissions.View)||!a.Has(c,ProcessPermissions.EditContext))return Task.FromResult(Denied());
             return Run(async()=>
             {
-                if(target.Length>4096)throw new InvalidDataException("Слишком длинная привязка.");
+                if(target.Length>16*1024)throw new InvalidDataException("Слишком длинная привязка.");
                 var request=JsonSerializer.Deserialize<SourceMaterialTarget>(target,new JsonSerializerOptions(JsonSerializerDefaults.Web){PropertyNameCaseInsensitive=false})
                     ??throw new InvalidDataException("Отсутствует привязка.");
                 if(request.Draft&&!canOpenDraft(c,a))return Denied();

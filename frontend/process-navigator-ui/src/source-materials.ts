@@ -1,6 +1,7 @@
 import type {ProcessModel,ProcessSummary} from './types';
-export type SourceTarget={processId:string;draft:boolean;name:string;kind:'passport'|'attachment';documentVersion:string;elementId?:string;objectId?:string;expectedFingerprint?:string};
-export type SourceSnapshot=Omit<SourceTarget,'expectedFingerprint'> & {processName:string;processVersion:string;elementName?:string;objectName?:string;fingerprint:string};
+export type SourceCitation={status:'fact'|'assumption'|'question';statement:string;locator?:string;author?:string};
+export type SourceTarget={processId:string;draft:boolean;name:string;kind:'passport'|'attachment';documentVersion:string;elementId?:string;objectId?:string;expectedFingerprint?:string;edgeId?:string;citation?:SourceCitation};
+export type SourceSnapshot=Omit<SourceTarget,'expectedFingerprint'> & {processName:string;processVersion:string;elementName?:string;objectName?:string;fingerprint:string;edgeName?:string};
 export type SourceMaterial={schemaVersion:number;id:string;fileName:string;size:number;sha256:string;uploadedAt:string;uploadedBy:string;uploadedByName:string;target:SourceSnapshot};
 export type SourceList={materials:SourceMaterial[];unreadable:number;limited:boolean};
 export type SourceCheck={state:'matches'|'historical'|'unavailable';message:string};

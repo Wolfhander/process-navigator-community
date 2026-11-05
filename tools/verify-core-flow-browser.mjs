@@ -86,7 +86,7 @@ try {
     await wait('!!('+expression+')','button '+text);await press(expression);
   };
   const set=async(selector,value)=>{await wait('!!document.querySelector('+JSON.stringify(selector)+')',selector);
-    await run("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");const setter=Object.getOwnPropertyDescriptor(e instanceof HTMLSelectElement?HTMLSelectElement.prototype:HTMLInputElement.prototype,'value').set;setter.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()");};
+    await run("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");const setter=Object.getOwnPropertyDescriptor(e instanceof HTMLSelectElement?HTMLSelectElement.prototype:e instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set;setter.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));})()");};
   const navigate=async(hash)=>{await run('location.hash='+JSON.stringify(hash));};
   stage='import';await call('Page.navigate',{url:origin+'/#page=import'});
   await wait("!!document.querySelector('.import-page input[type=file]')",'import form');
@@ -222,6 +222,31 @@ try {
   }
   report.browserSchedules=browserSchedules.map(value=>({direction:value.direction,startAt:value.startAt,endAt:value.endAt,durationHours:value.durationHours}));
   const shot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'schedule.png'),Buffer.from(shot.data,'base64'));
+  stage='provenance';
+  const provenance=JSON.parse(fs.readFileSync(path.join(root,'master-data/provenance-fixture.json'),'utf8'));
+  const sourceFile=path.join(upload,'provenance.md');fs.copyFileSync(path.join(root,provenance.source),sourceFile);
+  const linkedEdge=(await api('/api/processes/'+spec.id)).edges.find(e=>e.sourceId===spec.steps[0]).id;
+  await navigate('page=sourceMaterials');await wait("!!document.querySelector('.source-fields')",'source materials page');
+  await set('select[aria-label="Процесс"]',spec.id);
+  await wait("!!document.querySelector('select[aria-label=\"Переход схемы\"] option[value=\""+linkedEdge+"\"]')",'edge source target');
+  await set('select[aria-label="Переход схемы"]',linkedEdge);
+  const sourceDoc=await call('DOM.getDocument'),sourceInput=await call('DOM.querySelector',{nodeId:sourceDoc.root.nodeId,selector:'.source-fields input[type=file]'});
+  await call('DOM.setFileInputFiles',{nodeId:sourceInput.nodeId,files:[sourceFile]});
+  await set('input[aria-label="Название"]','Основание перехода — учебный прогон');
+  await set('select[aria-label="Статус основания"]','fact');
+  await set('textarea[aria-label="Содержание основания"]',provenance.browserStatement);
+  await set('input[aria-label="Место в источнике"]',provenance.browserLocator);
+  await set('input[aria-label="Автор сведений"]',provenance.author);
+  await clickText('Проверить привязку');await clickText('Сохранить оригинал');
+  await wait("!!document.querySelector('.source-citation')",'saved source citation');
+  assert.ok((await run("document.querySelector('.source-citation').textContent")).includes(provenance.browserLocator));
+  const materials=(await api('/api/source-materials')).materials;assert.equal(materials.length,1);
+  assert.equal(materials[0].target.edgeId,linkedEdge);assert.equal(materials[0].target.citation.statement,provenance.browserStatement);
+  await clickText('Сверить с моделью');await wait("document.querySelector('.source-list').textContent.includes('SHA-256 совпадает')",'original integrity check');
+  const sourceShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'provenance.png'),Buffer.from(sourceShot.data,'base64'));
+  await clickText('Открыть модель');await wait("!!document.querySelector('.edges .is-focused')",'source transition navigation');
+  check('Browser creates cited transition source, verifies original SHA-256 and opens focused edge');
+  assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){
   report.result='FAIL';report.stage=stage;report.error=error.message;
