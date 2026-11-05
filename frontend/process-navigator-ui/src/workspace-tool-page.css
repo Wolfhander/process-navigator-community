@@ -1,0 +1,10 @@
+.workspace-tool-page{position:fixed;inset:58px 0 0;z-index:80;overflow:auto;background:#f6f8f3;box-sizing:border-box;padding:24px}
+.workspace-tool-shell{max-width:1440px;margin:0 auto;min-width:0}
+.workspace-tool-shell>section{width:100%!important;max-width:none!important;max-height:none!important;height:auto!important;min-height:0!important;overflow:visible!important;box-sizing:border-box;position:relative;border-radius:12px;box-shadow:none}
+.workspace-tool-shell>section .dialog-close{display:none}
+.workspace-tool-shell :is(input,select,textarea){box-sizing:border-box;max-width:100%}
+.workspace-tool-shell :is(p,li,strong,small,h2,h3,label,button){overflow-wrap:anywhere}
+.workspace-tool-shell .feature-breadcrumb{margin:0 0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.workspace-tool-shell .feature-breadcrumb button{border:0;background:transparent;color:#285640;cursor:pointer;padding:8px}
+.workspace-tool-shell button:focus-visible{outline:3px solid #b25c2d;outline-offset:3px}
+@media(max-width:700px){.workspace-tool-page{inset:52px 0 0;padding:12px}.workspace-tool-shell>section{padding:16px!important}}

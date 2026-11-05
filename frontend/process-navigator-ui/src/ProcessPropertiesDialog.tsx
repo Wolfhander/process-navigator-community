@@ -1,3 +1,4 @@
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { useMemo, useState } from 'react';
 import { BookOpen, Building2, FileInput, FileOutput, Network, Save, X } from 'lucide-react';
 import { saveProcessProperties } from './api';
@@ -27,7 +28,7 @@ export function ProcessPropertiesDialog({ process, organization, catalog, onClos
   const change = (field: keyof ProcessPassport, value: ProcessPassport[keyof ProcessPassport]) => setPassport(valueNow => ({ ...valueNow, [field]: value }));
   const save = async () => { if (!entity || !unit) return; setBusy(true); setError(''); try { onSaved(await saveProcessProperties(process.id, { owner: unit.shortName || unit.name, ownerLegalEntityId: entity.id, ownerUnitId: unit.id, passport: { ...passport, parentProcessId: passport.parentProcessId || undefined, relatedProcessIds: passport.relatedProcessIds?.filter(id => id !== process.id), triggerOptions: list(triggerOptions), inputs: list(inputs), outputs: list(outputs), systems: list(systems), documents: list(documents) } })); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось сохранить паспорт процесса.'); } finally { setBusy(false); } };
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="process-properties-dialog process-passport-dialog" role="dialog" aria-modal="true" aria-label="Паспорт процесса">
+  return <WorkspaceToolPage title="Паспорт процесса" onBack={onClose}><section className="process-properties-dialog process-passport-dialog" role="region" aria-label="Паспорт процесса">
     <header><div><span className="eyebrow">Паспорт процесса</span><h2>{process.name}</h2><p>Классификация, место в иерархии, границы и основные сведения процесса.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
     <div className="passport-scroll"><div className="process-properties-fields passport-grid">
       <label><span>Уровень процесса</span><select value={passport.level} onChange={event => change('level', Number(event.target.value))}>{processLevelOptions(passport.level).map(level => <option key={level} value={level}>Уровень {level}</option>)}</select></label>
@@ -48,5 +49,5 @@ export function ProcessPropertiesDialog({ process, organization, catalog, onClos
       <SourceRequirementsEditor entries={passport.sourceRequirements ?? []} nodes={process.nodes} onChange={entries => change('sourceRequirements', entries)}/>
     </div></div>
     {error && <div className="organization-error">{error}</div>}<footer><button onClick={onClose}>Отмена</button><button className="primary" disabled={!unit || busy} onClick={save}><Save size={15}/>{busy ? 'Сохраняем…' : 'Сохранить паспорт'}</button></footer>
-  </section></div>;
+  </section></WorkspaceToolPage>;
 }

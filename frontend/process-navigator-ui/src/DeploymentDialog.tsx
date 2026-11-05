@@ -1,3 +1,4 @@
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { useEffect, useState } from 'react';
 import { Boxes, Building2, CheckCircle2, Cpu, Database, Network, Server, X } from 'lucide-react';
 import { loadDeploymentProfile } from './api';
@@ -22,8 +23,8 @@ export function DeploymentDialog({ onClose }: Props) {
     loadDeploymentProfile().then(setProfile).catch(reason => setError(reason instanceof Error ? reason.message : 'Не удалось загрузить схему размещения.'));
   }, []);
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-    <section className="deployment-dialog" role="dialog" aria-modal="true" aria-label="Размещение Process Navigator">
+  return <WorkspaceToolPage title="Размещение программы" onBack={onClose}>
+    <section className="deployment-dialog" role="region" aria-label="Размещение Process Navigator">
       <header><div><span className="eyebrow">Архитектура внедрения</span><h2>Process Navigator внутри 1С</h2><p>Целевая схема для закрытого контура предприятия. Все компоненты размещаются на внутренних серверах.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
       {!profile ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем схему размещения…'}</div> : <div className="deployment-content">
         <section className="deployment-decision"><div className="deployment-decision-icon"><Network size={23}/></div><div><span>Рекомендуемый вариант</span><h3>Расширение-оболочка + внутренний веб-сервис</h3><p>{profile.description}</p><strong>Основное приложение: {profile.hostApplication}</strong></div></section>
@@ -33,5 +34,5 @@ export function DeploymentDialog({ onClose }: Props) {
         <div className="deployment-note"><strong>Почему не полная перепись на языке 1С?</strong><span>BPMN-редактор и интерактивный Canvas уже являются веб-компонентами. Расширение 1С даст нативную точку входа, единый контекст и команды ERP, сохранив обновляемость типовой конфигурации и единую кодовую базу.</span></div>
       </div>}
     </section>
-  </div>;
+  </WorkspaceToolPage>;
 }

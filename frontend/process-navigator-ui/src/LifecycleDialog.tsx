@@ -1,3 +1,4 @@
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock3, Plus, RotateCcw, Save, Send, Trash2, Undo2, UsersRound, X } from 'lucide-react';
 import { configureProcessWorkflow, loadProcessWorkflow, transitionProcessWorkflow } from './api';
@@ -28,7 +29,7 @@ export function LifecycleDialog({ processId, currentUserId, users, canEdit, canA
   const assigned = !stage?.approverUserIds.length || stage.approverUserIds.includes(currentUserId);
   const editableRoute = canEdit && !!workflow && ['Draft', 'ChangesRequested'].includes(workflow.status);
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="lifecycle-dialog" role="dialog" aria-modal="true" aria-label="Согласование редакции">
+  return <WorkspaceToolPage title="Согласование редакции" onBack={onClose}><section className="lifecycle-dialog" role="region" aria-label="Согласование редакции">
     <header><div><span className="eyebrow">Жизненный цикл</span><h2>Согласование редакции</h2><p>Настройте последовательность этапов, ответственных и срок следующего пересмотра.</p></div><button onClick={onClose}><X size={17}/></button></header>
     {!workflow ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем историю…'}</div> : <div className="lifecycle-body">
       <div className="lifecycle-status"><Clock3 size={20}/><span><small>Текущий статус</small><strong>{statusName[workflow.status] ?? workflow.status}{workflow.status === 'InReview' ? ` · ${stage?.name}` : ''}</strong></span>{workflow.status === 'InReview' && stage && <em>{workflow.currentStageApproverIds.length} из {stage.requiredApprovals}</em>}</div>
@@ -41,5 +42,5 @@ export function LifecycleDialog({ processId, currentUserId, users, canEdit, canA
       <div className="lifecycle-actions">{canEdit && ['Draft','ChangesRequested'].includes(workflow.status) && <button className="primary" onClick={() => act('submit')} disabled={busy}><Send size={15}/>Отправить на согласование</button>}{canApprove && workflow.status === 'InReview' && <><button className="is-danger" onClick={() => act('reject')} disabled={busy || !comment.trim()}><Undo2 size={15}/>Вернуть на доработку</button><button className="primary" title={!assigned ? 'Вы не назначены согласующим текущего этапа' : undefined} onClick={() => act('approve')} disabled={busy || !assigned || workflow.currentStageApproverIds.includes(currentUserId)}><CheckCircle2 size={15}/>Согласовать этап</button></>}{canEdit && workflow.status === 'Approved' && <button onClick={() => act('reopen')} disabled={busy}><RotateCcw size={15}/>Вернуть в черновик</button>}</div>
       <div className="lifecycle-history"><h3>История решений</h3>{workflow.events.map((event, index) => <article key={`${event.occurredAt}:${index}`}><span/><div><strong>{actionName[event.action] ?? event.action}{event.stageName ? ` · ${event.stageName}` : ''}</strong><small>{event.userName} · {new Date(event.occurredAt).toLocaleString('ru-RU')}</small>{event.comment && <p>{event.comment}</p>}</div></article>)}{!workflow.events.length && <p className="lifecycle-empty">Редакция ещё не отправлялась на согласование.</p>}</div>
     </div>}
-  </section></div>;
+  </section></WorkspaceToolPage>;
 }

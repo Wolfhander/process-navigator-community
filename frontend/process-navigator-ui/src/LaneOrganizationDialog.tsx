@@ -1,3 +1,4 @@
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { useMemo, useState } from 'react';
 import { Building2, Network, Save, X } from 'lucide-react';
 import { loadDraftBpmn, saveDraftBpmn, saveProcessLaneOrganizations } from './api';
@@ -58,7 +59,7 @@ export function LaneOrganizationDialog({ organization, process, updateDraftLaneN
     finally { setBusy(false); }
   };
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="lane-organization-dialog" role="dialog" aria-modal="true" aria-label="Подразделения дорожек">
+  return <WorkspaceToolPage title="Подразделения дорожек" onBack={onClose}><section className="lane-organization-dialog" role="region" aria-label="Подразделения дорожек">
     <header><div><span className="eyebrow">Организационная модель процесса</span><h2>Дорожки и подразделения</h2><p>Дорожка BPMN — это подразделение. После сохранения система сама определит юридические лица и тип процесса.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
     <div className="lane-mapping-list">{process.lanes.map(lane => {
       const mapping = mappings.find(item => item.laneId === lane.id)!;
@@ -76,5 +77,5 @@ export function LaneOrganizationDialog({ organization, process, updateDraftLaneN
     })}</div>
     {error && <div className="lane-mapping-error">{error}</div>}
     <footer><button onClick={onClose}>Отмена</button><button className="primary" disabled={busy || mappings.some(item => !item.unitId)} onClick={save}><Save size={15}/>{busy ? 'Сохраняем…' : 'Сохранить привязки'}</button></footer>
-  </section></div>;
+  </section></WorkspaceToolPage>;
 }

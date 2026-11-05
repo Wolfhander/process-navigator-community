@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { Plus, X } from 'lucide-react';
 import { createProcess } from './api';
 import type { ProcessImportResult } from './types';
@@ -19,7 +20,7 @@ export function CreateProcessDialog({ onClose, onCreated }: Props) {
     finally { setBusy(false); }
   };
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="create-process-dialog" role="dialog" aria-modal="true">
+  return <WorkspaceToolPage title="Новый процесс" onBack={onClose}><section className="create-process-dialog" role="region" aria-label="Новый процесс">
     <header><div><span className="eyebrow">Каталог процессов</span><h2>Создать процесс</h2><p>Будет создан нейтральный черновик BPMN 2.0. Подразделения, владельца и ответственных вы назначите после моделирования процесса.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
     <div className="create-process-fields">
       <label>Название<input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Например, Согласование договора"/></label>
@@ -27,5 +28,5 @@ export function CreateProcessDialog({ onClose, onCreated }: Props) {
     </div>
     {error && <div className="organization-error">{error}</div>}
     <footer><button onClick={onClose}>Отмена</button><button className="primary" disabled={!valid || busy} onClick={submit}><Plus size={15}/>{busy ? 'Создаём…' : 'Создать и открыть редактор'}</button></footer>
-  </section></div>;
+  </section></WorkspaceToolPage>;
 }

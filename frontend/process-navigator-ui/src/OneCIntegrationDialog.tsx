@@ -1,3 +1,4 @@
+import {WorkspaceToolPage} from './WorkspaceToolPage';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, PlugZap, Save, ServerCog, X } from 'lucide-react';
 import { loadOneCSettings, saveOneCSettings, testOneCConnection } from './api';
@@ -21,7 +22,7 @@ export function OneCIntegrationDialog({ onClose }: Props) {
   };
   const test = async () => { setBusy(true); setError(''); try { setStatus(await testOneCConnection()); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Проверка не выполнена.'); } finally { setBusy(false); } };
 
-  return <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="one-c-dialog" role="dialog" aria-modal="true" aria-label="Интеграция с 1С">
+  return <WorkspaceToolPage title="Настройки интеграции" onBack={onClose}><section className="one-c-dialog" role="region" aria-label="Интеграция с 1С">
     <header><div><span className="eyebrow">Системная интеграция</span><h2>Подключение к 1С:ERP</h2><p>Process Navigator вызывает опубликованный HTTP-сервис внутреннего сервера 1С. Доступ в интернет не требуется.</p></div><button className="dialog-close" onClick={onClose}><X size={17}/></button></header>
     {!draft ? <div className="editor-loading"><div className="loader"/>{error || 'Загружаем настройки…'}</div> : <div className="one-c-form">
       <label className="integration-toggle"><input type="checkbox" checked={draft.enabled} onChange={event => setDraft({ ...draft, enabled: event.target.checked })}/><span><strong>Использовать реальную 1С</strong><small>{draft.enabled ? 'ERP-команды направляются в настроенный HTTP-сервис' : 'Сохраняется безопасный демонстрационный адаптер'}</small></span></label>
@@ -34,5 +35,5 @@ export function OneCIntegrationDialog({ onClose }: Props) {
       <div className="integration-actions"><button onClick={test} disabled={busy}><PlugZap size={16}/>Проверить связь</button><button className="is-primary" onClick={save} disabled={busy}><Save size={16}/>Сохранить</button></div>
       <p className="integration-security">Пароль шифруется средствами ASP.NET Core Data Protection и никогда не возвращается в браузер.</p>
     </div>}
-  </section></div>;
+  </section></WorkspaceToolPage>;
 }
