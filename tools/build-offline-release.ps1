@@ -46,6 +46,8 @@ Copy-Item (Join-Path $repoRoot "deployment/offline/Install-ProcessNavigator.cmd"
 Copy-Item (Join-Path $repoRoot "deployment/offline/Stop-Portable.cmd") $packageRoot
 Copy-Item (Join-Path $repoRoot "docs/offline-deployment.md") (Join-Path $packageRoot "INSTALLATION.md")
 Copy-Item (Join-Path $repoRoot "docs/user-manual.md") (Join-Path $packageRoot "USER-MANUAL.md")
+$releaseNotes = Join-Path $repoRoot "docs/release-notes/$Version.md"
+if (Test-Path -LiteralPath $releaseNotes) { Copy-Item -LiteralPath $releaseNotes -Destination (Join-Path $packageRoot "RELEASE-NOTES.md") }
 Copy-Item (Join-Path $repoRoot "integrations/one-c-extension") (Join-Path $packageRoot "one-c-extension") -Recurse
 
 $manifest = Join-Path $packageRoot "manifest.sha256"

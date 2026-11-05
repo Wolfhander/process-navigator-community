@@ -4,7 +4,7 @@
 
 ## Что передать
 
-Основной артефакт — один файл `ProcessNavigator-<версия>-win-x64-offline.zip` из раздела **Releases** закрытого репозитория GitHub. Рядом публикуется необязательный файл `.sha256`; его используют в предварительной зоне для проверки загрузки.
+Основной артефакт — один файл `ProcessNavigator-<версия>-win-x64-offline.zip` из раздела **Releases** публичного репозитория Process Navigator Community. Рядом публикуется необязательный файл `.sha256`; его используют в предварительной зоне для проверки загрузки.
 
 Архив содержит:
 
@@ -20,7 +20,7 @@
 
 ## Подготовка в зоне с Интернетом
 
-1. Открыть закрытый репозиторий `Wolfhander/process-navigator` на GitHub.
+1. Открыть публичный репозиторий [Wolfhander/process-navigator-community](https://github.com/Wolfhander/process-navigator-community) на GitHub.
 2. Перейти в **Releases** и выбрать требуемую версию.
 3. Скачать `ProcessNavigator-<версия>-win-x64-offline.zip` и соответствующий `.sha256`.
 4. Проверить архив:
