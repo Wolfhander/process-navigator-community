@@ -16,32 +16,7 @@ public sealed class RepositoryBackupService(IWebHostEnvironment environment)
         await operationLock.WaitAsync(cancellationToken);
         try
         {
-            Directory.CreateDirectory(backupRoot);
-            var createdAt = DateTimeOffset.UtcNow;
-            var fileName = $"process-navigator-{createdAt:yyyyMMdd-HHmmss}.zip";
-            var destination = Path.Combine(backupRoot, fileName);
-            var files = Directory.EnumerateFiles(dataRoot, "*", SearchOption.AllDirectories)
-                .Where(path => !path.StartsWith(backupRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
-            var manifestFiles = new List<BackupManifestFile>();
-            await using (var stream = File.Create(destination))
-            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create))
-            {
-                foreach (var source in files)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var relative = Path.GetRelativePath(dataRoot, source).Replace('\\', '/');
-                    var entry = archive.CreateEntry($"Data/{relative}", CompressionLevel.Optimal);
-                    await using var input = File.OpenRead(source);
-                    await using var output = entry.Open();
-                    await input.CopyToAsync(output, cancellationToken);
-                    manifestFiles.Add(new(relative, new FileInfo(source).Length, await HashFileAsync(source, cancellationToken)));
-                }
-                var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
-                await using var manifestStream = manifestEntry.Open();
-                await JsonSerializer.SerializeAsync(manifestStream, new BackupManifest("1.0", createdAt, createdBy, manifestFiles), new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
-            }
-            return await DescribeAsync(destination, files.Length, createdAt, cancellationToken);
+            return await CreateUnlockedAsync(createdBy,cancellationToken);
         }
         finally { operationLock.Release(); }
     }
@@ -95,8 +70,12 @@ public sealed class RepositoryBackupService(IWebHostEnvironment environment)
                 var destination = SafeDataPath(file.Path);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 var staged = destination + $".restore-{Guid.NewGuid():N}.tmp";
+                try
+                {
                 await using (var input = entry.Open()) await using (var output = File.Create(staged)) await input.CopyToAsync(output, cancellationToken);
                 File.Move(staged, destination, true);
+                }
+                finally {if(File.Exists(staged))File.Delete(staged);}
             }
             return new(inspected.Manifest.Files.Count, safety.FileName, true);
         }
@@ -114,25 +93,41 @@ public sealed class RepositoryBackupService(IWebHostEnvironment environment)
         BackupManifest manifest;
         await using (var stream = manifestEntry.Open()) manifest = await JsonSerializer.DeserializeAsync<BackupManifest>(stream, cancellationToken: cancellationToken) ?? throw new InvalidDataException("Манифест резервной копии пуст.");
         if (manifest.FormatVersion != "1.0") throw new InvalidDataException($"Версия формата '{manifest.FormatVersion}' не поддерживается.");
-        if (manifest.Files.Count == 0) throw new InvalidDataException("Резервная копия не содержит файлов данных.");
+        if (manifest.Files is null || manifest.Files.Count == 0 || manifest.Files.Count > 20000) throw new InvalidDataException("Недопустимое число файлов резервной копии (1–20000).");
+        if(archive.Entries.Select(entry=>entry.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=archive.Entries.Count)
+            throw new InvalidDataException("В архиве повторяются имена файлов.");
+        var targets=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long total=0;
         foreach (var file in manifest.Files)
         {
-            SafeDataPath(file.Path);
+            if(file is null || !targets.Add(SafeDataPath(file.Path)))throw new InvalidDataException("В манифесте повторяется путь.");
+            if(file.Size<0 || file.Size>512L*1024*1024 || total>512L*1024*1024-file.Size)throw new InvalidDataException("Объём резервной копии превышает 512 МБ.");
+            total+=file.Size;
             var entry = archive.GetEntry($"Data/{file.Path.Replace('\\', '/')}") ?? throw new InvalidDataException($"В архиве отсутствует файл '{file.Path}'.");
+            if(entry.Length!=file.Size)throw new InvalidDataException($"Размер файла '{file.Path}' не совпадает с манифестом.");
             await using var stream = entry.Open();
             var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
             if (!hash.Equals(file.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException($"Контрольная сумма файла '{file.Path}' не совпадает.");
         }
+        if(archive.Entries.Count!=manifest.Files.Count+1)throw new InvalidDataException("В архиве есть файлы вне манифеста.");
         return new(manifest);
     }
 
     private string SafeDataPath(string relative)
     {
-        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)) throw new InvalidDataException("Резервная копия содержит небезопасный путь.");
+        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':') ||
+            relative.Replace('\\','/').Split('/').Any(segment=>segment is "" or "." or ".." || segment.EndsWith('.') || segment.EndsWith(' ')))
+            throw new InvalidDataException("Резервная копия содержит небезопасный путь.");
         var root = Path.GetFullPath(dataRoot) + Path.DirectorySeparatorChar;
         var full = Path.GetFullPath(Path.Combine(dataRoot, relative.Replace('/', Path.DirectorySeparatorChar)));
         if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase) || full.StartsWith(Path.GetFullPath(backupRoot) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Резервная копия содержит небезопасный путь.");
+        for(var current=full;current.Length>=root.TrimEnd(Path.DirectorySeparatorChar).Length;current=Path.GetDirectoryName(current)??"")
+        {
+            if((File.Exists(current)||Directory.Exists(current)) && (File.GetAttributes(current)&FileAttributes.ReparsePoint)!=0)
+                throw new InvalidDataException("Путь восстановления содержит ссылку файловой системы.");
+            if(current.Equals(root.TrimEnd(Path.DirectorySeparatorChar),StringComparison.OrdinalIgnoreCase))break;
+        }
         return full;
     }
 
@@ -142,21 +137,37 @@ public sealed class RepositoryBackupService(IWebHostEnvironment environment)
         var createdAt = DateTimeOffset.UtcNow;
         var fileName = $"process-navigator-{createdAt:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.zip";
         var destination = Path.Combine(backupRoot, fileName);
-        var files = Directory.EnumerateFiles(dataRoot, "*", SearchOption.AllDirectories).Where(path => !path.StartsWith(backupRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
+        var files = Directory.EnumerateFiles(dataRoot, "*", SearchOption.AllDirectories).Where(path => !path.StartsWith(backupRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && !path.EndsWith(".tmp",StringComparison.OrdinalIgnoreCase)).OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToArray();
         var manifestFiles = new List<BackupManifestFile>();
-        await using (var stream = File.Create(destination))
+        var staged=destination+".tmp";
+        try
+        {
+        await using (var stream = new FileStream(staged,FileMode.CreateNew,FileAccess.Write,FileShare.None))
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create))
         {
             foreach (var source in files)
             {
+                SafeDataPath(Path.GetRelativePath(dataRoot,source));
                 var relative = Path.GetRelativePath(dataRoot, source).Replace('\\', '/'); var entry = archive.CreateEntry($"Data/{relative}", CompressionLevel.Optimal);
-                await using var input = File.OpenRead(source); await using var output = entry.Open(); await input.CopyToAsync(output, cancellationToken);
-                manifestFiles.Add(new(relative, new FileInfo(source).Length, await HashFileAsync(source, cancellationToken)));
+                await using var input = File.OpenRead(source); await using var output = entry.Open();
+                using var hash=IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                var buffer=new byte[81920];long size=0;int read;
+                while((read=await input.ReadAsync(buffer,cancellationToken))>0)
+                {
+                    await output.WriteAsync(buffer.AsMemory(0,read),cancellationToken);
+                    hash.AppendData(buffer,0,read);size+=read;
+                }
+                manifestFiles.Add(new(relative,size,Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant()));
             }
             var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal); await using var manifestStream = manifestEntry.Open();
             await JsonSerializer.SerializeAsync(manifestStream, new BackupManifest("1.0", createdAt, createdBy, manifestFiles), new JsonSerializerOptions { WriteIndented = true }, cancellationToken);
         }
-        return await DescribeAsync(destination, files.Length, createdAt, cancellationToken);
+        await using(var verification=File.OpenRead(staged))await InspectAsync(verification,cancellationToken);
+        var description=await DescribeAsync(staged,files.Length,createdAt,cancellationToken);
+        File.Move(staged,destination);
+        return description with {FileName=fileName};
+        }
+        finally {if(File.Exists(staged))File.Delete(staged);}
     }
 
     private static async Task<BackupInfoModel> DescribeAsync(string path, int count, DateTimeOffset createdAt, CancellationToken token) =>

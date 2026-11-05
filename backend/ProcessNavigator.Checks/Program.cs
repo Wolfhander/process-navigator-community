@@ -6,6 +6,7 @@ static NodeModel Node(params InformationObjectBindingModel[] bindings) =>
 static ProcessModel Child(params InformationObjectBindingModel[] bindings) =>
     new("child", "Детальный процесс", "1", "Демо", "Published", [], [Node(bindings),Node() with{Id="s",Type="startEvent"},Node() with{Id="z",Type="endEvent"}], [new("s-step","s","step",null,[]),new("step-z","step","z",null,[])]);
 var count = 0;
+count += await BackupIntegrityChecks.RunAsync();
 count += TransferAnalyticsChecks.Run();
 count += TransferRouteChecks.Run();
 count += NestedTransferChecks.Run();

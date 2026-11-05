@@ -210,10 +210,10 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         var xml = BlankBpmn(id, name, laneName);
         var context = JsonSerializer.Serialize(new { version = "0.1", owner, status = "Draft", elements = new { } },
             new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
-        await File.WriteAllTextAsync(paths.Bpmn, xml, new UTF8Encoding(false), cancellationToken);
+        await AtomicTextFile.WriteAsync(paths.Bpmn, xml, cancellationToken);
         try
         {
-            await File.WriteAllTextAsync(paths.Context, context, new UTF8Encoding(false), cancellationToken);
+            await AtomicTextFile.WriteAsync(paths.Context, context, cancellationToken);
             var process = await loader.LoadFilesAsync(paths.Bpmn, paths.Context, id, cancellationToken);
             return new ProcessImportResultModel(ToSummary(process), ContextWarnings(process));
         }
@@ -948,7 +948,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             ?? throw new InvalidDataException("Process context JSON is empty.");
         root["version"] = version;
         root["status"] = status;
-        await File.WriteAllTextAsync(path, root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }), cancellationToken);
+        await AtomicTextFile.WriteAsync(path, root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }), cancellationToken);
     }
 
     private static string NextVersion(string version)
