@@ -248,12 +248,17 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             if (!SafeProcessId().IsMatch(process.Id))
                 throw new InvalidDataException("Process ID may contain only Latin letters, digits, dots, underscores and hyphens.");
 
-            if (File.Exists(loader.GetBpmnPath(process.Id)))
+            var draftPaths = DraftPaths(process.Id);
+            if (File.Exists(loader.GetBpmnPath(process.Id)) || File.Exists(draftPaths.Bpmn) || File.Exists(draftPaths.Context))
                 throw new ProcessConflictException($"Process '{process.Id}' already exists.");
 
-            Directory.CreateDirectory(loader.DataRoot);
-            var destinationBpmn = Path.Combine(loader.DataRoot, $"{process.Id}.bpmn");
-            var destinationContext = Path.Combine(loader.DataRoot, $"{process.Id}.context.json");
+            // New imports must use the same draft location as every subsequent read,
+            // validation and publication. An uploaded Published status is not publication.
+            await UpdateContextAsync(temporaryContext, "0.1", "Draft", cancellationToken);
+            process = await loader.LoadFilesAsync(temporaryBpmn, temporaryContext, process.Id, cancellationToken);
+            Directory.CreateDirectory(DraftRoot);
+            var destinationBpmn = draftPaths.Bpmn;
+            var destinationContext = draftPaths.Context;
             File.Copy(temporaryBpmn, destinationBpmn, overwrite: false);
             try
             {
@@ -274,7 +279,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             if (elementsWithoutContext > 0)
                 warnings.Add($"{elementsWithoutContext} element(s) have no Process Navigator context.");
 
-            return new ProcessImportResultModel(ToSummary(process), warnings);
+            return new ProcessImportResultModel(ToSummary(process, process), warnings);
         }
         finally
         {

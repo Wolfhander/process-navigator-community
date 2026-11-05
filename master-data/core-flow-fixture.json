@@ -1,0 +1,13 @@
+{
+  "id":"acceptance-core-flow",
+  "name":"Учебная сквозная приёмка чертежа",
+  "sourceModel":"demo-showcase-l4-drawing",
+  "user":"demo-superadministrator",
+  "steps":["Task_Model","Task_RegisterPlm","Task_ReviewDrawing","Task_PaperControl"],
+  "hoursPerStep":1,
+  "expectedHours":4,
+  "anchorDate":"2026-11-09T06:00:00Z",
+  "expectedEnd":"2026-11-09T10:00:00Z",
+  "utcOffsetMinutes":180,
+  "scope":"Только отдельный временный ContentRoot; организации и исходные модели вымышлены."
+}
