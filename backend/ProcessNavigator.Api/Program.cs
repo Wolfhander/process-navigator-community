@@ -535,12 +535,30 @@ app.MapPost("/api/processes/{processId}/elements/{elementId}/actions/{actionId}/
 });
 
 app.MapPost("/api/processes/{processId}/instances", async (string processId, StartProcessInstanceModel request, HttpContext context,
-    ProcessCatalogService catalog, ProcessExecutionService executions, AccessControlService access, CancellationToken cancellationToken) =>
+    ProcessCatalogService catalog, ProcessExecutionService executions, AccessControlService access,
+    OrganizationMapService organization, ProcessAssignmentService assignments, CancellationToken cancellationToken) =>
 {
     if (!access.Has(context, ProcessPermissions.Execute)) return Forbidden(ProcessPermissions.Execute);
-    try { return Results.Ok(await executions.StartAsync(await catalog.LoadAsync(processId, false, cancellationToken), access.CurrentUser(context).Id, request.Name, cancellationToken)); }
+    try {
+        var model=await catalog.LoadAsync(processId,false,cancellationToken);
+        var snapshot=ResponsibilitySnapshot.Create(model,await organization.LoadAsync(cancellationToken),
+            (await assignments.LoadAsync(model,access.Users(),cancellationToken)) with{Users=access.Users()});
+        return Results.Ok(await executions.StartAsync(model,access.CurrentUser(context).Id,request.Name,cancellationToken,snapshot));
+    }
     catch (FileNotFoundException) { return Results.NotFound(new { message = $"Process '{processId}' was not found." }); }
     catch (InvalidDataException exception) { return Results.Problem(exception.Message,statusCode:422,title:"Execution model is unsupported"); }
+});
+
+app.MapPost("/api/processes/{processId}/instances/{instanceId}/receipts", async(string processId,string instanceId,
+    ProcessReceiptUpdateModel request,HttpContext context,ProcessExecutionService executions,AccessControlService access,CancellationToken ct)=>
+{
+    if(!access.Has(context,ProcessPermissions.Execute))return Forbidden(ProcessPermissions.Execute);
+    try{
+        var actor=access.CurrentUser(context);
+        return Results.Ok(await executions.AcceptReceiptAsync(processId,instanceId,request,actor.Id,actor.DisplayName,ct));
+    }
+    catch(KeyNotFoundException){return Results.NotFound(new{message="Выполнение или шаг не найдены."});}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422,title:"Receipt validation failed");}
 });
 
 app.MapPut("/api/processes/{processId}/instances/{instanceId}/steps/{elementId}", async (string processId, string instanceId,

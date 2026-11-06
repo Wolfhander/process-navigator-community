@@ -10,14 +10,14 @@ const code = source.code.replace(/import[^;]+;/g,'').replace('export function ',
 const process = { id:'p', name:'Процесс', version:'1', lanes:[{ id:'a',name:'<script>Отдел</script>' }], nodes:[{ id:'one',type:'task',name:'Действие',laneId:'a' }], edges:[] };
 function render(error = '') {
   const values = [undefined,error,0,'',''];
-  const Page = new Function('React','useState','useEffect','useMemo','buildResponsibilityView',code+'\nreturn ProcessResponsibilityPage;')(
-    { createElement,Fragment },()=>[values.shift(),()=>{}],()=>{},callback=>callback(),buildResponsibilityView);
+  const Page = new Function('React','useState','useEffect','useMemo','buildResponsibilityView','ExecutionResponsibilityPanel',code+'\nreturn ProcessResponsibilityPage;')(
+    { createElement,Fragment },()=>[values.shift(),()=>{}],()=>{},callback=>callback(),buildResponsibilityView,'section');
   return renderToStaticMarkup(Page({ process,edition:'Архивная версия',onBack:()=>{},onSelect:()=>{ throw Error('No automatic navigation'); } }));
 }
 test('read-only responsibility page distinguishes current directories from historical schema and receipt facts', () => {
   const html = render();
   assert.match(html,/Архивная версия/); assert.match(html,/не исторический снимок/);
-  assert.match(html,/не факт исполнения или подтверждение приёмки/);
+  assert.match(html,/отдельно от предположений схемы/);
   assert.match(html,/Это не означает их отсутствие/); assert.doesNotMatch(html,/<script>/);
   assert.match(html,/НЕПОЛНЫЕ ИСХОДНИКИ/);
   assert.match(html,/Состав печатной выборки/);

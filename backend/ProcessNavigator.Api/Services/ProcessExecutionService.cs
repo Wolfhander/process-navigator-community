@@ -3,7 +3,7 @@ using ProcessNavigator.Api.Models;
 
 namespace ProcessNavigator.Api.Services;
 
-public sealed class ProcessExecutionService(IWebHostEnvironment environment,TimeProvider? timeProvider=null)
+public sealed partial class ProcessExecutionService(IWebHostEnvironment environment,TimeProvider? timeProvider=null)
 {
     private DateTimeOffset Now=>(timeProvider??TimeProvider.System).GetUtcNow();
     private readonly string root = Path.Combine(environment.ContentRootPath, "Data", "Executions");
@@ -34,7 +34,8 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
             completedCycles.Length > 0 ? Math.Round(completedCycles.Average(), 1) : null, steps,now);
     }
 
-    public async Task<ProcessInstanceModel> StartAsync(ProcessModel process, string userId, string? name, CancellationToken cancellationToken)
+    public async Task<ProcessInstanceModel> StartAsync(ProcessModel process, string userId, string? name, CancellationToken cancellationToken,
+        ProcessResponsibilitySnapshotModel? responsibility=null)
 {
         await mutationLock.WaitAsync(cancellationToken);
         try {
@@ -44,6 +45,7 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
             string.IsNullOrWhiteSpace(name) ? $"Выполнение от {Now.ToLocalTime():dd.MM.yyyy HH:mm}" : name.Trim(), "Active",
             startedAt, null, userId, process.Nodes.Where(node => node.Type == "task")
                 .Select(node => new StepExecutionModel(node.Id, "NotStarted", null, null, null)).ToArray());
+        instance = instance with {Responsibility=responsibility is null?null:responsibility with{CapturedAt=startedAt}};
         instance = RefreshAvailablePlans(process, instance, startedAt);
         var instances = (await ReadAsync(process.Id, cancellationToken)).Append(instance).ToArray();
         await WriteAsync(process.Id, instances, cancellationToken); return instance;
@@ -380,6 +382,9 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
             $"assignment:{item.ElementId}:{item.AssignedAt.UtcTicks}", "StepAssigned", $"Этап «{item.ElementName}» передан сотруднику {item.ToUserName}",
             string.IsNullOrWhiteSpace(item.FromUserName) ? item.Reason : $"От: {item.FromUserName}. {item.Reason}",
             item.AssignedAt, item.ElementId, item.ElementName, UserId: item.AssignedBy, Severity: "Info")));
+        events.AddRange((instance.Receipts??[]).Select(item=>new ExecutionTimelineEventModel("receipt:"+item.Id,"ReceiptAccepted",
+            "Принят результат «"+item.ObjectId+"» версии "+item.Version,item.SourceProcessName+" / "+item.SourceElementName+". "+item.Reason,
+            item.AcceptedAt,item.TargetElementId,item.TargetElementName,item.TargetIteration,item.AcceptedBy,"Success")));
         events.AddRange(commands.Select(item => new ExecutionTimelineEventModel($"command:{item.Id}", "ActionExecuted",
             $"Выполнено действие «{item.ActionLabel}»", item.Result ?? item.Message, item.ExecutedAt, item.ElementId,
             nodes.GetValueOrDefault(item.ElementId)?.Name, UserId: item.UserId, Severity: item.Status == "Failed" ? "Warning" : "Success")));
@@ -567,13 +572,13 @@ public sealed class ProcessExecutionService(IWebHostEnvironment environment,Time
         var path = PathFor(processId); if (!File.Exists(path)) return [];
         var items=JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await AtomicTextFile.ReadAsync(path, cancellationToken),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-        foreach(var item in items)ExecutionOutcome.Validate(item);
+        foreach(var item in items){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);}
         return items;
     }
 
     private async Task WriteAsync(string processId, IReadOnlyList<ProcessInstanceModel> instances, CancellationToken cancellationToken)
     {
-        foreach(var item in instances)ExecutionOutcome.Validate(item);
+        foreach(var item in instances){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);}
         await writeLock.WaitAsync(cancellationToken);
         try { Directory.CreateDirectory(root); var path = PathFor(processId); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(instances, new JsonSerializerOptions { WriteIndented = true }), cancellationToken); AtomicTextFile.Commit(temporary, path); }
         finally { writeLock.Release(); }

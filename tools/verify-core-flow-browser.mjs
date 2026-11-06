@@ -339,10 +339,71 @@ try {
   assert.equal(Date.parse(calendarReverse.startAt),Date.parse('2026-11-09T21:00:00Z'));
   const calendarShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'org-calendars.png'),Buffer.from(calendarShot.data,'base64'));
   check('Saved organization night calendar drives browser step dates and both API directions with seasonal zone');
+  stage='historical-responsibility';
+  const producerId=spec.id+'-receipt-source',receiverId=spec.id+'-receipt-target';
+  const receiptOrg=await api('/api/organization');
+  for(const id of [producerId,receiverId])receiptOrg.crossCompanyProcesses.push({...affiliation,processId:id});
+  await api('/api/admin/organization',receiptOrg,200,spec.user,'PUT');
+  for(const id of [producerId,receiverId]){
+    const elements=structuredClone(context.elements),element=id===producerId?spec.steps[0]:spec.steps[1];
+    elements[element].informationObjects=[{objectId:'receipt-drawing',name:'Учебный чертёж приёмки',role:id===producerId?'Output':'Input',required:true,version:'1'}];
+    const uploadForm=new FormData();
+    uploadForm.set('bpmnFile',new Blob([bpmn.replaceAll(spec.id,id)]),'receipt.bpmn');
+    uploadForm.set('contextFile',new Blob([JSON.stringify({...context,elements})]),'receipt.context.json');
+    await api('/api/processes/import',uploadForm,201);
+    await api('/api/processes/'+id+'/draft/workflow/submit',{comment:'Учебная приёмка ответственности'});
+    for(let n=0;n<10;n++){if((await api('/api/processes/'+id+'/draft/workflow')).status==='Approved')break;await api('/api/processes/'+id+'/draft/workflow/approve',{comment:'Учебное согласование'});}
+    await api('/api/processes/'+id+'/publish',{});
+    await api('/api/processes/'+id+'/assignments',{lanes:(await api('/api/processes/'+id)).lanes.map(l=>({laneId:l.id,userIds:[spec.user]}))},200,spec.user,'PUT');
+  }
+  const producer=await api('/api/processes/'+producerId+'/instances',{name:'Учебный выпуск для приёмки'});
+  const receiver=await api('/api/processes/'+receiverId+'/instances',{name:'Учебная фактическая приёмка'});
+  assert.ok(receiver.responsibility);assert.equal(receiver.responsibility.people.length,1);
+  const oldEntityName=receiver.responsibility.organization.legalEntities[0].name;
+  await api('/api/processes/'+producerId+'/instances/'+producer.id+'/steps/'+spec.steps[0],{status:'InProgress'},200,spec.user,'PUT');
+  await api('/api/processes/'+producerId+'/instances/'+producer.id+'/steps/'+spec.steps[0]+'/result',{resultText:'Чертёж версии 1 выдан',objectIds:['receipt-drawing']},200,spec.user,'PUT');
+  await api('/api/processes/'+producerId+'/instances/'+producer.id+'/steps/'+spec.steps[0],{status:'Completed'},200,spec.user,'PUT');
+  const changedOrg=await api('/api/organization');
+  const changedEntity=changedOrg.legalEntities.find(e=>e.id===receiver.responsibility.organization.legalEntities[0].id);
+  changedEntity.name=oldEntityName+' (текущее новое название)';
+  await api('/api/admin/organization',changedOrg,200,spec.user,'PUT');
+  await api('/api/processes/'+receiverId+'/assignments',{lanes:receiver.responsibility.lanes.map(l=>({laneId:l.laneId,userIds:[]}))},200,spec.user,'PUT');
+  await navigate('process='+receiverId+'&view=responsibility');
+  await wait("!!document.querySelector('.receipt-target-instance')&&document.querySelector('.receipt-target-instance').options.length>1",'historical responsibility executions');
+  await set('.receipt-target-instance',receiver.id);
+  await wait("document.querySelector('.execution-responsibility').textContent.includes('Снимок запуска')",'frozen snapshot visible');
+  const historicalText=await run("document.querySelector('.execution-responsibility').textContent");
+  assert.ok(historicalText.includes(oldEntityName));assert.ok(!historicalText.includes('(текущее новое название)'));
+  assert.ok(historicalText.includes('Демо-системный администратор'));
+  await clickText('Зафиксировать приёмку результата','summary');
+  await set('.receipt-source-process',producerId);
+  await wait("[...document.querySelector('.receipt-source-instance').options].some(o=>o.value==="+JSON.stringify(producer.id)+")",'exact producer execution');
+  await set('.receipt-source-instance',producer.id);
+  await wait("[...document.querySelector('.receipt-source-step').options].some(o=>o.value==="+JSON.stringify(spec.steps[0])+")",'completed producer step');
+  await set('.receipt-source-step',spec.steps[0]);
+  await wait("[...document.querySelector('.receipt-object').options].some(o=>o.value==='receipt-drawing')",'recorded source output');
+  await set('.receipt-object','receipt-drawing');await set('.receipt-target-step',spec.steps[1]);
+  await set('.receipt-version','1');await set('.receipt-reason','Получен учебный чертёж версии 1; комплект проверен.');
+  await click('.receipt-save','record explicit receipt');
+  await wait("!!document.querySelector('.receipt-entry')",'persisted receipt visible');
+  const received=(await api('/api/processes/'+receiverId+'/instances')).find(i=>i.id===receiver.id);
+  assert.equal(received.receipts.length,1);assert.equal(received.receipts[0].acceptedBy,spec.user);
+  assert.equal(received.steps.find(s=>s.elementId===spec.steps[1]).status,'NotStarted');
+  const receiptUpdate={sourceProcessId:producerId,sourceInstanceId:producer.id,sourceElementId:spec.steps[0],sourceIteration:1,targetElementId:spec.steps[1],targetIteration:1,objectId:'receipt-drawing',version:'1',reason:'Получен учебный чертёж версии 1; комплект проверен.'};
+  await api('/api/processes/'+receiverId+'/instances/'+receiver.id+'/receipts',receiptUpdate,403,'demo-analyst');
+  await api('/api/processes/'+receiverId+'/instances/'+receiver.id+'/receipts',{...receiptUpdate,targetIteration:2},422);
+  await api('/api/processes/'+receiverId+'/instances/'+receiver.id+'/receipts',receiptUpdate);
+  assert.equal((await api('/api/processes/'+receiverId+'/instances')).find(i=>i.id===receiver.id).receipts.length,1);
+  const responsibilityShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'responsibility-receipt.png'),Buffer.from(responsibilityShot.data,'base64'));
+  await call('Page.reload');await wait("!!document.querySelector('.receipt-target-instance')&&document.querySelector('.receipt-target-instance').options.length>1",'receipt page reload');
+  await set('.receipt-target-instance',receiver.id);await wait("!!document.querySelector('.receipt-entry')",'receipt persists after browser reload');
+  check('Browser historical organization and lane people survive current-directory edits; cross-process receipt is explicit and persisted');
+  check('Receipt permission, stale iteration and duplicate checks preserve journal and never advance target step');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){
   report.result='FAIL';report.stage=stage;report.error=error.message;
+  if(browser){try{report.receiptForm=await browser.run("[...document.querySelectorAll('.receipt-form input,.receipt-form select,.receipt-form textarea,.receipt-save')].map(e=>({class:e.className,value:e.tagName==='TEXTAREA'?'[reason]':e.value,disabled:e.disabled}))");}catch{}}
   if(browser){try{report.page=await browser.run('document.body.innerText.slice(0,1200)');}catch{}}
   throw error;
 } finally {

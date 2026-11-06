@@ -32,7 +32,9 @@ public sealed record ProcessInstanceModel(string Id, string ProcessId, string Pr
     DateTimeOffset StartedAt, DateTimeOffset? CompletedAt, string StartedBy, IReadOnlyList<StepExecutionModel> Steps,
     IReadOnlyList<BranchDecisionModel>? BranchDecisions = null, IReadOnlyList<ProcessReturnEventModel>? ReturnEvents = null,
     IReadOnlyList<ProcessLifecycleEventModel>? LifecycleEvents = null, IReadOnlyList<StepAssignmentEventModel>? AssignmentEvents = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ProcessOutcomeModel? Outcome=null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ProcessOutcomeModel? Outcome=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ProcessResponsibilitySnapshotModel? Responsibility=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ProcessReceiptModel>? Receipts=null);
 public sealed record StartProcessInstanceModel(string? Name);
 public sealed record StepStatusUpdateModel(string Status);
 public sealed record ReturnStepModel(string TargetElementId, string Reason);

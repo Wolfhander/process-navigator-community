@@ -38,33 +38,26 @@ export function buildResponsibilityView(process: ProcessModel, organization?: Or
   const transfers: { fromId: string; toId: string; edgeIds: string[]; labels: string[]; throughParallel: boolean }[] = [];
   let visits = 0, limited = false;
   for (const source of process.nodes.filter(node => node.type === 'task')) {
-    const visited = new Set([source.id]);
-    const parents = new Map<string, { id: string; edge: (typeof process.edges)[number] }>();
-    const queue: { id: string; depth: number }[] = [{ id: source.id, depth: 0 }];
-    for (let index = 0; index < queue.length; index++) {
-      if (++visits > 100_000 || transfers.length >= 2000) { limited = true; break; }
-      const entry = queue[index];
-      const target = nodes.get(entry.id)!;
-      if (target.type === 'task' && target.id !== source.id) {
-        const edges: typeof process.edges = [];
-        let id = target.id;
-        while (parents.has(id)) { const parent = parents.get(id)!; edges.unshift(parent.edge); id = parent.id; }
-        if (source.laneId !== target.laneId) transfers.push({ fromId: source.id, toId: target.id,
-          edgeIds: edges.map(edge => edge.id), labels: edges.map(edge => edge.label).filter((label): label is string => !!label),
-          throughParallel: edges.some(edge => nodes.get(edge.sourceId)?.type === 'parallelGateway') });
-        continue;
-      }
-      if (entry.depth >= 200) { if (outgoing.has(target.id)) limited = true; continue; }
-      for (const edge of outgoing.get(target.id) ?? []) {
-        if (++visits > 100_000) { limited = true; break; }
-        if (!visited.has(edge.targetId)) {
-          visited.add(edge.targetId); parents.set(edge.targetId, { id: target.id, edge });
-          queue.push({ id: edge.targetId, depth: entry.depth + 1 });
+    const queue:{id:string;edgeIds:string[];labels:string[];path:Set<string>;parallel:boolean}[]=[{id:source.id,edgeIds:[],labels:[],path:new Set([source.id]),parallel:false}];
+    for(let index=0;index<queue.length;index++){
+      const entry=queue[index];
+      if(++visits>100_000||transfers.length>=2000){limited=true;break;}
+      for(const edge of outgoing.get(entry.id)??[]){
+        if(++visits>100_000){limited=true;break;}
+        const target=nodes.get(edge.targetId)!;
+        const edgeIds=[...entry.edgeIds,edge.id],labels=edge.label?[...entry.labels,edge.label]:entry.labels;
+        const throughParallel=entry.parallel||nodes.get(entry.id)?.type==='parallelGateway';
+        if(entry.path.has(target.id)){limited=true;continue;}
+        if(target.type==='task'){
+          if(source.laneId!==target.laneId)transfers.push({fromId:source.id,toId:target.id,edgeIds,labels,throughParallel});
+          continue;
         }
+        if(edgeIds.length>=200||queue.length>=10000){limited=true;continue;}
+        queue.push({id:target.id,edgeIds,labels,path:new Set([...entry.path,target.id]),parallel:throughParallel});
       }
-      if (visits > 100_000) break;
+      if(visits>100_000||transfers.length>=2000)break;
     }
-    if (limited) break;
+    if(visits>100_000||transfers.length>=2000)break;
   }
   return { rows, nodes, transfers, broken, limited,
     tasksWithoutLane: process.nodes.filter(node => node.type === 'task' && !process.lanes.some(lane => lane.id === node.laneId)).length };

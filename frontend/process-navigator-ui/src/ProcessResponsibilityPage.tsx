@@ -3,9 +3,10 @@ import { loadOrganization } from './api';
 import type { OrganizationMap, ProcessAssignments, ProcessModel, ProcessNode } from './types';
 import { buildResponsibilityView } from './process-responsibility';
 import './process-instruction.css';
+import {ExecutionResponsibilityPanel} from './ExecutionResponsibilityPanel';
 
-export function ProcessResponsibilityPage({ process, assignments, edition, onBack, onSelect }: {
-  process: ProcessModel; assignments?: ProcessAssignments; edition: string; onBack: () => void; onSelect: (node: ProcessNode) => void;
+export function ProcessResponsibilityPage({ process, assignments, edition, onBack, onSelect,canExecute=false }: {
+  process: ProcessModel; assignments?: ProcessAssignments; edition: string; onBack: () => void; onSelect: (node: ProcessNode) => void;canExecute?:boolean;
 }) {
   assignments = assignments?.processId === process.id ? assignments : undefined;
   const [organization, setOrganization] = useState<OrganizationMap>();
@@ -34,7 +35,7 @@ export function ProcessResponsibilityPage({ process, assignments, edition, onBac
   const stepLink = (id: string) => { const node = data!.nodes.get(id)!; return <button onClick={() => onSelect(node)}>{node.name || id} · {laneLabel(node.laneId)}</button>; };
   return <main className="feature-page instruction-page"><div className="feature-page-shell"><nav className="feature-breadcrumb"><button onClick={onBack}>← К схеме процесса</button><span>›</span><strong>Ответственность и передачи</strong></nav>
     <header><span className="eyebrow">{edition} · версия {process.version}</span><h1>{process.name}</h1><p>Схема — открытой редакции; оргпривязки и назначения — текущие справочники, не исторический снимок. Назначение на дорожку не означает, что сотрудник фактически выполнил каждый её шаг.</p></header>
-    <p>Страница только для чтения. Возможная передача по стрелкам — не факт исполнения или подтверждение приёмки; отдельная фиксация приёмки здесь не реализована.</p>
+    <p>Этот раздел показывает текущие справочники и возможные связи. Исторические снимки конкретных выполнений и явная приёмка находятся ниже, отдельно от предположений схемы.</p>
     {!organization && !error && <p role="status">Загружаем оргструктуру…</p>}{error && <p role="alert">{error} Оргпривязки пока не подтверждены.</p>}
     {!assignments && <p>Назначения сотрудников ещё не загружены. Это не означает их отсутствие.</p>}
     <button onClick={() => setReload(value => value + 1)}>Обновить оргструктуру</button>
@@ -55,11 +56,12 @@ export function ProcessResponsibilityPage({ process, assignments, edition, onBac
         <p>Действий на дорожке: {row.tasks.length}.</p>{row.tasks.slice(0, 50).map(node => <p key={node.id}><button onClick={() => onSelect(node)}>{node.name || node.id}</button> · исполнитель шага: {node.executorKind === 'system' ? 'система' : node.executorKind === 'human' ? 'сотрудник' : 'не уточнён'}{node.systemName ? ' · ' + node.systemName : ''}</p>)}
         {row.tasks.length > 50 && <p>Показаны первые 50 действий дорожки. Остальные — на схеме.</p>}
       </article>)}{rows.length > 200 && <p>Показаны первые 200 дорожек. Уточните фильтр.</p>}{!rows.length && <p>Дорожки по выбранному фильтру не найдены.</p>}
-      <section className="instruction-card"><h2>Возможные передачи работы</h2><p>Для каждой пары соседних по маршруту действий показан один найденный путь через события/шлюзы, не все варианты условий. Промежуточные действия не пропускаются. Фильтр включает передачи, где видна хотя бы одна сторона.</p>
-        {data.limited && <p className="instruction-warning">Достигнут предел обхода или 2000 передач. Список неполный; проверьте исходную схему.</p>}
-        {transfers.slice(0, 200).map(item => <article key={item.fromId + ':' + item.toId}><p>{stepLink(item.fromId)} → {stepLink(item.toId)}</p><p>{context(data.nodes.get(item.fromId)!.laneId)} → {context(data.nodes.get(item.toId)!.laneId)}</p><p>Подписи стрелок на найденном пути: {item.labels.join(' → ') || 'не заданы'}.</p>{item.throughParallel && <p>Путь проходит через параллельный шлюз; это не выбор одной альтернативы.</p>}</article>)}
+      <section className="instruction-card"><h2>Возможные передачи работы</h2><p>Показаны простые варианты путей через события/шлюзы до следующего действия; подписи не исполняются. Промежуточные действия не пропускаются. Циклы и пределы помечают неполноту. Фильтр включает передачи, где видна хотя бы одна сторона.</p>
+        {data.limited && <p className="instruction-warning">Обнаружен цикл или достигнут предел обхода / 2000 передач. Список неполный; проверьте исходную схему.</p>}
+        {transfers.slice(0, 200).map(item => <article key={item.fromId + ':' + item.toId + ':' + item.edgeIds.join('|')}><p>{stepLink(item.fromId)} → {stepLink(item.toId)}</p><p>{context(data.nodes.get(item.fromId)!.laneId)} → {context(data.nodes.get(item.toId)!.laneId)}</p><p>Подписи стрелок на найденном пути: {item.labels.join(' → ') || 'не заданы'}.</p>{item.throughParallel && <p>Путь проходит через параллельный шлюз; это не выбор одной альтернативы.</p>}</article>)}
         {transfers.length > 200 && <p>Показаны первые 200 из {transfers.length} передач фильтра.</p>}{!transfers.length && <p>Для фильтра передачи не найдены. Это не подтверждение отсутствия межпроцессных передач документов.</p>}
       </section>
     </>}
+    <ExecutionResponsibilityPanel processId={process.id} canExecute={canExecute}/>
   </div></main>;
 }

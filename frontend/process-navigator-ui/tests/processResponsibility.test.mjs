@@ -22,6 +22,19 @@ test('parallel transfer is marked, loops do not run forever and missing links st
 const organization = { legalEntities: [{ id:'e', name:'Организация', units:[{ id:'u', parentId:'v', name:'Отдел', shortName:'О' },{ id:'v', parentId:'u', name:'Управление', shortName:'У' }] }],
   crossCompanyProcesses:[{ processId:'p', laneOrganizations:[{ laneId:'a', legalEntityId:'e', unitId:'u' }] }] };
 const assignments = { processId:'p', lanes:[{ laneId:'a', userIds:['person','missing'] }], users:[{ id:'person', displayName:'Участник', isActive:false }] };
+
+test('all simple gateway variants to the same next task retain separate edge witnesses',()=>{
+ const model={...process,nodes:[task('one','a'),task('split','a','exclusiveGateway'),task('left','a','exclusiveGateway'),task('right','a','exclusiveGateway'),task('join','a','exclusiveGateway'),task('two','b')],
+ edges:[edge('one','split'),edge('split','left','Да'),edge('split','right','Нет'),edge('left','join'),edge('right','join'),edge('join','two')]};
+ const view=buildResponsibilityView(model);
+ assert.equal(view.transfers.length,2);assert.equal(view.limited,false);
+ assert.deepEqual(view.transfers.map(p=>p.labels),[['Да'],['Нет']]);
+ assert.notDeepEqual(view.transfers[0].edgeIds,view.transfers[1].edgeIds);
+});
+test('gateway cycle marks path list incomplete rather than claiming exhaustive coverage',()=>{
+ const view=buildResponsibilityView({...process,edges:[...process.edges,edge('g','g')]});
+ assert.equal(view.limited,true);assert.equal(view.transfers.length,2);
+});
 test('cyclic unit hierarchy, inactive and missing users are explained without fabricating assignments', () => {
   const row = buildResponsibilityView(process, organization, assignments).rows[0];
   assert.equal(row.people.length, 1);

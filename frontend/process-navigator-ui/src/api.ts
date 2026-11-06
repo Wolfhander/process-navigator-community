@@ -300,6 +300,13 @@ export async function loadInstances(processId: string,signal?:AbortSignal): Prom
   return response.json() as Promise<ProcessInstance[]>;
 }
 
+export async function acceptReceipt(processId:string,instanceId:string,request:import('./types').ReceiptUpdate):Promise<ProcessInstance>{
+  const response=await fetch('/api/processes/'+encodeURIComponent(processId)+'/instances/'+encodeURIComponent(instanceId)+'/receipts',
+    {method:'POST',headers:{...roleHeaders(),'Content-Type':'application/json'},body:JSON.stringify(request)});
+  if(!response.ok)throw Error(await errorMessage(response,'Приёмка не записана. Проверьте состояние перед повтором.'));
+  return response.json();
+}
+
 export async function loadInstanceSchedulePlans(processId: string, instanceId: string): Promise<import('./instance-schedule-plan').InstanceSchedulePlan[]> {
   const response = await fetch(`/api/processes/${encodeURIComponent(processId)}/instances/${encodeURIComponent(instanceId)}/schedule-plans`, { headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить планы выполнения.'));

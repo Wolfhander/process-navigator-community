@@ -7,14 +7,17 @@ export async function isolatedEdge(folder) {
   const profile=path.join(folder,'edge-profile');await mkdir(profile,{recursive:true});
   const child=spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',[
     '--headless=new','--disable-gpu','--no-first-run','--disable-background-networking',
-    '--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:'ignore'});
+    '--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+  let diagnostics='';child.stderr.on('data',chunk=>{diagnostics=(diagnostics+chunk.toString()).slice(-4000);});
   let startupError,ws;child.on('error',error=>{startupError=error;});
   try {
     let port;
     for(let n=0;n<100;n++){
       if(startupError)throw startupError;
-      if(child.exitCode!==null)throw Error('Own Edge exited.');
       try{port=Number((await readFile(path.join(profile,'DevToolsActivePort'),'utf8')).split('\n')[0]);break;}catch{}
+      // Edge's launcher may hand off to its browser child and exit with 0.
+      // Only connect to this freshly created profile's advertised port.
+      if(child.exitCode!==null&&child.exitCode!==0)throw Error('Own Edge exited ('+child.exitCode+'): '+diagnostics);
       await new Promise(r=>setTimeout(r,100));
     }
     if(!port)throw Error('Own Edge did not expose its local debugging port.');

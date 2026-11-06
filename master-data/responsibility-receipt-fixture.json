@@ -1,0 +1,12 @@
+{
+  "scope":"Согласованный синтетический контур для исторической ответственности и явной приёмки",
+  "source":{"processId":"source","version":"1","elementId":"a","iteration":1,"status":"Completed","objectId":"drawing","objectVersion":"1","recordedResultRequired":true},
+  "target":{"processId":"target","version":"1","elementId":"b","iteration":1,"status":"NotStarted","inputObjectId":"drawing","inputVersion":"1"},
+  "historicalOrganization":"Старая организация",
+  "historicalUnits":["Старый отдел разработки","Старый отдел проверки"],
+  "startupPerson":"Старое имя",
+  "laterAssignedPerson":"Новое имя человека",
+  "reason":"Чертёж получен и проверен",
+  "expected":{"receiptCount":1,"targetStatusAfterAcceptance":"NotStarted","duplicatesCreateNewEntries":false,"currentDirectoryRenamingRewritesHistory":false},
+  "reproduction":"backend/ProcessNavigator.Checks/ResponsibilityReceiptChecks.cs; tools/verify-core-flow-browser.mjs, этап historical-responsibility"
+}
