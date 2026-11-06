@@ -11,6 +11,10 @@ const calendar = (value: unknown) => isRecord(value) && typeof value.workdayStar
 const routes = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(choices => isRecord(choices) && Object.values(choices).every(choice => typeof choice === 'string')));
 const repetitions = (value: unknown) => value === undefined || (isRecord(value) && Object.values(value).every(repeat => isRecord(repeat) && typeof repeat.returnEdgeId === 'string' && Number.isInteger(repeat.plannedRepeats) && Number.isInteger(repeat.maximumRepeats) && Number(repeat.plannedRepeats) >= 0 && Number(repeat.plannedRepeats) <= Number(repeat.maximumRepeats) && Number(repeat.maximumRepeats) <= 50));
 const optionalDate = (value: unknown) => value == null || date(value);
+const scenarioOptions=(value:Record<string,unknown>)=>
+ (value.facts==null||(isRecord(value.facts)&&Object.keys(value.facts).length<=100&&Object.values(value.facts).every(v=>typeof v==='boolean'))) &&
+ (value.objectRules==null||(Array.isArray(value.objectRules)&&value.objectRules.length<=500&&value.objectRules.every(r=>isRecord(r)&&['processId','elementId','objectId','factName'].every(k=>typeof r[k]==='string')&&['Input','Output'].includes(String(r.role))&&typeof r.expectedValue==='boolean'))) &&
+ (value.branchProbabilities==null||(Array.isArray(value.branchProbabilities)&&value.branchProbabilities.length<=8&&value.branchProbabilities.every(p=>isRecord(p)&&typeof p.processId==='string'&&typeof p.gatewayId==='string'&&Array.isArray(p.weights)&&p.weights.every(w=>isRecord(w)&&typeof w.edgeId==='string'&&finite(w.probability)&&Number(w.probability)>=0&&Number(w.probability)<=1))));
 export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
   if (raw === null) return [];
   if (raw.length > 2_000_000) throw new Error('Хранилище расчётов превышает 2 млн символов. Оно не перезаписано.');
@@ -20,6 +24,15 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
     if (!isRecord(saved) || typeof saved.id !== 'string' || typeof saved.name !== 'string' || !date(saved.savedAt) || !isRecord(saved.request) || !isRecord(saved.result)) throw new Error('Повреждён снимок расчёта.');
     const result = saved.result;
     const request = saved.request;
+    if(!scenarioOptions(request)||!isRecord(result.assumptions)||!scenarioOptions(result.assumptions))throw Error('Повреждены условия или вероятности сценария.');
+    if(result.alternativeEnvelope!=null){
+      const e=result.alternativeEnvelope;
+      if(!isRecord(e)||!Array.isArray(e.cases)||e.cases.length<1||e.cases.length>64||typeof e.complete!=='boolean'||!finite(e.probabilityMass)||!finite(e.expectedNominalHours)||
+        ![e.earliestStart,e.latestStart,e.earliestEnd,e.latestEnd].every(date)||
+        !e.cases.every(c=>isRecord(c)&&Number.isInteger(c.number)&&finite(c.probability)&&Number(c.probability)>0&&Number(c.probability)<=1&&isRecord(c.choices)&&routes(c.choices)&&date(c.startAt)&&date(c.endAt)&&finite(c.nominalHours)&&typeof c.complete==='boolean'&&strings(c.processIds))||
+        Math.abs(Number(e.probabilityMass)-1)>1e-7||
+        Math.abs(e.cases.reduce((sum,c)=>sum+Number((c as Record<string,unknown>).probability),0)-1)>1e-7)throw Error('Повреждён диапазон альтернатив.');
+    }
     for(const options of [request,result.assumptions]){
       if(!isRecord(options)||(options.useOrganizationCalendars!==undefined&&typeof options.useOrganizationCalendars!=='boolean')||
         (options.timeZoneId!=null&&typeof options.timeZoneId!=='string')||
@@ -61,12 +74,15 @@ export function serializeScheduleSnapshots(list: ScheduleSnapshot[]) {
   return raw;
 }
 export function compareScheduleSnapshots(baseline: ProcessSchedule, current: ProcessSchedule) {
+  const scenario=(value:ProcessSchedule,id:string)=>JSON.stringify([value.assumptions.processBranches?.[id]??{},
+    value.assumptions.processRepetitions?.[id]??null,value.assumptions.facts??{},
+    (value.assumptions.objectRules??[]).filter(r=>r.processId===id),(value.assumptions.branchProbabilities??[]).filter(p=>p.processId===id)]);
   const previous = new Map(baseline.processes.map(item => [item.processId, item]));
   const rows = current.processes.map(item => {
     const old = previous.get(item.processId); previous.delete(item.processId);
     const before = baseline.sources?.processes.find(model => model.id === item.processId);
     const after = current.sources?.processes.find(model => model.id === item.processId);
-    const routeChanged = old ? JSON.stringify([baseline.assumptions.processBranches?.[item.processId] ?? {}, baseline.assumptions.processRepetitions?.[item.processId] ?? null]) !== JSON.stringify([current.assumptions.processBranches?.[item.processId] ?? {}, current.assumptions.processRepetitions?.[item.processId] ?? null]) : undefined;
+    const routeChanged = old ? scenario(baseline,item.processId)!==scenario(current,item.processId) : undefined;
     return { id: item.processId, name: item.processName, state: old ? 'changed' : 'added', routeChanged, sourceChanged: before && after ? JSON.stringify(before) !== JSON.stringify(after) : undefined, finishDeltaHours: old ? (Date.parse(item.endAt) - Date.parse(old.endAt)) / 3600000 : undefined,
       durationDeltaHours: old ? item.durationHours - old.durationHours : undefined };
   });

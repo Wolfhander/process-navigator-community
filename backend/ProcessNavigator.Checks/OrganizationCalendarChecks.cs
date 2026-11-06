@@ -72,6 +72,7 @@ internal static class OrganizationCalendarChecks
             Check(stepResult.StartAt==request.AnchorDate.AddHours(1) && stepResult.EndAt==request.AnchorDate.AddHours(5),"Step calendar overrides process");
             var archives=new ScheduleArchiveService(host,service);
             var archived=await archives.SaveAsync("actor",new("Учебные графики",request,result),false);
+            Check((await archives.ReplayAsync("actor",archived.Id,false)).Status=="Reproduced","Server archive retains organization calendar options, not just frozen sources");
             await SaveOrg(org with{LegalEntities=[entity with{Calendar=Cal("18:00","23:00"),Units=entity.Units!.Select(u=>u with{Calendar=null}).ToArray()}]});
             var replay=await service.ReplayAsync(request,result.Sources);
             Check(replay.EndAt==result.EndAt,"Replay uses frozen org calendar, not edited current graph");

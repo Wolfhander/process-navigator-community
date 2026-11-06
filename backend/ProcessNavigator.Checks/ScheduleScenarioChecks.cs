@@ -139,7 +139,7 @@ internal static class ScheduleScenarioChecks
         }
         return count;
     }
-    static async Task Write(string root, ProcessModel model)
+    internal static async Task Write(string root, ProcessModel model)
     {
         XNamespace bpmn = "http://www.omg.org/spec/BPMN/20100524/MODEL", di = "http://www.omg.org/spec/BPMN/20100524/DI", dc = "http://www.omg.org/spec/DD/20100524/DC", point = "http://www.omg.org/spec/DD/20100524/DI";
         var process = new XElement(bpmn + "process", new XAttribute("id", model.Id), new XAttribute("name", model.Name),

@@ -1,0 +1,16 @@
+{
+  "id": "acceptance-conditional-routes",
+  "name": "Учебный расчёт: короткий и длинный маршруты",
+  "anchorDate": "2026-11-09T06:00:00Z",
+  "utcOffsetMinutes": 180,
+  "fastHours": 2,
+  "slowHours": 6,
+  "fastProbability": 0.25,
+  "slowProbability": 0.75,
+  "expectedNominalHours": 5,
+  "caseCount": 2,
+  "factName": "Нужен комплект",
+  "objectId": "conditional-drawing",
+  "earliestEnd": "2026-11-09T08:00:00Z",
+  "latestEnd": "2026-11-09T12:00:00Z"
+}

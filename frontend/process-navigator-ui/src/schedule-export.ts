@@ -28,5 +28,12 @@ export function scheduleCsv(result: ProcessSchedule) {
   rows.push([],['Оргкалендари',!!result.assumptions.useOrganizationCalendars],['Общий часовой пояс',result.assumptions.timeZoneId??'фиксированный UTC']);
   rows.push([],['Процесс ID','Шаг ID','Источник и график','Начало шага ISO','Конец шага ISO']);
   for(const item of result.processes)for(const step of item.steps??[])rows.push([item.processId,step.elementId,step.calendarSource,step.startAt,step.endAt]);
+  rows.push([],['Булевы факты JSON',JSON.stringify(result.assumptions.facts??{})],['Условия объектов JSON',JSON.stringify(result.assumptions.objectRules??[])],['Вероятности XOR JSON',JSON.stringify(result.assumptions.branchProbabilities??[])]);
+  if(result.alternativeEnvelope){
+    const value=result.alternativeEnvelope;
+    rows.push([],['Диапазон полон',value.complete],['Вероятностная масса',value.probabilityMass],['Взвешенные номинальные часы',value.expectedNominalHours],['Гарантия срока','Нет; вероятности и факты — допущения']);
+    rows.push(['Сценарий','Вероятность','Начало ISO','Конец ISO','Номинальные часы','Полон','Исходы JSON','Процессы']);
+    for(const item of value.cases)rows.push([item.number,item.probability,item.startAt,item.endAt,item.nominalHours,item.complete,JSON.stringify(item.choices),item.processIds.join(',')]);
+  }
   return '\uFEFF' + rows.map(row => row.map(scheduleCsvCell).join(';')).join('\r\n');
 }

@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createDemoContour} from './reset-demo-contour.mjs';
 import {isolatedEdge} from './isolated-edge.mjs';
+import {scheduleConditionFiles} from './schedule-conditions-fixture.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const spec=JSON.parse(fs.readFileSync(path.join(root,'master-data/core-flow-fixture.json'),'utf8'));
@@ -13,6 +14,8 @@ const reconciliationSpec=JSON.parse(fs.readFileSync(path.join(root,'master-data/
 const artifacts=path.join(root,'artifacts');fs.mkdirSync(artifacts,{recursive:true});
 const folder=fs.mkdtempSync(path.join(artifacts,'core-flow-browser-')),data=path.join(folder,'Data');
 const files=createDemoContour().files;
+const conditionSpec=JSON.parse(fs.readFileSync(path.join(root,'master-data/schedule-conditions-fixture.json'),'utf8'));
+for(const [name,text] of scheduleConditionFiles(conditionSpec))files.set(name,text);
 for(const [name,text]of files){const p=path.join(data,name);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,text);}
 const source=files.get(spec.sourceModel+'.bpmn');assert.ok(source,'Source BPMN fixture missing');
 const sourceContext=JSON.parse(files.get(spec.sourceModel+'.context.json'));
@@ -399,6 +402,42 @@ try {
   await set('.receipt-target-instance',receiver.id);await wait("!!document.querySelector('.receipt-entry')",'receipt persists after browser reload');
   check('Browser historical organization and lane people survive current-directory edits; cross-process receipt is explicit and persisted');
   check('Receipt permission, stale iteration and duplicate checks preserve journal and never advance target step');
+  stage='conditional-schedule';await navigate('page=schedule');
+  await wait("!!document.querySelector('.schedule-form')",'condition calculator');
+  await set('.schedule-form select',conditionSpec.id);
+  await set('.schedule-form input[type=datetime-local]','2026-11-09T09:00');
+  await click('.schedule-run','load scenario sources');
+  await wait("!!document.querySelector('.condition-probability')",'XOR editor sources');
+  await clickText('Условия объектов и вероятностные исходы','summary');
+  await set('.scenario-new-fact',conditionSpec.factName);await click('.scenario-add-fact','explicit boolean assumption');
+  await click('.condition-binding input[type=checkbox]','bind fact to document output');
+  await click('.condition-probability input[type=checkbox]','enable distribution');
+  await set('.scenario-probability[data-edge=a]',25);await set('.scenario-probability[data-edge=b]',75);
+  await click('.schedule-run','exact alternative range');
+  await wait("document.querySelectorAll('.scenario-cases-table tbody tr').length===2",'two exact leaf scenarios');
+  const conditionalRequest={rootProcessId:conditionSpec.id,direction:'Forward',anchorDate:conditionSpec.anchorDate,utcOffsetMinutes:conditionSpec.utcOffsetMinutes,
+    facts:{[conditionSpec.factName]:true},objectRules:[{processId:conditionSpec.id,elementId:'fast',objectId:conditionSpec.objectId,role:'Output',factName:conditionSpec.factName,expectedValue:true}],
+    branchProbabilities:[{processId:conditionSpec.id,gatewayId:'g',weights:[{edgeId:'a',probability:.25},{edgeId:'b',probability:.75}]}]};
+  const bounded=await api('/api/processes/schedule',conditionalRequest);
+  assert.equal(bounded.alternativeEnvelope.expectedNominalHours,5);
+  assert.equal(Date.parse(bounded.alternativeEnvelope.earliestEnd),Date.parse(conditionSpec.earliestEnd));
+  assert.equal(Date.parse(bounded.alternativeEnvelope.latestEnd),Date.parse(conditionSpec.latestEnd));
+  assert.equal(bounded.alternativeEnvelope.complete,true);
+  assert.ok((await run("document.querySelector('.schedule-scenario-result').textContent")).includes('не гарантированный срок'));
+  await run("document.querySelector('.schedule-scenario-result').scrollIntoView({block:'start'})");
+  const conditionShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'conditional-range.png'),Buffer.from(conditionShot.data,'base64'));
+  await call('Emulation.setDeviceMetricsOverride',{width:360,height:900,deviceScaleFactor:1,mobile:false});
+  await wait("document.documentElement.scrollWidth<=innerWidth+1",'condition page fits narrow screen');
+  await run("document.querySelector('.schedule-scenario-result').scrollIntoView({block:'start'})");
+  const narrowShot=await call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(folder,'conditional-range-narrow.png'),Buffer.from(narrowShot.data,'base64'));
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+  const requestsBefore=report.network.filter(n=>n.path==='/api/processes/schedule').length;
+  await clickText('Подставить сценарий 1','button');
+  assert.equal(report.network.filter(n=>n.path==='/api/processes/schedule').length,requestsBefore,'Choosing a leaf must not auto-calculate');
+  assert.ok(await run("!!document.querySelector('.schedule-dirty')"));
+  await click('.schedule-run','explicit selected leaf calculation');
+  await wait("!document.querySelector('.scenario-cases-table')&&!!document.querySelector('.schedule-kpis')",'manual leaf replaces range');
+  check('Boolean document rule, exact XOR range, nominal mean and explicit leaf selection work in the browser');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){

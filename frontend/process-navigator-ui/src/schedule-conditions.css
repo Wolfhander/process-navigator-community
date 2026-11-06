@@ -1,0 +1,21 @@
+.schedule-condition-editor fieldset{min-width:0;border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:12px}
+.schedule-condition-editor label{display:grid;gap:6px;min-width:0}
+.schedule-condition-editor input,.schedule-condition-editor select{min-width:0;max-width:100%;box-sizing:border-box;padding:7px}
+.condition-add,.condition-fact,.condition-fields{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:10px 0}
+.condition-add>label,.condition-fields>label{flex:1 1 200px}
+.condition-binding,.condition-probability{padding:12px;border:1px solid var(--line);border-radius:8px;margin:8px 0;overflow-wrap:anywhere}
+.condition-binding>label,.condition-probability>label{display:block}
+.condition-probability input[type=number]{display:block}
+.scenario-cases-table{overflow:auto}
+.scenario-cases-table table{border-collapse:collapse;width:100%;font-size:13px}
+.scenario-cases-table th,.scenario-cases-table td{padding:9px;text-align:left;border:1px solid var(--line);overflow-wrap:anywhere}
+.schedule-scenario-result p,.schedule-scenario-result li{overflow-wrap:anywhere}
+.schedule-condition-editor summary{font-weight:700;cursor:pointer}
+.schedule-condition-editor input:not([type=checkbox]),.schedule-condition-editor select{min-height:40px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);font:inherit}
+.schedule-condition-editor button,.schedule-scenario-result button{min-height:38px;padding:8px 12px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);cursor:pointer}
+.schedule-condition-editor button:disabled,.schedule-scenario-result button:disabled{opacity:.5;cursor:default}
+.schedule-scenario.schedule-condition-editor p,.schedule-scenario.schedule-scenario-result p{font-size:12px;line-height:1.6;margin:8px 0}
+.schedule-condition-editor label{font-size:13px}
+.schedule-condition-editor input[type=checkbox]{margin-right:8px}
+.scenario-cases-table table{min-width:760px}
+@media(max-width:600px){.condition-add,.condition-fields{display:grid;grid-template-columns:minmax(0,1fr)}.condition-fact{align-items:center}.condition-fact strong{flex-basis:100%}}

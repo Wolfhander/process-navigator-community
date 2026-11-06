@@ -9,12 +9,12 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     public const string Algorithm = "schedule-v3-route-scenario";
     public const string CalendarAlgorithm = "schedule-v4-step-calendar";
     public Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
-        CancellationToken cancellationToken = default) => CalculateCoreAsync(request,includeDrafts,null,cancellationToken);
+        CancellationToken cancellationToken = default) => CalculateScenarioAsync(request,includeDrafts,null,cancellationToken);
 
     public Task<ProcessScheduleModel> ReplayAsync(ProcessScheduleRequestModel request,ScheduleSourceSnapshotModel source,
         CancellationToken cancellationToken=default)
     {
-        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
+        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm && source.Algorithm!=ScenarioAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
         if(source.Processes is null||source.Objects is null||source.Processes.Count is <1 or >200||source.Objects.Count>10000||
             source.Processes.Any(p=>p is null||string.IsNullOrWhiteSpace(p.Id)||p.Nodes is null||p.Edges is null||p.Lanes is null||p.Nodes.Count>10000||p.Edges.Count>20000)||
             source.Processes.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=source.Processes.Count||
@@ -35,7 +35,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         }
         if(source.Objects.Any(o=>o.Producers.Concat(o.Consumers).Concat(o.References).Any(v=>v is null||string.IsNullOrWhiteSpace(v.ProcessId))))
             throw new InvalidDataException("Повреждены участники передачи сохранённого объекта.");
-        return CalculateCoreAsync(request,false,source,cancellationToken);
+        return CalculateScenarioAsync(request,false,source,cancellationToken);
     }
 
     private async Task<ProcessScheduleModel> CalculateCoreAsync(ProcessScheduleRequestModel request, bool includeDrafts,ScheduleSourceSnapshotModel? frozen,
@@ -102,7 +102,9 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         }
         bool InRoute(InformationObjectOccurrenceModel occurrence) => occurrence.Scope != "Step" ||
             !routes.TryGetValue(occurrence.ProcessId, out var route) || route.ActiveIds.Contains(occurrence.ElementId ?? "");
-        var scenarioObjects = originalRegistry.Objects.Select(item => item with {
+        ValidateObjectRules(request,sourceModels);
+        var conditionedObjects = ApplyObjectRules(request,originalRegistry.Objects);
+        var scenarioObjects = conditionedObjects.Select(item => item with {
             Producers = item.Producers.Where(InRoute).ToArray(), Consumers = item.Consumers.Where(InRoute).ToArray(),
             References = item.References.Where(InRoute).ToArray()
         }).ToArray();
@@ -250,7 +252,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             calendar.NonWorkingDates.OrderBy(value => value).Select(value => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToArray(),
             request.ProcessDurationScalePercent ?? new Dictionary<string, double>(), request.Checkpoints ?? new Dictionary<string, DateTimeOffset>(), (int)calendar.Offset.TotalMinutes,
             candidateIds.Where(profiles.ContainsKey).ToDictionary(id => id, id => profiles[id]), branches, repetitions,
-            request.UseOrganizationCalendars, request.StepCalendars, request.TimeZoneId);
+            request.UseOrganizationCalendars, request.StepCalendars, request.TimeZoneId,request.Facts,request.ObjectRules,request.BranchProbabilities);
         return new(direction, request.RootProcessId, request.AnchorDate, startAt, endAt,
             Math.Round(items.Sum(item => item.DurationHours), 2), Math.Round(critical.DurationHours, 2),
             uncertaintyReasons.Values.All(value => value.Count == 0) && !issues.Any(item => item.Severity == "Error" || item.Code == "internal-cycle"), assumptions,

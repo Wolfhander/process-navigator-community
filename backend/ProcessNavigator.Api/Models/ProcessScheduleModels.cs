@@ -19,7 +19,10 @@ public sealed record ProcessScheduleRequestModel(
     IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool UseOrganizationCalendars = false,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, IReadOnlyDictionary<string, ScheduleCalendarModel>>? StepCalendars = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,bool>? Facts = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleObjectRuleModel>? ObjectRules = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null);
 
 public sealed record ScheduleRepetitionModel(string ReturnEdgeId, int PlannedRepeats, int MaximumRepeats);
 
@@ -83,7 +86,10 @@ public sealed record ProcessScheduleAssumptionsModel(
     IReadOnlyDictionary<string, ScheduleRepetitionModel>? ProcessRepetitions = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)] bool UseOrganizationCalendars = false,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string, IReadOnlyDictionary<string, ScheduleCalendarModel>>? StepCalendars = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,bool>? Facts = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleObjectRuleModel>? ObjectRules = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null);
 
 public sealed record ProcessScheduleModel(
     string Direction,
@@ -100,8 +106,10 @@ public sealed record ProcessScheduleModel(
     IReadOnlyList<ProcessScheduleIssueModel> Issues,
     ScheduleSourceSnapshotModel? Sources = null,
     DateTimeOffset? MaximumStartAt = null,
-    DateTimeOffset? MaximumEndAt = null);
+    DateTimeOffset? MaximumEndAt = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleAlternativeEnvelopeModel? AlternativeEnvelope = null);
 
 public sealed record ScheduleSourceSnapshotModel(string Algorithm, DateTimeOffset CapturedAt,
     IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] OrganizationMapModel? Organization = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] OrganizationMapModel? Organization = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? BaseAlgorithm = null);

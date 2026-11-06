@@ -76,6 +76,7 @@ count += await RouteTopologyChecks.RunAsync();
 count += await MasterDataChecks.RunAsync();
 count += await ScheduleChecks.RunAsync();
 count += await ScheduleScenarioChecks.RunAsync();
+count += await ScheduleConditionChecks.RunAsync();
 static bool RejectedTransition(string? previous, string? previousVersion, string state, string version)
 {
     try { InformationObjectLifecycle.Validate(previous, previousVersion, state, version); return false; }
