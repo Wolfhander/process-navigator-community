@@ -126,6 +126,12 @@ export async function calculateProcessSchedule(request: ProcessScheduleRequest):
   return response.json() as Promise<ProcessSchedule>;
 }
 
+export async function loadScheduleSources(rootProcessId:string,direction:string):Promise<NonNullable<ProcessSchedule['sources']>>{
+  const response=await fetch('/api/processes/schedule/sources?'+new URLSearchParams({rootProcessId,direction}),{headers:roleHeaders()});
+  if(!response.ok)throw Error(await errorMessage(response,'Не удалось прочитать схемы цепочки.'));
+  return response.json();
+}
+
 export async function saveOrganization(update: OrganizationMap): Promise<OrganizationMap> {
   const response = await fetch('/api/admin/organization', { method: 'PUT', headers: { ...roleHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(update) });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось сохранить организационную структуру.'));

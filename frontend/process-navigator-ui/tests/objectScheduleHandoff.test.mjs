@@ -4,7 +4,7 @@ const code=(await transformWithOxc(source,'ProcessSchedulePage.tsx',{jsx:{runtim
 const icons=source.match(/import \{ ([^}]+) \} from 'lucide-react'/)[1].split(',').map(s=>s.trim());
 function find(el,fn){if(Array.isArray(el))return el.map(v=>find(v,fn)).find(Boolean);if(!el||typeof el!=='object')return;return fn(el)?el:find(el.props?.children,fn);}
 function setup(catalog,seed){
- let consumed=0;const calls=[],state=[],deps={...Object.fromEntries(icons.map(n=>[n,'span'])),...Object.fromEntries(['ScheduleConditionEditor','ScheduleScenarioResult','ScheduleStepCalendarEditor','ScheduleCalendarEditor','ScheduleRouteEditor','ScheduleArchive','ScheduleServerArchive','ScheduleFactPanel'].map(n=>[n,'section'])),calculateProcessSchedule:async r=>{calls.push(r);return{};},useMemo:fn=>fn(),useEffect:fn=>fn(),useState:v=>{const value=typeof v==='function'?v():v;state.push(value);return[value,()=>{}];}};
+ let consumed=0;const calls=[],state=[],deps={...Object.fromEntries(icons.map(n=>[n,'span'])),...Object.fromEntries(['ScheduleIterationEditor','ScheduleIterationResult','ScheduleConditionEditor','ScheduleScenarioResult','ScheduleStepCalendarEditor','ScheduleCalendarEditor','ScheduleRouteEditor','ScheduleArchive','ScheduleServerArchive','ScheduleFactPanel'].map(n=>[n,'section'])),calculateProcessSchedule:async r=>{calls.push(r);return{};},useMemo:fn=>fn(),useEffect:fn=>fn(),useState:v=>{const value=typeof v==='function'?v():v;state.push(value);return[value,()=>{}];}};
  const Page=new Function('React',...Object.keys(deps),code+';return ProcessSchedulePage;')({createElement},...Object.values(deps));
  return{tree:Page({userId:'demo',catalog,initialScenario:seed,onSeedConsumed:()=>consumed++,onBack(){},onOpen(){}}),calls,state,get consumed(){return consumed;}};
 }

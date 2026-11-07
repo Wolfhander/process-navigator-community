@@ -88,7 +88,7 @@ public sealed class ScheduleArchiveService(IWebHostEnvironment environment, Proc
         var normalized = new ProcessScheduleRequestModel(current.RootProcessId, current.Direction, current.AnchorDate,
             a.IncludeWaitTime, a.WorkdayStart, a.WorkdayEnd, a.WorkingDays, a.DurationScalePercent, a.TransferDelayHours,
             a.NonWorkingDates, a.ProcessDurationScalePercent, a.Checkpoints, a.UtcOffsetMinutes, a.ProcessCalendars,
-            a.ProcessBranches, a.ProcessRepetitions,a.UseOrganizationCalendars,a.StepCalendars,a.TimeZoneId,a.Facts,a.ObjectRules,a.BranchProbabilities);
+            a.ProcessBranches, a.ProcessRepetitions,a.UseOrganizationCalendars,a.StepCalendars,a.TimeZoneId,a.Facts,a.ObjectRules,a.BranchProbabilities,a.IterationPlans,a.IterationTransfers);
         await gate.WaitAsync(ct);
         try
         {

@@ -5,7 +5,8 @@ public sealed record ScheduleProbabilityWeightModel(string EdgeId,double? Probab
 public sealed record ScheduleBranchProbabilityModel(string ProcessId,string GatewayId,IReadOnlyList<ScheduleProbabilityWeightModel> Weights);
 public sealed record ScheduleAlternativeCaseModel(int Number,double Probability,
     IReadOnlyDictionary<string,IReadOnlyDictionary<string,string>> Choices,DateTimeOffset StartAt,DateTimeOffset EndAt,
-    double NominalHours,bool Complete,IReadOnlyList<string> ProcessIds);
+    double NominalHours,bool Complete,IReadOnlyList<string> ProcessIds,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,IReadOnlyDictionary<string,int>>? IterationCounts = null);
 public sealed record ScheduleAlternativeEnvelopeModel(IReadOnlyList<ScheduleAlternativeCaseModel> Cases,
     DateTimeOffset EarliestStart,DateTimeOffset LatestStart,DateTimeOffset EarliestEnd,DateTimeOffset LatestEnd,
     double ExpectedNominalHours,double ProbabilityMass,bool Complete);

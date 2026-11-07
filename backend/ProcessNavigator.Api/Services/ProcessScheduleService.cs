@@ -9,12 +9,12 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     public const string Algorithm = "schedule-v3-route-scenario";
     public const string CalendarAlgorithm = "schedule-v4-step-calendar";
     public Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
-        CancellationToken cancellationToken = default) => CalculateScenarioAsync(request,includeDrafts,null,cancellationToken);
+        CancellationToken cancellationToken = default) => CalculateIterationsAsync(request,includeDrafts,null,cancellationToken);
 
     public Task<ProcessScheduleModel> ReplayAsync(ProcessScheduleRequestModel request,ScheduleSourceSnapshotModel source,
         CancellationToken cancellationToken=default)
     {
-        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm && source.Algorithm!=ScenarioAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
+        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm && source.Algorithm!=ScenarioAlgorithm && source.Algorithm!=IterationAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
         if(source.Processes is null||source.Objects is null||source.Processes.Count is <1 or >200||source.Objects.Count>10000||
             source.Processes.Any(p=>p is null||string.IsNullOrWhiteSpace(p.Id)||p.Nodes is null||p.Edges is null||p.Lanes is null||p.Nodes.Count>10000||p.Edges.Count>20000)||
             source.Processes.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=source.Processes.Count||
@@ -35,7 +35,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         }
         if(source.Objects.Any(o=>o.Producers.Concat(o.Consumers).Concat(o.References).Any(v=>v is null||string.IsNullOrWhiteSpace(v.ProcessId))))
             throw new InvalidDataException("Повреждены участники передачи сохранённого объекта.");
-        return CalculateScenarioAsync(request,false,source,cancellationToken);
+        return CalculateIterationsAsync(request,false,source,cancellationToken);
     }
 
     private async Task<ProcessScheduleModel> CalculateCoreAsync(ProcessScheduleRequestModel request, bool includeDrafts,ScheduleSourceSnapshotModel? frozen,
@@ -396,14 +396,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         }
         else
         {
-            var longest = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-            foreach (var id in order)
-            {
-                var incoming = edges.Where(edge => edge.TargetId.Equals(id, StringComparison.OrdinalIgnoreCase))
-                    .Select(edge => longest.GetValueOrDefault(edge.SourceId)).DefaultIfEmpty(0).Max();
-                longest[id] = incoming + weights.GetValueOrDefault(id);
-            }
-            hours = longest.Values.DefaultIfEmpty(0).Max();
+            hours = Longest(order,edges,weights);
         }
         var baseHours = hours;
         var maximum = hours;
@@ -428,7 +421,8 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
     private static double Longest(IReadOnlyList<string> order, IReadOnlyList<EdgeModel> edges, IReadOnlyDictionary<string, double> weights)
     {
         var lengths = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-        foreach (var id in order) lengths[id] = edges.Where(edge => edge.TargetId.Equals(id, StringComparison.OrdinalIgnoreCase))
+        var incoming=edges.ToLookup(edge=>edge.TargetId,StringComparer.OrdinalIgnoreCase);
+        foreach (var id in order) lengths[id] = incoming[id]
             .Select(edge => lengths.GetValueOrDefault(edge.SourceId)).DefaultIfEmpty(0).Max() + weights.GetValueOrDefault(id);
         return lengths.Values.DefaultIfEmpty(0).Max();
     }

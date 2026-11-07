@@ -1,11 +1,13 @@
 import { useEffect,useMemo, useState } from 'react';
 import type {ObjectScheduleSeed} from './object-route-scenario';
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, CalendarX2, CheckCircle2, Clock3, Download, Gauge, Milestone, Network, Play, Plus, RotateCcw, Settings2, Trash2 } from 'lucide-react';
-import { calculateProcessSchedule } from './api';
+import { calculateProcessSchedule,loadScheduleSources } from './api';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
 import {ScheduleStepCalendarEditor} from './ScheduleStepCalendarEditor';
 import {ScheduleConditionEditor} from './ScheduleConditionEditor';
 import {ScheduleScenarioResult} from './ScheduleScenarioResult';
+import {ScheduleIterationEditor} from './ScheduleIterationEditor';
+import {ScheduleIterationResult} from './ScheduleIterationResult';
 import { scheduleCsv } from './schedule-export';
 import { ScheduleRouteEditor } from './ScheduleRouteEditor';
 import { ScheduleArchive } from './ScheduleArchive';
@@ -49,6 +51,9 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
   const [facts,setFacts]=useState<Record<string,boolean>>({});
   const [objectRules,setObjectRules]=useState<import('./types').ScheduleObjectRule[]>([]);
   const [branchProbabilities,setBranchProbabilities]=useState<import('./types').ScheduleBranchProbability[]>([]);
+  const [iterationPlans,setIterationPlans]=useState<Record<string,import('./types').ScheduleIterationPlan[]>>({});
+  const [iterationTransfers,setIterationTransfers]=useState<Record<string,'Batch'|'PerPass'>>({});
+  const [configurationSources,setConfigurationSources]=useState<ProcessSchedule['sources']>();
   const [lastRequest, setLastRequest] = useState<ProcessScheduleRequest>();
   const [scenarioDirty, setScenarioDirty] = useState(false);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
@@ -59,7 +64,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     result.dependencies.filter(dependency => direction === 'Forward' ? dependency.targetProcessId === item.processId : dependency.sourceProcessId === item.processId)]) ?? []), [result, direction]);
   const timeRange = result ? Math.max(1, new Date(result.endAt).getTime() - new Date(result.startAt).getTime()) : 1;
 
-  const resetChain = () => { setResult(undefined); setProcessScales({}); setCheckpoints({}); setProcessCalendars({}); setStepCalendars({}); setProcessBranches({}); setProcessRepetitions({}); setFacts({});setObjectRules([]);setBranchProbabilities([]);setLastRequest(undefined); setScenarioDirty(false); };
+  const resetChain = () => { setResult(undefined);setConfigurationSources(undefined); setProcessScales({}); setCheckpoints({}); setProcessCalendars({}); setStepCalendars({}); setProcessBranches({}); setProcessRepetitions({}); setFacts({});setObjectRules([]);setBranchProbabilities([]);setIterationPlans({});setIterationTransfers({});setLastRequest(undefined); setScenarioDirty(false); };
   const addNonWorkingDate = () => {
     if (!newNonWorkingDate || nonWorkingDates.includes(newNonWorkingDate)) return;
     setNonWorkingDates(value => [...value, newNonWorkingDate].sort()); setNewNonWorkingDate(''); setScenarioDirty(true);
@@ -72,7 +77,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
         rootProcessId, direction, anchorDate: new Date(anchorDate).toISOString(), includeWaitTime, workdayStart, workdayEnd,
         workingDays, durationScalePercent, transferDelayHours, nonWorkingDates, utcOffsetMinutes, processBranches, processRepetitions,
         useOrganizationCalendars,stepCalendars:Object.fromEntries(Object.entries(stepCalendars).map(([id,steps])=>[id,Object.fromEntries(Object.entries(steps).map(([key,cal])=>[key,{...cal,nonWorkingDates:cal.nonWorkingDates.map(s=>s.trim()).filter(Boolean)}]))])),timeZoneId:timeZoneId||undefined,
-        facts,objectRules,branchProbabilities,
+        facts,objectRules,branchProbabilities,iterationPlans,iterationTransfers,
         processCalendars: Object.fromEntries(Object.entries(processCalendars).map(([id, calendar]) => [id, { ...calendar, nonWorkingDates: calendar.nonWorkingDates.map(value => value.trim()).filter(Boolean) }])),
         processDurationScalePercent: Object.fromEntries(Object.entries(processScales).filter(([, value]) => value !== 100)),
         checkpoints: Object.fromEntries(Object.entries(checkpoints).filter(([, value]) => value).map(([id, value]) => [id, new Date(value).toISOString()]))
@@ -80,6 +85,7 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       const schedule = await calculateProcessSchedule(request);
       setLastRequest(structuredClone(request));
       setResult(schedule); setScenarioDirty(false);
+      setConfigurationSources(undefined);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Не удалось выполнить расчёт.'); }
     finally { setBusy(false); }
   };
@@ -92,8 +98,9 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     setProcessCalendars(value.processCalendars ?? {}); setCheckpoints(Object.fromEntries(Object.entries(value.checkpoints).map(([id, date]) => [id, localInputValue(date)])));
     setProcessBranches(value.processBranches ?? {}); setProcessRepetitions(value.processRepetitions ?? {});
     setUseOrganizationCalendars(value.useOrganizationCalendars??false);setStepCalendars(value.stepCalendars??{});setTimeZoneId(value.timeZoneId??'');
-    setFacts(value.facts??{});setObjectRules(value.objectRules??[]);setBranchProbabilities(value.branchProbabilities??[]);
+    setFacts(value.facts??{});setObjectRules(value.objectRules??[]);setBranchProbabilities(value.branchProbabilities??[]);setIterationPlans(value.iterationPlans??{});setIterationTransfers(value.iterationTransfers??{});
     setLastRequest(value); setResult(snapshot.result); setScenarioDirty(false); setError('');
+    setConfigurationSources(undefined);
   };
   const exportCsv = () => {
     if (!result) return;
@@ -108,8 +115,8 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
     <nav className="feature-breadcrumb"><button onClick={onBack}><ArrowLeft size={16}/>Рабочее пространство</button><span>›</span><strong>Расчёт сроков</strong></nav>
     <header className="schedule-heading"><div><span className="eyebrow">Цепочка процессов и документов</span><h1>Калькулятор сроков</h1><p>Прямой и обратный расчёт по нормам шагов, передачам документов и рабочему календарю. Сценарий позволяет менять отдельные ветви и контролировать обязательные даты.</p></div><div className="schedule-heading-actions">{result && <button onClick={exportCsv}><Download size={16}/>Выгрузить CSV</button>}<CalendarClock size={42}/></div></header>
     <fieldset disabled={busy} className="schedule-controls"><section className="schedule-form">
-      <label><span>{direction === 'Forward' ? 'Начальный процесс' : 'Конечный процесс'}</span><select value={rootProcessId} onChange={event => { setRootProcessId(event.target.value); resetChain(); }}>{catalog.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label><span>Направление</span><select value={direction} onChange={event => { setDirection(event.target.value as 'Forward' | 'Backward'); resetChain(); }}><option value="Forward">Прямой расчёт от старта</option><option value="Backward">Обратный расчёт от результата</option></select></label>
+      <label><span>{direction === 'Forward' ? 'Начальный процесс' : 'Конечный процесс'}</span><select disabled={busy} value={rootProcessId} onChange={event => { setRootProcessId(event.target.value); resetChain(); }}>{catalog.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label><span>Направление</span><select disabled={busy} value={direction} onChange={event => { setDirection(event.target.value as 'Forward' | 'Backward'); resetChain(); }}><option value="Forward">Прямой расчёт от старта</option><option value="Backward">Обратный расчёт от результата</option></select></label>
       <label><span>{direction === 'Forward' ? 'Дата начала' : 'Требуемая дата результата'}</span><input disabled={busy} type="datetime-local" value={anchorDate} onChange={event => { setAnchorDate(event.target.value); setScenarioDirty(true); }}/></label>
       <p className="schedule-zone-note">Дата ввода и отображаемые даты — в часовом поясе браузера. Рабочие часы применяются в часовом поясе или фиксированном UTC-сдвиге выбранного графика; источник виден в датах шагов.</p><button className="schedule-settings" aria-expanded={assumptionsOpen} onClick={() => setAssumptionsOpen(value => !value)}><Settings2 size={17}/>Календарь</button>
       <button className="schedule-run" disabled={busy || !rootProcessId || !workingDays.length} onClick={calculate}>{busy ? <RotateCcw className="is-spinning" size={17}/> : <Play size={17}/>}Рассчитать</button>
@@ -124,18 +131,21 @@ export function ProcessSchedulePage({ userId, canAssign = false, catalog, onBack
       </div>}
     </section>
     </fieldset>
-    <section className="schedule-scenario"><label><input disabled={busy} type="checkbox" checked={useOrganizationCalendars} onChange={e=>{setUseOrganizationCalendars(e.target.checked);setScenarioDirty(true);}}/>Календари шагов из оргструктуры</label><label>Часовой пояс общего графика<input disabled={busy} placeholder="Europe/Berlin; пусто — фиксированный UTC" value={timeZoneId} onChange={e=>{setTimeZoneId(e.target.value);setScenarioDirty(true);}}/></label><p>Календари задаются в настройках организации и подразделений. В расчёте используются оргпривязки дорожек, в архиве — их сохранённый снимок. Ночные смены допускаются; часы работы считаются как реальное прошедшее время. Календари шагов пока несовместимы с дополнительными проходами циклов: такой сценарий отклоняется явно.</p></section>
+    <section className="schedule-scenario"><label><input disabled={busy} type="checkbox" checked={useOrganizationCalendars} onChange={e=>{setUseOrganizationCalendars(e.target.checked);setScenarioDirty(true);}}/>Календари шагов из оргструктуры</label><label>Часовой пояс общего графика<input disabled={busy} placeholder="Europe/Berlin; пусто — фиксированный UTC" value={timeZoneId} onChange={e=>{setTimeZoneId(e.target.value);setScenarioDirty(true);}}/></label><p>Календари задаются в настройках организации и подразделений. В расчёте используются оргпривязки дорожек, в архиве — их сохранённый снимок. Ночные смены допускаются; часы работы считаются как реальное прошедшее время. Календари шагов совместимы с новым режимом развёрнутых проходов; прежние простые повторы требуют отдельного сценария.</p></section>
     <ScheduleCalendarEditor processes={result?.processes ?? []} defaults={{ workdayStart, workdayEnd, workingDays, nonWorkingDates, utcOffsetMinutes,timeZoneId:timeZoneId||undefined }} value={processCalendars} disabled={busy} onChange={value => { setProcessCalendars(value); setScenarioDirty(true); }}/>
-    <ScheduleStepCalendarEditor models={result?.sources?.processes??[]} value={stepCalendars} disabled={busy} onChange={value=>{setStepCalendars(value);setScenarioDirty(true);}}/>
-    <ScheduleRouteEditor models={result?.sources?.processes ?? []} branches={processBranches} repetitions={processRepetitions} probabilities={branchProbabilities} disabled={busy} onChange={(branches, repetitions) => { setProcessBranches(branches); setProcessRepetitions(repetitions); setScenarioDirty(true); }}/>
-    <ScheduleConditionEditor models={result?.sources?.processes??[]} branches={processBranches} facts={facts} rules={objectRules} probabilities={branchProbabilities} disabled={busy} onChange={(nextFacts,nextRules,nextProbabilities)=>{setFacts(nextFacts);setObjectRules(nextRules);setBranchProbabilities(nextProbabilities);setScenarioDirty(true);}}/>
+    <ScheduleStepCalendarEditor models={configurationSources?.processes??result?.sources?.processes??[]} value={stepCalendars} disabled={busy} onChange={value=>{setStepCalendars(value);setScenarioDirty(true);}}/>
+    <ScheduleRouteEditor models={configurationSources?.processes??result?.sources?.processes ?? []} branches={processBranches} repetitions={processRepetitions} probabilities={branchProbabilities} iterationPlans={iterationPlans} disabled={busy} onChange={(branches, repetitions) => { setProcessBranches(branches); setProcessRepetitions(repetitions); setScenarioDirty(true); }}/>
+    <ScheduleConditionEditor models={configurationSources?.processes??result?.sources?.processes??[]} branches={processBranches} facts={facts} rules={objectRules} probabilities={branchProbabilities} iterationMode={Object.keys(iterationPlans).length>0} disabled={busy} onChange={(nextFacts,nextRules,nextProbabilities)=>{setFacts(nextFacts);setObjectRules(nextRules);setBranchProbabilities(nextProbabilities);setScenarioDirty(true);}}/>
     <ScheduleArchive userId={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
     <ScheduleServerArchive key={userId} result={result} request={lastRequest} dirty={scenarioDirty || busy} busy={busy} onRestore={restore}/>
     {result && <ScheduleFactPanel result={result} request={lastRequest} canAssign={canAssign} dirty={scenarioDirty || busy}/>}
     {error && <div className="schedule-error"><AlertTriangle size={18}/>{error}</div>}
+      <section className="schedule-scenario"><button className="iteration-load-sources" disabled={busy||!rootProcessId} onClick={async()=>{setBusy(true);setError('');try{setConfigurationSources(await loadScheduleSources(rootProcessId,direction));}catch(e){setError(e instanceof Error?e.message:'Не удалось прочитать схемы.');}finally{setBusy(false);}}}>Загрузить схемы для настройки без расчёта дат</button><p>Для настройки циклов и календарей до первого успешного расчёта. Только чтение; даты и сохранённые планы не изменяются.</p></section>
+      <ScheduleIterationEditor models={configurationSources?.processes??result?.sources?.processes??[]} objects={configurationSources?.objects??result?.sources?.objects??[]} value={iterationPlans} transfers={iterationTransfers} disabled={busy} blocked={Object.keys(processRepetitions).length>0||branchProbabilities.length>0} onChange={(plans,transfers)=>{setIterationPlans(plans);setIterationTransfers(transfers);setProcessBranches(current=>Object.fromEntries(Object.entries(current).map(([id,choices])=>[id,Object.fromEntries(Object.entries(choices).filter(([gate])=>!(configurationSources?.processes??result?.sources?.processes??[]).find(m=>m.id===id)?.edges.some(e=>e.sourceId===gate&&plans[id]?.some(p=>p.returnEdgeId===e.id))))])));setScenarioDirty(true);}}/>
     {!result && !busy && !error && <section className="schedule-intro"><Network size={32}/><h2>Как строится цепочка</h2><p>Программа находит документы и результаты, которые выходят из одного процесса и являются входами другого. Затем применяет нормы работы, ожидания, календарь и параметры сценария.</p></section>}
     {result && <>
-      <ScheduleScenarioResult result={result} disabled={busy} onChoose={item=>{setProcessBranches(item.choices);setBranchProbabilities([]);setScenarioDirty(true);}}/>
+      <ScheduleIterationResult result={result} onOpen={onOpen}/>
+      <ScheduleScenarioResult result={result} disabled={busy} onChoose={item=>{setProcessBranches(item.choices);setBranchProbabilities([]);if(item.iterationCounts)setIterationPlans(Object.fromEntries(Object.entries(iterationPlans).map(([id,plans])=>[id,plans.map(p=>({...p,plannedRepeats:item.iterationCounts?.[id]?.[p.returnEdgeId]??p.plannedRepeats,distribution:undefined}))])));setScenarioDirty(true);}}/>
       {scenarioDirty && <div className="schedule-dirty"><AlertTriangle size={16}/>Параметры изменены. Нажмите «Рассчитать», чтобы обновить даты.</div>}
       {result.maximumStartAt && result.maximumEndAt && (result.maximumStartAt !== result.startAt || result.maximumEndAt !== result.endAt) && <section className="schedule-scenario"><h2>Предельный вариант по числу повторов</h2><p>{result.direction === "Forward" ? "Расчётная дата результата при предельном числе дополнительных проходов:" : "Расчётный предельный старт для заданного числа дополнительных проходов:"} <strong>{displayDate(result.direction === "Forward" ? result.maximumEndAt : result.maximumStartAt)}</strong>.</p><p>Это сценарный предел заданных повторов, а не вероятностный прогноз и не гарантия фактического срока. Остальные допущения и неопределённости сохраняются.</p></section>}
       <section className="schedule-kpis"><article><strong>{result.processes.length}</strong><span>процессов в цепочке</span></article><article><strong>{displayHours(result.durationHours)}</strong><span>сумма расчётных длительностей</span></article><article><strong>{displayHours(result.criticalDurationHours)}</strong><span>критическая цепочка</span></article><article><strong>{displayDate(result.startAt)}</strong><span>начало цепочки</span></article><article><strong>{displayDate(result.endAt)}</strong><span>завершение цепочки</span></article><article className={result.complete ? 'is-ready' : 'is-alert'}>{result.complete ? <CheckCircle2 size={20}/> : <AlertTriangle size={20}/>}<strong>{result.complete ? 'Расчёт полный' : 'Есть пробелы'}</strong><span>{result.issues.length} замечаний</span></article></section>

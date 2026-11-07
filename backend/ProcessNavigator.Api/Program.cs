@@ -448,6 +448,15 @@ app.MapPost("/api/processes/schedule", async (ProcessScheduleRequestModel reques
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Schedule validation failed"); }
 });
 
+app.MapGet("/api/processes/schedule/sources",async(string rootProcessId,string direction,HttpContext context,
+    ProcessScheduleService schedule,AccessControlService access,CancellationToken ct)=>{
+    if(!access.Has(context,ProcessPermissions.View))return Forbidden(ProcessPermissions.View);
+    try{return Results.Ok(await schedule.LoadScenarioSourcesAsync(rootProcessId,direction,
+        access.Has(context,ProcessPermissions.EditContext)||access.Has(context,ProcessPermissions.EditDiagram),ct));}
+    catch(FileNotFoundException){return Results.NotFound(new{message="Процесс не найден."});}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422,title:"Schedule sources validation failed");}
+});
+
 app.MapGet("/api/processes/{processId}/assignments", async (string processId, HttpContext context, ProcessCatalogService catalog,
     ProcessAssignmentService assignments, AccessControlService access, CancellationToken cancellationToken) =>
 {

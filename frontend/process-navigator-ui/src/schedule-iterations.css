@@ -1,0 +1,16 @@
+.schedule-iteration-editor summary{font-weight:700;cursor:pointer}
+.schedule-scenario.schedule-iteration-editor p,.schedule-scenario.schedule-iteration-result p{font-size:12px;line-height:1.6;margin:10px 0}
+.schedule-iteration-editor label,.schedule-iteration-result label{display:grid;gap:6px;margin:10px 0;min-width:0;font-size:13px}
+.schedule-iteration-editor input:not([type=checkbox]),.schedule-iteration-editor select,.schedule-iteration-result input:not([type=checkbox]){min-width:0;max-width:100%;min-height:40px;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);font:inherit}
+.schedule-iteration-editor input[type=checkbox],.schedule-iteration-result input[type=checkbox]{justify-self:start}
+.schedule-iteration-editor fieldset{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.iteration-plan{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
+.iteration-plan header,.iteration-fields,.iteration-weight,.iteration-pages{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.iteration-plan header{justify-content:space-between;overflow-wrap:anywhere}
+.iteration-fields>label,.iteration-weight>label{flex:1 1 180px}
+.schedule-iteration-editor button,.schedule-iteration-result button{padding:8px 12px;min-height:36px;background:white;color:var(--green);border:1px solid var(--line);border-radius:7px;cursor:pointer}
+.schedule-iteration-editor button:disabled,.schedule-iteration-result button:disabled{opacity:.5;cursor:default}
+.iteration-table{overflow:auto}.iteration-table table{min-width:820px;width:100%;border-collapse:collapse;font-size:13px}
+.iteration-table td,.iteration-table th{padding:10px;border:1px solid var(--line);text-align:left;overflow-wrap:anywhere}
+.iteration-table small{display:block;color:var(--muted)}.iteration-pages{margin:10px 0}
+@media(max-width:600px){.iteration-fields,.iteration-weight{display:grid;grid-template-columns:minmax(0,1fr)}}

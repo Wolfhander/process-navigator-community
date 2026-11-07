@@ -32,8 +32,21 @@ export function scheduleCsv(result: ProcessSchedule) {
   if(result.alternativeEnvelope){
     const value=result.alternativeEnvelope;
     rows.push([],['Диапазон полон',value.complete],['Вероятностная масса',value.probabilityMass],['Взвешенные номинальные часы',value.expectedNominalHours],['Гарантия срока','Нет; вероятности и факты — допущения']);
-    rows.push(['Сценарий','Вероятность','Начало ISO','Конец ISO','Номинальные часы','Полон','Исходы JSON','Процессы']);
-    for(const item of value.cases)rows.push([item.number,item.probability,item.startAt,item.endAt,item.nominalHours,item.complete,JSON.stringify(item.choices),item.processIds.join(',')]);
+    rows.push(['Сценарий','Вероятность','Начало ISO','Конец ISO','Номинальные часы','Полон','Исходы JSON','Процессы','Повторы сценария JSON']);
+    for(const item of value.cases)rows.push([item.number,item.probability,item.startAt,item.endAt,item.nominalHours,item.complete,JSON.stringify(item.choices),item.processIds.join(','),JSON.stringify(item.iterationCounts??{})]);
+  }
+  if(result.iterationDetail){
+    rows.push([],['Планы развёрнутых повторов JSON',JSON.stringify(result.assumptions.iterationPlans??{})],
+      ['Режимы передач по проходам JSON',JSON.stringify(result.assumptions.iterationTransfers??{})],
+      ['Метод передач','Барьер завершения всего производителя; не потоковая оптимизация и не факт приёмки']);
+    for(const [name,steps] of [['Плановые проходы',result.iterationDetail.plannedSteps],['Предельные проходы',result.iterationDetail.maximumSteps]] as const){
+      rows.push([],[name],['Процесс','Шаг','Действие','Проход','Вложенные координаты JSON','Начало ISO','Окончание ISO','Календарь']);
+      for(const s of steps)rows.push([s.processId,s.elementId,s.elementName,s.occurrence,JSON.stringify(s.path),s.startAt,s.endAt,s.calendarSource]);
+    }
+    for(const [name,transfers] of [['Плановые передачи',result.iterationDetail.transfers],['Предельные передачи',result.iterationDetail.maximumTransfers]] as const){
+      rows.push([],[name],['Объект','Название','Режим','Процесс-источник','Шаг-источник','Проход источника','Готовность ISO','Процесс-получатель','Шаг-получатель','Проход получателя','Потребность ISO']);
+      for(const t of transfers)rows.push([t.objectId,t.objectName,t.mode,t.sourceProcessId,t.sourceElementId,t.sourceOccurrence,t.sourceReadyAt,t.targetProcessId,t.targetElementId,t.targetOccurrence,t.requiredAt]);
+    }
   }
   return '\uFEFF' + rows.map(row => row.map(scheduleCsvCell).join(';')).join('\r\n');
 }

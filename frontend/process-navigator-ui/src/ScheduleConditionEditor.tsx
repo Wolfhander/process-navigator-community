@@ -2,9 +2,9 @@ import {useState} from 'react';
 import type {ProcessModel,ScheduleObjectRule,ScheduleBranchProbability} from './types';
 import './schedule-conditions.css';
 
-export function ScheduleConditionEditor({models,facts,rules,probabilities,branches,disabled,onChange}:{
+export function ScheduleConditionEditor({models,facts,rules,probabilities,branches,disabled,iterationMode=false,onChange}:{
  models:ProcessModel[];facts:Record<string,boolean>;rules:ScheduleObjectRule[];probabilities:ScheduleBranchProbability[];
- branches:Record<string,Record<string,string>>;disabled:boolean;
+ branches:Record<string,Record<string,string>>;disabled:boolean;iterationMode?:boolean;
  onChange:(facts:Record<string,boolean>,rules:ScheduleObjectRule[],probabilities:ScheduleBranchProbability[])=>void;
 }){
  const [factName,setFactName]=useState(''),[modelId,setModelId]=useState(''),[query,setQuery]=useState('');
@@ -30,7 +30,7 @@ export function ScheduleConditionEditor({models,facts,rules,probabilities,branch
   {rule&&<div className="condition-fields"><label>Факт<select value={rule.factName} onChange={e=>patch({factName:e.target.value})}>{names.map(name=><option key={name}>{name}</option>)}</select></label><label>Передача нужна, если<select value={String(rule.expectedValue)} onChange={e=>patch({expectedValue:e.target.value==='true'})}><option value="true">факт = Да</option><option value="false">факт = Нет</option></select></label></div>}</article>;
  })}
  {bindings.length>500&&<p>Показаны первые 500 из {bindings.length}; уточните поиск.</p>}{!bindings.length&&<p>Подходящих привязок документа к шагу нет. Границы паспорта без шага не формализуются здесь.</p>}
- </fieldset><fieldset disabled={disabled}><legend>Вероятностные исходы XOR</legend><p>До 8 шлюзов во всей цепочке и 64 конечных сценариев. Сумма исходов каждого шлюза — 100%. Нулевой исход исключён; минимальная положительная вероятность — 0,0001%. Вероятности условны на достигаемом шлюзе; корреляции и повторения не моделируются. Не все типы BPMN поддержаны.</p>
+ </fieldset><fieldset disabled={disabled||iterationMode}><legend>Вероятностные исходы XOR</legend><p>До 8 шлюзов во всей цепочке и 64 конечных сценариев. Сумма исходов каждого шлюза — 100%. Нулевой исход исключён; минимальная положительная вероятность — 0,0001%. Вероятности условны на достигаемом шлюзе; корреляции и повторения не моделируются. Не все типы BPMN поддержаны.</p>
  {gateways.slice(0,200).map(gateway=>{
    const profile=probabilities.find(p=>p.processId===model.id&&p.gatewayId===gateway.id),edges=model.edges.filter(e=>e.sourceId===gateway.id),fixed=!!branches[model.id]?.[gateway.id];
    return <article className="condition-probability" key={gateway.id}><label><input type="checkbox" checked={!!profile} disabled={fixed||(!profile&&probabilities.length>=8)} onChange={e=>onChange(facts,rules,e.target.checked?[...probabilities,{processId:model.id,gatewayId:gateway.id,weights:edges.map(e=>({edgeId:e.id,probability:1/edges.length}))}]:probabilities.filter(p=>p!==profile))}/>{gateway.name} · {gateway.id}</label>

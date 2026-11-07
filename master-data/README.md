@@ -1,5 +1,7 @@
 # Эталонные данные и шаблоны
 
+Повторные проходы: [граф и план/предел](schedule-iterations-fixture.json), [учебный регламент ITER-001](v1/documents/ITER-001.md), [приёмка пункта 61](schedule-iterations-acceptance-2026-11-07.md).
+
 Условия документов и альтернативные сроки: [эталон](schedule-conditions-fixture.json) и [приёмка пункта 60](schedule-conditions-acceptance-2026-11-07.md). Генератор tools/schedule-conditions-fixture.mjs создаёт учебную схему для отдельного браузерного контура, не изменяя рабочие данные.
 
 [История проверки оснований](evidence-review-acceptance-2026-10-31.md): профиль сеанса, отзыв, устаревание снимка, изоляция черновиков и повторная приёмка сброса 16 видов истории.

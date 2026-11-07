@@ -22,7 +22,9 @@ public sealed record ProcessScheduleRequestModel(
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,bool>? Facts = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleObjectRuleModel>? ObjectRules = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,IReadOnlyList<ScheduleIterationPlanModel>>? IterationPlans = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,string>? IterationTransfers = null);
 
 public sealed record ScheduleRepetitionModel(string ReturnEdgeId, int PlannedRepeats, int MaximumRepeats);
 
@@ -89,7 +91,9 @@ public sealed record ProcessScheduleAssumptionsModel(
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] string? TimeZoneId = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,bool>? Facts = null,
     [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleObjectRuleModel>? ObjectRules = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ScheduleBranchProbabilityModel>? BranchProbabilities = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,IReadOnlyList<ScheduleIterationPlanModel>>? IterationPlans = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] IReadOnlyDictionary<string,string>? IterationTransfers = null);
 
 public sealed record ProcessScheduleModel(
     string Direction,
@@ -107,7 +111,8 @@ public sealed record ProcessScheduleModel(
     ScheduleSourceSnapshotModel? Sources = null,
     DateTimeOffset? MaximumStartAt = null,
     DateTimeOffset? MaximumEndAt = null,
-    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleAlternativeEnvelopeModel? AlternativeEnvelope = null);
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleAlternativeEnvelopeModel? AlternativeEnvelope = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] ScheduleIterationDetailModel? IterationDetail = null);
 
 public sealed record ScheduleSourceSnapshotModel(string Algorithm, DateTimeOffset CapturedAt,
     IReadOnlyList<ProcessModel> Processes, IReadOnlyList<InformationObjectModel> Objects,

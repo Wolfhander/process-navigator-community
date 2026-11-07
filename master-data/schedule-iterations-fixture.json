@@ -1,0 +1,26 @@
+{
+  "id":"acceptance-nested-iterations",
+  "receiverId":"acceptance-iteration-receiver",
+  "name":"Учебный комплект: разработка с вложенными возвратами",
+  "objectId":"iteration-drawing",
+  "anchorDate":"2026-11-09T06:00:00Z",
+  "utcOffsetMinutes":180,
+  "plannedHours":18,
+  "maximumHours":29,
+  "receiverHours":2,
+  "expectedTotalHours":20,
+  "expectedWeightedHours":18,
+  "nodes":[
+    {"id":"s","type":"startEvent","name":"Получено задание"},
+    {"id":"pre","type":"task","name":"Подготовить комплект","hours":1},
+    {"id":"a","type":"task","name":"Разработать комплект","hours":2},
+    {"id":"b","type":"task","name":"Исправить учебный чертёж","hours":1,"output":true},
+    {"id":"ig","type":"exclusiveGateway","name":"Нужна дополнительная правка?"},
+    {"id":"c","type":"task","name":"Проверить комплект","hours":3},
+    {"id":"g","type":"exclusiveGateway","name":"Повторить разработку?"},
+    {"id":"post","type":"task","name":"Передать полный комплект","hours":1},
+    {"id":"end","type":"endEvent","name":"Комплект готов"}
+  ],
+  "edges":[["sp","s","pre"],["pa","pre","a"],["ab","a","b"],["bi","b","ig"],["inner","ig","b"],["ic","ig","c"],["cg","c","g"],["outer","g","a"],["gp","g","post"],["pe","post","end"]],
+  "plans":[{"returnEdgeId":"outer","plannedRepeats":1,"maximumRepeats":2},{"returnEdgeId":"inner","plannedRepeats":2,"maximumRepeats":3}]
+}
