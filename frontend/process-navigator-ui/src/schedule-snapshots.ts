@@ -18,6 +18,9 @@ const iterationOptions=(value:Record<string,unknown>)=>
     (p.distribution==null||(Array.isArray(p.distribution)&&p.distribution.length<=51&&p.distribution.every(w=>isRecord(w)&&Number.isInteger(w.repeats)&&Number(w.repeats)>=0&&Number(w.repeats)<=Number(p.maximumRepeats)&&finite(w.probability)&&Number(w.probability)>=0&&Number(w.probability)<=1)))))))&&
  (value.iterationTransfers==null||(isRecord(value.iterationTransfers)&&Object.values(value.iterationTransfers).every(mode=>mode==='Batch'||mode==='PerPass')));
 const iterationCounts=(value:unknown)=>value==null||(isRecord(value)&&Object.values(value).every(p=>isRecord(p)&&Object.values(p).every(n=>Number.isInteger(n)&&Number(n)>=0&&Number(n)<=50)));
+const waitEvent=(value:unknown)=>value==null||(isRecord(value)&&['message','timer','unsupported'].includes(String(value.kind))&&
+ ['durationMinutes','timeoutMinutes','expectedMinutes'].every(k=>value[k]==null||(finite(value[k])&&Number(value[k])>0&&Number(value[k])<=525600))&&
+ ['source','channel','messageName','correlationKey','unsupportedDefinition','bpmnMessageRef'].every(k=>value[k]==null||typeof value[k]==='string'));
 const scenarioOptions=(value:Record<string,unknown>)=>
  (value.facts==null||(isRecord(value.facts)&&Object.keys(value.facts).length<=100&&Object.values(value.facts).every(v=>typeof v==='boolean'))) &&
  (value.objectRules==null||(Array.isArray(value.objectRules)&&value.objectRules.length<=500&&value.objectRules.every(r=>isRecord(r)&&['processId','elementId','objectId','factName'].every(k=>typeof r[k]==='string')&&['Input','Output'].includes(String(r.role))&&typeof r.expectedValue==='boolean'))) &&
@@ -81,6 +84,7 @@ export function parseScheduleSnapshots(raw: string | null): ScheduleSnapshot[] {
       !Array.isArray(result.sources.processes) || !result.sources.processes.every(item => isRecord(item) && typeof item.id === 'string' && typeof item.name === 'string' && typeof item.version === 'string' && typeof item.status === 'string') ||
       !Array.isArray(result.sources.objects))) throw new Error('Повреждён снимок исходных данных.');
     if (!routes(result.assumptions.processBranches) || !repetitions(result.assumptions.processRepetitions)) throw new Error('Повреждены сценарные допущения.');
+    if(isRecord(result.sources)&&Array.isArray(result.sources.processes)&&result.sources.processes.some(p=>isRecord(p)&&Array.isArray(p.nodes)&&p.nodes.some(n=>isRecord(n)&&!waitEvent(n.waitEvent))))throw Error('Повреждена спецификация ожидания в исходниках.');
   }
   return list as ScheduleSnapshot[];
 }

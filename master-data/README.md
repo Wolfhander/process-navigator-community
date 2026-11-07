@@ -1,5 +1,7 @@
 # Эталонные данные и шаблоны
 
+Ожидания: [эталон](wait-events-fixture.json), [документ WAIT-001](v1/documents/WAIT-001.md), [приёмка шага 96](wait-events-acceptance-2026-11-07.md). Изолированный браузерный сценарий создаёт отдельные модели и не изменяет рабочий контур.
+
 Повторные проходы: [граф и план/предел](schedule-iterations-fixture.json), [учебный регламент ITER-001](v1/documents/ITER-001.md), [приёмка пункта 61](schedule-iterations-acceptance-2026-11-07.md).
 
 Условия документов и альтернативные сроки: [эталон](schedule-conditions-fixture.json) и [приёмка пункта 60](schedule-conditions-acceptance-2026-11-07.md). Генератор tools/schedule-conditions-fixture.mjs создаёт учебную схему для отдельного браузерного контура, не изменяя рабочие данные.

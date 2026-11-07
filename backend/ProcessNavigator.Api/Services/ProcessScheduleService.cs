@@ -8,13 +8,14 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 {
     public const string Algorithm = "schedule-v3-route-scenario";
     public const string CalendarAlgorithm = "schedule-v4-step-calendar";
+    public const string EventAlgorithm="schedule-v7-wait-events";
     public Task<ProcessScheduleModel> CalculateAsync(ProcessScheduleRequestModel request, bool includeDrafts,
         CancellationToken cancellationToken = default) => CalculateIterationsAsync(request,includeDrafts,null,cancellationToken);
 
     public Task<ProcessScheduleModel> ReplayAsync(ProcessScheduleRequestModel request,ScheduleSourceSnapshotModel source,
         CancellationToken cancellationToken=default)
     {
-        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm && source.Algorithm!=ScenarioAlgorithm && source.Algorithm!=IterationAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
+        if(source.Algorithm!=Algorithm && source.Algorithm!=CalendarAlgorithm && source.Algorithm!=ScenarioAlgorithm && source.Algorithm!=IterationAlgorithm&&source.Algorithm!=EventAlgorithm)throw new InvalidDataException("Алгоритм сохранённого расчёта не поддерживается для повторения. Подмена текущим алгоритмом запрещена.");
         if(source.Processes is null||source.Objects is null||source.Processes.Count is <1 or >200||source.Objects.Count>10000||
             source.Processes.Any(p=>p is null||string.IsNullOrWhiteSpace(p.Id)||p.Nodes is null||p.Edges is null||p.Lanes is null||p.Nodes.Count>10000||p.Edges.Count>20000)||
             source.Processes.Select(p=>p.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=source.Processes.Count||
@@ -132,8 +133,13 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             var raw = EstimateProcess(route.Model, request.IncludeWaitTime, route.RepeatedIds, repetitions.GetValueOrDefault(id));
             var scale = request.ProcessDurationScalePercent?.GetValueOrDefault(id, 100) ?? 100;
             var factor = durationFactor * scale / 100d;
-            estimates[id] = raw with { Hours = raw.Hours * factor, MaximumHours = raw.MaximumHours * factor, AppliedScalePercent = request.DurationScalePercent * scale / 100d };
+            var adjusted=route.Model.Nodes.Any(n=>n.WaitEvent is not null)?EstimateProcess(route.Model,request.IncludeWaitTime,route.RepeatedIds,repetitions.GetValueOrDefault(id),factor):raw;
+            estimates[id] = adjusted with {BaseHours=raw.BaseHours,Hours=adjusted.Hours*factor,MaximumHours=adjusted.MaximumHours*factor,AppliedScalePercent=request.DurationScalePercent*scale/100d};
             issues.AddRange(raw.Issues);
+            foreach(var node in route.Model.Nodes.Where(n=>n.WaitEvent is not null)){
+                if(WaitEvents.Problem(node.WaitEvent) is { } problem){uncertaintyReasons[id].Add(problem);issues.Add(new("wait-event-invalid","Error",problem,id,node.Id));}
+                if(node.WaitEvent!.Kind=="message")issues.Add(new("message-wait-assumption","Warning","Срок сообщения — явно заданный прогноз, не факт получения. Тайм-аут не заменяет прогноз.",id,node.Id));
+            }
             if (raw.MissingDurationCount > 0) uncertaintyReasons[id].Add($"Не задан норматив для {raw.MissingDurationCount} шагов.");
             if (raw.HasCycle) uncertaintyReasons[id].Add("Внутри процесса остался цикл без поддержанного правила повторения.");
             if (route.UnresolvedBranches)
@@ -204,10 +210,11 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
 
         if (request.ProcessCalendars?.Count > 0) issues.Add(new("calendar-reserve", "Warning", "Критическая цепочка и резерв рассчитаны в номинальных рабочих часах. При разных календарях календарные ожидания могут изменить фактическую критичность."));
         var critical = CalculateCriticalPath(order, dependencies, estimates, request.TransferDelayHours, hasCycle);
-        var advancedCalendars = request.UseOrganizationCalendars || request.StepCalendars?.Count > 0 || !string.IsNullOrWhiteSpace(request.TimeZoneId) ||
+        var hasEvents=sourceModels.Any(p=>p.Nodes.Any(n=>n.WaitEvent is not null));
+        var advancedCalendars = hasEvents||request.UseOrganizationCalendars || request.StepCalendars?.Count > 0 || !string.IsNullOrWhiteSpace(request.TimeZoneId) ||
             profiles.Values.Any(c=>!string.IsNullOrWhiteSpace(c.TimeZoneId) || ScheduleWorkCalendar.IsNight(c.WorkdayStart,c.WorkdayEnd)) ||
             ScheduleWorkCalendar.IsNight(request.WorkdayStart,request.WorkdayEnd);
-        if (frozen is not null && frozen.Algorithm != (advancedCalendars ? CalendarAlgorithm : Algorithm))
+        if (frozen is not null && frozen.Algorithm != (hasEvents?EventAlgorithm:advancedCalendars ? CalendarAlgorithm : Algorithm))
             throw new InvalidDataException("Сохранённый алгоритм не соответствует календарному сценарию.");
         if (advancedCalendars && hasCycle) throw new InvalidDataException("Оргкалендари требуют ациклическую межпроцессную цепочку.");
         if (advancedCalendars) issues.Add(new("step-calendars","Warning","Даты учитывают графики шагов; критичность и резерв остаются номинальными рабочими часами, не календарной критичностью. Норма день = 8 ч. Исключения ночной смены относятся к дате её начала."));
@@ -257,7 +264,7 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
             Math.Round(items.Sum(item => item.DurationHours), 2), Math.Round(critical.DurationHours, 2),
             uncertaintyReasons.Values.All(value => value.Count == 0) && !issues.Any(item => item.Severity == "Error" || item.Code == "internal-cycle"), assumptions,
             items, dependencies, issues.DistinctBy(item => $"{item.Code}:{item.ProcessId}:{item.ElementId}:{item.ObjectId}").ToArray(),
-            new(advancedCalendars ? CalendarAlgorithm : Algorithm, frozen?.CapturedAt??DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
+            new(hasEvents?EventAlgorithm:advancedCalendars ? CalendarAlgorithm : Algorithm, frozen?.CapturedAt??DateTimeOffset.UtcNow, sourceModels.OrderBy(item => item.Id).ToArray(),
                 originalRegistry.Objects.Where(item => item.Producers.Concat(item.Consumers).Any(value => candidateIds.Contains(value.ProcessId))).ToArray(), organizationSnapshot),
             maximumSchedule.Min(item => item.StartAt), maximumSchedule.Max(item => item.EndAt));
     }
@@ -366,12 +373,17 @@ public sealed partial class ProcessScheduleService(ProcessCatalogService catalog
         return result;
     }
 
-    private static Estimate EstimateProcess(ProcessModel process, bool includeWait, IReadOnlySet<string> repeatedIds, ScheduleRepetitionModel? repetition)
+    private static Estimate EstimateProcess(ProcessModel process, bool includeWait, IReadOnlySet<string> repeatedIds, ScheduleRepetitionModel? repetition,double eventDivisor=1)
     {
         var issues = new List<ProcessScheduleIssueModel>();
         var weights = process.Nodes.ToDictionary(node => node.Id, node =>
         {
             if (!node.Type.Equals("task", StringComparison.OrdinalIgnoreCase)) return 0d;
+            if(node.WaitEvent is not null){
+                var minutes=WaitEvents.Minutes(node);
+                if(minutes is null)issues.Add(new("missing-duration","Error","Не задан прогноз времени события «"+node.Name+"».",process.Id,node.Id));
+                return (minutes??0)/60/eventDivisor;
+            }
             var work = ParseHours(node.WorkDuration);
             var wait = includeWait ? ParseHours(node.WaitDuration) : 0;
             var fallback = ParseHours(node.Duration);

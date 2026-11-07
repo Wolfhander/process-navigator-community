@@ -98,7 +98,8 @@ public sealed record NodeModel(
     string? ExecutorKind = null,
     IReadOnlyList<StepEvidenceModel>? Evidence = null,
     IReadOnlyList<StepWorkRuleModel>? WorkRules = null,
-    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] string? EndEventDefinitions=null);
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] string? EndEventDefinitions=null,
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] WaitEventModel? WaitEvent=null);
 
 public sealed record EdgeModel(
     string Id,
@@ -132,7 +133,9 @@ public sealed record ElementContextUpdateModel(
     IReadOnlyList<InformationObjectBindingModel>? InformationObjects = null,
     string? ExecutorKind = null,
     IReadOnlyList<StepEvidenceModel>? Evidence = null,
-    IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
+    IReadOnlyList<StepWorkRuleModel>? WorkRules = null,
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingNull)] WaitEventModel? WaitEvent=null,
+    [property:JsonIgnore(Condition=JsonIgnoreCondition.WhenWritingDefault)] bool ClearWaitEvent=false);
 
 public sealed record ProcessSummaryModel(
     string Id,

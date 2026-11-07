@@ -66,6 +66,8 @@ public sealed class ExecutionPortfolioService(IWebHostEnvironment env,ProcessCat
                 instances.Add(new(id,model?.Name??id,model is not null,instance.Id,instance.Name??instance.Id,instance.ProcessVersion,instance.Status,instance.StartedAt.ToUniversalTime(),instance.CompletedAt?.ToUniversalTime(),cycle,returns));
                 foreach(var step in instance.Steps)
                 {
+                    try{WaitEvents.ValidateStep(step.Waiting,step.Status,step.StartedAt,step.CompletedAt);foreach(var old in step.History??[])WaitEvents.ValidateStep(old.Waiting,old.Status,old.StartedAt,old.CompletedAt);}
+                    catch(InvalidDataException e){Issue(source,"Повреждённое ожидание исключено из фактов: "+e.Message);continue;}
                     var history=step.History??[];
                     if(history.Any(h=>h is null)||step.Iteration<1||history.Any(h=>h.Iteration<1)||history.Select(h=>h.Iteration).Append(step.Iteration).Distinct().Count()!=history.Count+1)
                     {Issue(source,"Неоднозначные итерации этапа "+step.ElementId+" в "+instance.Id+" исключены.");continue;}
@@ -73,7 +75,7 @@ public sealed class ExecutionPortfolioService(IWebHostEnvironment env,ProcessCat
                     var mapping=node is null?null:org.CrossCompanyProcesses.FirstOrDefault(b=>b.ProcessId.Equals(id,StringComparison.OrdinalIgnoreCase))?.LaneOrganizations.FirstOrDefault(l=>l.LaneId==node.LaneId);
                     var entity=org.LegalEntities.FirstOrDefault(e=>e.Id.Equals(mapping?.LegalEntityId,StringComparison.OrdinalIgnoreCase));
                     var unit=entity?.Units?.FirstOrDefault(u=>u.Id.Equals(mapping?.UnitId,StringComparison.OrdinalIgnoreCase));
-                    void Add(int iteration,bool current,string status,DateTimeOffset? started,DateTimeOffset? completed,double? queue,double? work,double? duration,double? overdue)
+                    void Add(int iteration,bool current,string status,DateTimeOffset? started,DateTimeOffset? completed,double? queue,double? work,double? duration,double? overdue,double? eventWait=null)
                     {
                         if(attempts.Count>=100000)throw new InvalidDataException("Более 100000 проходов этапов; отчёт не выдаётся с усечёнными итогами.");
                         var notes=new List<string>();
@@ -85,13 +87,14 @@ public sealed class ExecutionPortfolioService(IWebHostEnvironment env,ProcessCat
                             if(!double.IsFinite(value.Value)||value<0||value>52_560_000){notes.Add("Некорректное "+field+" исключено.");Issue(source,instance.Id+"/"+step.ElementId+": "+field);return null;}
                             return closed?value:null;
                         }
+                        if(Number(eventWait,"календарное ожидание события") is { } measured)notes.Add("Календарное ожидание события: "+measured.ToString(System.Globalization.CultureInfo.InvariantCulture)+" мин; входит в общий факт, не в работу сотрудника.");
                         attempts.Add(new(id,instance.Id,step.ElementId,node?.Name??step.ElementId,iteration,current,status,
                             unit is null?"Не определено":entity!.Name+" / "+unit.Name,unit is null?null:entity!.Id,unit?.Id,
                             unit is null?"Нет сопоставления той же версии":"Текущая оргпривязка; не историческая",
                             Number(queue,"ожидание"),Number(work,"работа"),Number(duration,"общий факт"),Number(overdue,"превышение нормы"),notes));
                     }
-                    foreach(var h in history)Add(h.Iteration,false,h.Status,h.StartedAt,h.CompletedAt,h.ActualQueueMinutes,h.ActualWorkMinutes,h.ActualDurationMinutes,h.OverdueMinutes);
-                    Add(step.Iteration,true,step.Status,step.StartedAt,step.CompletedAt,step.ActualQueueMinutes,step.ActualWorkMinutes,step.ActualDurationMinutes,step.OverdueMinutes);
+                    foreach(var h in history)Add(h.Iteration,false,h.Status,h.StartedAt,h.CompletedAt,h.ActualQueueMinutes,h.ActualWorkMinutes,h.ActualDurationMinutes,h.OverdueMinutes,h.ActualEventWaitMinutes);
+                    Add(step.Iteration,true,step.Status,step.StartedAt,step.CompletedAt,step.ActualQueueMinutes,step.ActualWorkMinutes,step.ActualDurationMinutes,step.OverdueMinutes,step.ActualEventWaitMinutes);
                 }
             }
         }

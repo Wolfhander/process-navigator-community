@@ -35,11 +35,18 @@ export function stepTiming(instance: ProcessInstance, step: StepExecution, now =
   let queue=available&&end!==undefined?activeMinutes(instance,available,step.startedAt??end):undefined;
   let work=end!==undefined?(step.startedAt?activeMinutes(instance,step.startedAt,end):0):undefined;
   if(completed){queue=fact(step.actualQueueMinutes)??queue;work=fact(step.actualWorkMinutes)??work;}
-  const total=(completed?fact(step.actualDurationMinutes):undefined)??(queue!==undefined&&work!==undefined?queue+work:undefined);
+  let total=(completed?fact(step.actualDurationMinutes):undefined)??(queue!==undefined&&work!==undefined?queue+work:undefined);
+  let eventWait:number|undefined;
+  if(step.waiting){
+    const waitEnd=date(step.waiting.resolvedAt)??date(step.completedAt)??(instance.status==='Paused'?now:end);
+    eventWait=step.startedAt&&waitEnd!==undefined?Math.max(0,(waitEnd-Date.parse(step.startedAt))/60000):0;
+    if(completed)eventWait=fact(step.actualEventWaitMinutes)??eventWait;
+    work=0;total=queue!==undefined?queue+eventWait:undefined;
+  }
   const norm=fact(step.plannedDurationMinutes);
   const overdue=(completed?fact(step.overdueMinutes):undefined)??(total!==undefined&&norm!==undefined&&norm>0?Math.max(0,total-norm):undefined);
   const round=(v:number|undefined)=>v===undefined?undefined:Math.round(v*100)/100;
-  return {queue:round(queue),work:round(work),total:round(total),overdue:round(overdue)};
+  return {queue:round(queue),work:round(work),total:round(total),overdue:round(overdue),...(step.waiting?{eventWait:round(eventWait)}:{})};
 }
 
 export const formatMinutes = (value: number | undefined) => typeof value!=='number'||!Number.isFinite(value)

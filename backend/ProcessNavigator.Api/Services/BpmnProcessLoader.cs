@@ -22,6 +22,7 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
         ["serviceTask"] = "task",
         ["sendTask"] = "task",
         ["receiveTask"] = "task",
+        ["intermediateCatchEvent"] = "task",
         ["businessRuleTask"] = "task",
         ["callActivity"] = "task",
         ["subProcess"] = "task",
@@ -172,7 +173,8 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
                     element.Name.LocalName,
                     elementContext?.ExecutorKind ?? (element.Name.LocalName is "manualTask" or "userTask" ? "human" : element.Name.LocalName == "serviceTask" ? "system" : null), elementContext?.Evidence, workRules,
                     element.Name.LocalName=="endEvent"&&element.Elements().Any(e=>e.Name.LocalName.EndsWith("EventDefinition"))
-                        ?string.Join(",",element.Elements().Where(e=>e.Name.LocalName.EndsWith("EventDefinition")).Select(e=>e.Name.LocalName)):null);
+                        ?string.Join(",",element.Elements().Where(e=>e.Name.LocalName.EndsWith("EventDefinition")).Select(e=>e.Name.LocalName)):null,
+                    WaitEvents.Read(element,elementContext?.WaitEvent));
             }).ToArray();
 
         if (nodes.Length == 0) throw new InvalidDataException("The BPMN process contains no supported flow nodes.");
@@ -265,5 +267,6 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
         IReadOnlyList<InformationObjectBindingModel>? InformationObjects = null,
         string? ExecutorKind = null,
         IReadOnlyList<StepEvidenceModel>? Evidence = null,
-        IReadOnlyList<StepWorkRuleModel>? WorkRules = null);
+        IReadOnlyList<StepWorkRuleModel>? WorkRules = null,
+        WaitEventModel? WaitEvent=null);
 }

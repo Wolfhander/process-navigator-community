@@ -105,6 +105,9 @@ function NodeShape({ node, selected, related, personal, muted, executionStatus, 
     onKeyDown: (event: React.KeyboardEvent) => activateByKeyboard(event,onSelect)
   };
   const cx = node.x + node.width / 2, cy = node.y + node.height / 2;
+  if(node.bpmnType==='intermediateCatchEvent')return <g {...common}><circle cx={cx} cy={cy} r={Math.min(node.width,node.height)/2-3}/><circle cx={cx} cy={cy} r={Math.min(node.width,node.height)/2-6}/>
+    {node.waitEvent?.kind==='unsupported'?<text x={cx} y={cy+5} textAnchor="middle">?</text>:node.waitEvent?.kind==='timer'?<path className="gateway-mark" d={`M ${cx} ${cy-9} V ${cy} L ${cx+7} ${cy+5}`}/>:<><rect x={cx-10} y={cy-7} width={20} height={14}/><path className="gateway-mark" d={`M ${cx-10} ${cy-7} L ${cx} ${cy+1} L ${cx+10} ${cy-7}`}/></>}
+    <foreignObject x={cx-90} y={node.y+node.height+5} width={180} height={48}><div className="wait-event-label" title={node.name}>{node.name}</div></foreignObject><title>{node.name}</title></g>;
   if (node.type === 'startEvent' || node.type === 'endEvent') return <g {...common}><circle cx={cx} cy={cy} r={node.width / 2 - 3}/>{node.type === 'endEvent' && <circle cx={cx} cy={cy} r={node.width / 2 - 7}/>}<title>{node.name}</title></g>;
   if (node.type === 'exclusiveGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx-9} ${cy-9} L ${cx+9} ${cy+9} M ${cx+9} ${cy-9} L ${cx-9} ${cy+9}`}/><title>{node.name}</title></g>;
   if (node.type === 'parallelGateway') return <g {...common}><path d={`M ${cx} ${node.y} L ${node.x + node.width} ${cy} L ${cx} ${node.y + node.height} L ${node.x} ${cy} Z`}/><path className="gateway-mark" d={`M ${cx} ${cy-11} V ${cy+11} M ${cx-11} ${cy} H ${cx+11}`}/><title>{node.name}</title></g>;

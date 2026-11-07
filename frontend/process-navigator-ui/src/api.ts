@@ -464,6 +464,13 @@ export async function saveElementContext(processId: string, elementId: string, u
   return response.json() as Promise<ProcessNode>;
 }
 
+export async function updateWaitEvent(processId:string,instanceId:string,elementId:string,action:string,expectedIteration:number,evidence?:string,correlationKey?:string):Promise<ProcessInstance>{
+  const response=await fetch('/api/processes/'+encodeURIComponent(processId)+'/instances/'+encodeURIComponent(instanceId)+'/steps/'+encodeURIComponent(elementId)+'/wait',
+    {method:'POST',headers:{...roleHeaders(),'Content-Type':'application/json'},body:JSON.stringify({action,expectedIteration,evidence,correlationKey})});
+  if(!response.ok)throw Error(await errorMessage(response,'Не удалось изменить ожидание.'));
+  return response.json();
+}
+
 export async function loadArtifacts(): Promise<RepositoryArtifact[]> {
   const response = await fetch('/api/artifacts', { headers: roleHeaders() });
   if (!response.ok) throw new Error(await errorMessage(response, 'Не удалось загрузить репозиторий документов.'));

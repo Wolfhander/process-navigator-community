@@ -558,6 +558,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             if (current.Nodes.All(node => !string.Equals(node.Id, elementId, StringComparison.Ordinal)))
                 throw new KeyNotFoundException(elementId);
             normalized = normalized with { WorkRules = normalized.WorkRules ?? current.Nodes.Single(node => node.Id == elementId).WorkRules };
+            normalized = normalized with{WaitEvent=update.ClearWaitEvent?null:normalized.WaitEvent??current.Nodes.Single(node=>node.Id==elementId).WaitEvent};
             if ((normalized.WorkRules ?? []).Any(rule => rule.Kind == "document" && !(normalized.InformationObjects ?? []).Any(binding => string.Equals(binding.ObjectId, rule.ObjectId, StringComparison.OrdinalIgnoreCase))))
                 throw new InvalidDataException("Требование состояния должно ссылаться на объект, привязанный к этому шагу.");
 
@@ -1123,7 +1124,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
             informationObjects,
             executorKind,
             NormalizeEvidence(update.Evidence),
-            StepWorkRuleValidation.Normalize(update.WorkRules));
+            StepWorkRuleValidation.Normalize(update.WorkRules),WaitEvents.Normalize(update.WaitEvent),update.ClearWaitEvent);
     }
 
     internal static IReadOnlyList<SourceRequirementModel> NormalizeSourceRequirements(IReadOnlyList<SourceRequirementModel>? entries)
@@ -1260,7 +1261,7 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
         var supported = new HashSet<string>(StringComparer.Ordinal)
         {
             "task", "userTask", "manualTask", "serviceTask", "sendTask", "receiveTask", "businessRuleTask",
-            "callActivity", "subProcess", "startEvent", "endEvent", "exclusiveGateway", "parallelGateway"
+            "callActivity", "subProcess", "intermediateCatchEvent", "startEvent", "endEvent", "exclusiveGateway", "parallelGateway"
         };
         var elements = process.Elements().Where(element => supported.Contains(element.Name.LocalName)).Select(element =>
         {

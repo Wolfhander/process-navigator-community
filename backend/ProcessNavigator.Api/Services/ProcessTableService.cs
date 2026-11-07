@@ -26,7 +26,7 @@ public sealed partial class ProcessTableService(
     private static readonly string[] EvidenceHeaders = ["Статус заполнения", "ID процесса", "ID шага", "Статус сведений", "Содержание", "Источник", "Место в источнике", "Автор сведений"];
     private static readonly string[] RequirementHeaders = ["Статус заполнения", "ID процесса", "ID пункта", "Содержание", "Источник", "Место в источнике", "Элементы схемы ID", "Проверять маршрут"];
     private static readonly HashSet<string> ElementTypes = new(StringComparer.OrdinalIgnoreCase) { "startEvent", "endEvent", "task", "exclusiveGateway", "parallelGateway" };
-    private static readonly HashSet<string> TaskTypes = new(StringComparer.Ordinal) { "task", "userTask", "manualTask", "serviceTask", "sendTask", "receiveTask", "businessRuleTask" };
+    private static readonly HashSet<string> TaskTypes = new(StringComparer.Ordinal) { "task", "userTask", "manualTask", "serviceTask", "sendTask", "receiveTask", "businessRuleTask", "intermediateCatchEvent" };
     private static readonly HashSet<string> Classifications = new(StringComparer.OrdinalIgnoreCase) { "Основной", "Управляющий", "Обеспечивающий", "Обслуживающий" };
     private static readonly HashSet<string> ChannelKinds = new(StringComparer.OrdinalIgnoreCase) { "system", "email", "paper", "phone", "memo", "meeting", "other" };
     private static readonly HashSet<string> ChannelFlows = new(StringComparer.OrdinalIgnoreCase) { "primary", "alternative", "parallel" };
@@ -35,7 +35,7 @@ public sealed partial class ProcessTableService(
         "Дорожка ID", "Организация ID", "Подразделение ID", "Сотрудники ID", "Ответственный", "Описание", "Входы",
         "Ожидаемый результат", "Критерий завершения", "Работа", "Ожидание", "Связанный процесс ID", "Следующие шаги",
         "Условия переходов", "Объекты реестра ID", "Объекты реестра — названия", "Роли объектов", "Обязательность объектов",
-        "Версии объектов", "Условия объектов", "Тип BPMN", "Способ выполнения", "Система выполнения", "Инструкция", "Исполнитель действия", "Правила работы JSON"];
+        "Версии объектов", "Условия объектов", "Тип BPMN", "Способ выполнения", "Система выполнения", "Инструкция", "Исполнитель действия", "Правила работы JSON", "Ожидание события JSON"];
 
     public async Task<ProcessTablePreviewModel> PreviewAsync(IFormFile file, CancellationToken cancellationToken = default)
     {
@@ -125,6 +125,17 @@ public sealed partial class ProcessTableService(
                 { Add("Error", row, "Правила работы JSON", error.Message, processId, stepId); }
             }
             if (string.IsNullOrWhiteSpace(row.Get("Название"))) Add("Error", row, "Название", "Укажите название шага.", processId, stepId);
+            if(row.Has("Ожидание события JSON")){
+                try{
+                    var wait=ParseWaitEvent(row.Get("Ожидание события JSON"));
+                    if(wait?.Kind=="unsupported")Add("Error",row,"Ожидание события JSON","Неподдержанное событие нельзя пересоздать через таблицу.",processId,stepId);
+                    if(wait?.BpmnMessageRef is not null)Add("Error",row,"Ожидание события JSON","Внешнее определение messageRef сохраняйте через BPMN/ZIP, табличное пересоздание заблокировано.",processId,stepId);
+                    if(bpmnType=="intermediateCatchEvent"&&wait?.Kind=="timer"&&wait.DurationMinutes is null)Add("Error",row,"Ожидание события JSON","Для BPMN-таймера нужна длительность.",processId,stepId);
+                    if(wait is null&&bpmnType=="intermediateCatchEvent")Add("Error",row,"Ожидание события JSON","Укажите спецификацию события.",processId,stepId);
+                    if(wait is not null&&WaitEvents.Problem(wait) is { } problem)Add("Warning",row,"Ожидание события JSON",problem,processId,stepId);
+                    if(bpmnType=="receiveTask"&&wait is not null&&wait.Kind!="message")Add("Error",row,"Ожидание события JSON","receiveTask ожидает сообщение.",processId,stepId);
+                }catch(Exception e) when(e is JsonException or InvalidDataException){Add("Error",row,"Ожидание события JSON",e.Message,processId,stepId);}
+            }
             if (string.IsNullOrWhiteSpace(row.Get("Дорожка ID"))) Add("Error", row, "Дорожка ID", "Укажите ID дорожки.", processId, stepId);
             var order = ParseInteger(row.Get("Порядок"));
             if (order is null or < 1) Add("Error", row, "Порядок", "Порядок должен быть положительным целым числом.", processId, stepId);
@@ -309,6 +320,10 @@ public sealed partial class ProcessTableService(
             catch (FileNotFoundException) { continue; }
             if(existing.Nodes.Any(n=>n.EndEventDefinitions is not null))
                 issues.Add(new("Error","Шаги",0,"Тип BPMN","Специальные события завершения нельзя пересоздать таблицей без потери семантики. Используйте BPMN-редактор/импорт.",processId));
+            if(existing.Nodes.Any(n=>n.WaitEvent?.BpmnMessageRef is not null))
+                issues.Add(new("Error","Шаги",0,"Ожидание события JSON","Определения messageRef сохраняйте через BPMN/ZIP; табличное пересоздание, включая старый шаблон без колонки ожидания, заблокировано.",processId));
+            if(existing.Nodes.Any(n=>n.WaitEvent?.Kind=="unsupported"))
+                issues.Add(new("Error","Шаги",0,"Ожидание события JSON","Неподдержанное определение события нельзя пересоздать даже старым шаблоном. Используйте BPMN/ZIP.",processId));
             foreach (var row in incoming.Where(row => existing.Nodes.Any(node => node.Id == row.Get("ID шага") && node.BpmnType is "subProcess" or "callActivity")))
                 issues.Add(new("Error", row.Sheet, row.Number, "Тип BPMN", "Встроенные подпроцессы и вызовы со специальными параметрами изменяются через BPMN-редактор или BPMN-импорт; таблица не переносит их внутреннее содержимое.", processId, row.Get("ID шага")));
             var processMapping = organization.CrossCompanyProcesses.FirstOrDefault(item => item.ProcessId.Equals(processId, StringComparison.OrdinalIgnoreCase));
@@ -408,6 +423,7 @@ public sealed partial class ProcessTableService(
         if (row.Has("Инструкция")) AddChange(changes, "Step", node.Id, node.Name, "Инструкция", node.Instruction, row.Get("Инструкция"));
         if (row.Has("Исполнитель действия")) AddChange(changes, "Step", node.Id, node.Name, "Исполнитель действия", node.ExecutorKind, ResolveExecutorKind(row, node));
         if (row.Has("Правила работы JSON")) AddChange(changes, "Step", node.Id, node.Name, "Правила работы", JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web)), WorkRulesPreview(row.Get("Правила работы JSON")));
+        if(row.Has("Ожидание события JSON"))AddChange(changes,"Step",node.Id,node.Name,"Ожидание события",node.WaitEvent is null?"":JsonSerializer.Serialize(node.WaitEvent,new JsonSerializerOptions(JsonSerializerDefaults.Web)),row.Get("Ожидание события JSON"));
         if (row.Has("_Evidence")) AddChange(changes, "Step", node.Id, node.Name, "Источники и вопросы", DisplayEvidence(node.Evidence), DisplayEvidence(JsonSerializer.Deserialize<StepEvidenceModel[]>(row.Get("_Evidence"))));
         AddChange(changes, "Step", node.Id, node.Name, "Название", node.Name, row.Get("Название"));
         AddChange(changes, "Step", node.Id, node.Name, "Дорожка", node.LaneId, row.Get("Дорожка ID"));
@@ -765,7 +781,7 @@ public sealed partial class ProcessTableService(
                     Join(bindings.Select(item => item.ObjectId), preserveEmpty: true), Join(bindings.Select(item => item.Name), preserveEmpty: true),
                     Join(bindings.Select(item => item.Role), preserveEmpty: true), Join(bindings.Select(item => item.Required ? "Да" : "Нет"), preserveEmpty: true),
                     Join(bindings.Select(item => item.Version), preserveEmpty: true), Join(bindings.Select(item => item.Condition), preserveEmpty: true),
-                    node.BpmnType ?? node.Type, node.ExecutionMode, node.SystemName, node.Instruction, node.ExecutorKind, JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web))]);
+                    node.BpmnType ?? node.Type, node.ExecutionMode, node.SystemName, node.Instruction, node.ExecutorKind, JsonSerializer.Serialize(node.WorkRules ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web)),node.WaitEvent is null?"":JsonSerializer.Serialize(node.WaitEvent,new JsonSerializerOptions(JsonSerializerDefaults.Web))]);
                 foreach (var channel in node.Channels ?? [])
                     channelRows.Add([null, process.Id, node.Id, channel.Id, channel.Kind, channel.Flow, channel.Direction,
                         channel.Label, channel.SystemName, channel.DocumentName, channel.ObjectId, channel.TransferMethod]);
@@ -849,7 +865,7 @@ public sealed partial class ProcessTableService(
                 [lane.Department], EmptyToNull(row.Get("Связанный процесс ID")), [new ParticipantUnitRefModel(lane.LegalEntityId, lane.UnitId)], channels,
                 objectBindings,
                 ResolveExecutorKind(row, existingNode), row.Has("_Evidence") ? JsonSerializer.Deserialize<StepEvidenceModel[]>(row.Get("_Evidence")) : existingNode?.Evidence,
-                workRules);
+                workRules,row.Has("Ожидание события JSON")?ParseWaitEvent(row.Get("Ожидание события JSON")):existingNode?.WaitEvent);
         }, StringComparer.OrdinalIgnoreCase);
 
         var ownerEntityId = process.Get("Организация-владелец ID");
@@ -1113,7 +1129,7 @@ public sealed partial class ProcessTableService(
             EnsureListValidation(document, main, "E4:E500", "\"startEvent,endEvent,task,exclusiveGateway,parallelGateway\"");
             EnsureListValidation(document, main, "W4:W500", "\"Input,Output,Reference\"");
             EnsureListValidation(document, main, "X4:X500", "\"Да,Нет\"");
-            EnsureListValidation(document, main, "AA4:AA500", "\"task,userTask,manualTask,serviceTask,sendTask,receiveTask,businessRuleTask,startEvent,endEvent,exclusiveGateway,parallelGateway\"");
+            EnsureListValidation(document, main, "AA4:AA500", "\"task,userTask,manualTask,serviceTask,sendTask,receiveTask,businessRuleTask,intermediateCatchEvent,startEvent,endEvent,exclusiveGateway,parallelGateway\"");
             EnsureListValidation(document, main, "AB4:AB500", "\"manual,external,system\"");
             EnsureListValidation(document, main, "AE4:AE500", "\"human,system\"");
         }
@@ -1256,6 +1272,9 @@ public sealed partial class ProcessTableService(
         return StepWorkRuleValidation.Normalize(parsed) ?? [];
     }
 
+    internal static WaitEventModel? ParseWaitEvent(string text)=>string.IsNullOrWhiteSpace(text)?null:
+        WaitEvents.Normalize(JsonSerializer.Deserialize<WaitEventModel>(text,new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
     private static string WorkRulesPreview(string text)
     {
         try { return JsonSerializer.Serialize(ParseWorkRules(text), new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
@@ -1294,8 +1313,8 @@ public sealed partial class ProcessTableService(
         {
             var laneIndex = Array.FindIndex(lanes.ToArray(), lane => lane.Id.Equals(row.Get("Дорожка ID"), StringComparison.OrdinalIgnoreCase));
             var type = row.Get("Тип");
-            var width = type == "task" ? 180d : type is "exclusiveGateway" or "parallelGateway" ? 56d : 44d;
-            var height = type == "task" ? 90d : type is "exclusiveGateway" or "parallelGateway" ? 56d : 44d;
+            var width = ResolveBpmnType(row,existingNodes.GetValueOrDefault(row.Get("ID шага")))=="intermediateCatchEvent"?44d:type == "task" ? 180d : type is "exclusiveGateway" or "parallelGateway" ? 56d : 44d;
+            var height = ResolveBpmnType(row,existingNodes.GetValueOrDefault(row.Get("ID шага")))=="intermediateCatchEvent"?44d:type == "task" ? 90d : type is "exclusiveGateway" or "parallelGateway" ? 56d : 44d;
             if (existingNodes.TryGetValue(row.Get("ID шага"), out var existingNode) &&
                 existingNode.Type.Equals(type, StringComparison.OrdinalIgnoreCase) && existingNode.LaneId.Equals(row.Get("Дорожка ID"), StringComparison.OrdinalIgnoreCase))
                 return new GeneratedNode(row, existingNode.X, existingNode.Y, existingNode.Width, existingNode.Height);
@@ -1336,7 +1355,15 @@ public sealed partial class ProcessTableService(
         {
             existingNodes.TryGetValue(node.Row.Get("ID шага"), out var originalNode);
             var localName = ResolveBpmnType(node.Row, originalNode);
+            if(originalNode?.WaitEvent?.BpmnMessageRef is not null)throw new InvalidDataException("messageRef нельзя пересоздать таблицей без исходного определения.");
             var element = new XElement(bpmn + localName, new XAttribute("id", node.Row.Get("ID шага")), new XAttribute("name", node.Row.Get("Название")));
+            if(localName=="intermediateCatchEvent"){
+                var wait=node.Row.Has("Ожидание события JSON")?ParseWaitEvent(node.Row.Get("Ожидание события JSON")):originalNode?.WaitEvent;
+                if(wait is null||wait.Kind=="unsupported"||wait.Kind=="timer"&&wait.DurationMinutes is null)throw new InvalidDataException("Для события таблицы требуется поддержанная спецификация и длительность таймера.");
+                element.Add(wait.Kind=="timer"?new XElement(bpmn+"timerEventDefinition",new XAttribute("id",node.Row.Get("ID шага")+"_timer"),
+                    new XElement(bpmn+"timeDuration",XmlConvert.ToString(TimeSpan.FromMinutes(wait.DurationMinutes!.Value)))):
+                    new XElement(bpmn+"messageEventDefinition",new XAttribute("id",node.Row.Get("ID шага")+"_message")));
+            }
             foreach (var edge in edges.Where(edge => edge.TargetId.Equals(node.Row.Get("ID шага"), StringComparison.OrdinalIgnoreCase))) element.Add(new XElement(bpmn + "incoming", edge.Id));
             foreach (var edge in edges.Where(edge => edge.SourceId.Equals(node.Row.Get("ID шага"), StringComparison.OrdinalIgnoreCase))) element.Add(new XElement(bpmn + "outgoing", edge.Id));
             processElement.Add(element);

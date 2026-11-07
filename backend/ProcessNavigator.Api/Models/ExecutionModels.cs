@@ -8,7 +8,9 @@ public sealed record StepExecutionIterationModel(int Iteration, string Status, D
     string? ResultRecordedBy = null, DateTimeOffset? AvailableAt = null, string? NormText = null,
     double? PlannedWorkMinutes = null, double? PlannedWaitMinutes = null, double? PlannedDurationMinutes = null,
     DateTimeOffset? PlannedCompletedAt = null, double? ActualQueueMinutes = null, double? ActualWorkMinutes = null,
-    double? ActualDurationMinutes = null, double? OverdueMinutes = null, string? AssignedUserId = null);
+    double? ActualDurationMinutes = null, double? OverdueMinutes = null, string? AssignedUserId = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] WaitExecutionModel? Waiting=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] double? ActualEventWaitMinutes=null);
 public sealed record StepExecutionResultObjectModel(string ObjectId, string Name, DateTimeOffset RecordedAt, string UserId);
 public sealed record StepExecutionAttachmentModel(string ArtifactId, string Name, string Kind, string Version, string Reference,
     string FileName, long Size, DateTimeOffset AttachedAt, string UserId);
@@ -19,7 +21,9 @@ public sealed record StepExecutionModel(string ElementId, string Status, DateTim
     IReadOnlyList<StepExecutionAttachmentModel>? Attachments = null, DateTimeOffset? AvailableAt = null, string? NormText = null,
     double? PlannedWorkMinutes = null, double? PlannedWaitMinutes = null, double? PlannedDurationMinutes = null,
     DateTimeOffset? PlannedCompletedAt = null, double? ActualQueueMinutes = null, double? ActualWorkMinutes = null,
-    double? ActualDurationMinutes = null, double? OverdueMinutes = null, string? AssignedUserId = null);
+    double? ActualDurationMinutes = null, double? OverdueMinutes = null, string? AssignedUserId = null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] WaitExecutionModel? Waiting=null,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] double? ActualEventWaitMinutes=null);
 public sealed record BranchDecisionModel(string GatewayId, string GatewayName, string SelectedTargetId, string SelectedTargetName,
     string? SelectedLabel, DateTimeOffset SelectedAt, string UserId);
 public sealed record ProcessReturnEventModel(string FromElementId, string FromElementName, string TargetElementId, string TargetElementName,

@@ -79,6 +79,7 @@ count += await ScheduleScenarioChecks.RunAsync();
 count += await ScheduleConditionChecks.RunAsync();
 count += await ScheduleIterationChecks.RunAsync();
 count += await ScheduleIterationChecks.IntegrationAsync();
+count += await WaitEventChecks.RunAsync();
 static bool RejectedTransition(string? previous, string? previousVersion, string state, string version)
 {
     try { InformationObjectLifecycle.Validate(previous, previousVersion, state, version); return false; }

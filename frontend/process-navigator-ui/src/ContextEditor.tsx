@@ -7,6 +7,7 @@ import { actionTargetHint } from './process-actions';
 import { bpmnTypeLabels } from './types';
 import { StepEvidenceEditor } from './StepEvidence';
 import { StepWorkRulesEditor } from './StepWorkRules';
+import {WaitEventEditor} from './WaitEventPanel';
 import type { StepEvidence, StepWorkRule, ExecutorKind } from './types';
 
 const toLines = (values?: string[]) => values?.join('\n') ?? '';
@@ -20,6 +21,7 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
 }) {
   const [evidence, setEvidence] = useState<StepEvidence[]>(node.evidence ?? []);
   const [workRules, setWorkRules] = useState<StepWorkRule[]>(node.workRules ?? []);
+  const [waitEvent,setWaitEvent]=useState(node.waitEvent);
   const [description, setDescription] = useState(node.description ?? '');
   const [responsible, setResponsible] = useState(node.responsible ?? '');
   const [duration, setDuration] = useState(node.duration ?? '');
@@ -82,13 +84,14 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
     if (event.target !== event.currentTarget) return;
     setBusy(true); setError(''); setArtifactNotice('');
     try {
-      onSaved(await saveElementContext(processId, node.id, { workRules, evidence, executorKind: executorKind || undefined, description, responsible, duration, artifacts, actions, channels, informationObjects, inputs: fromLines(inputs), expectedResult, completionCriteria, instruction, executionMode: executionMode || undefined, systemName, workDuration, waitDuration, participantUnits: fromLines(participantUnits), participantUnitRefs, linkedProcessId: linkedProcessId || undefined }));
+      onSaved(await saveElementContext(processId, node.id, { waitEvent,clearWaitEvent:!!node.waitEvent&&!waitEvent,workRules, evidence, executorKind: executorKind || undefined, description, responsible, duration, artifacts, actions, channels, informationObjects, inputs: fromLines(inputs), expectedResult, completionCriteria, instruction, executionMode: executionMode || undefined, systemName, workDuration, waitDuration, participantUnits: fromLines(participantUnits), participantUnitRefs, linkedProcessId: linkedProcessId || undefined }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Не удалось сохранить контекст элемента.');
     } finally { setBusy(false); }
   };
 
   return <form className="context-editor" onSubmit={submit}>
+    <WaitEventEditor node={node} value={waitEvent} onChange={setWaitEvent}/>
     <div className="context-editor__heading"><div><span className="eyebrow">Контекст черновика</span><h2>{node.name}</h2></div><button type="button" className="icon-button" onClick={onCancel} aria-label="Отменить редактирование"><X size={18}/></button></div>
     <label>Описание<textarea value={description} maxLength={4000} rows={4} onChange={event => setDescription(event.target.value)} placeholder="Что должен сделать сотрудник и какой результат ожидается"/></label>
     <div className="context-form-grid"><label>Ответственная роль или должность<input value={responsible} maxLength={200} onChange={event => setResponsible(event.target.value)} placeholder="Не дублирует подразделение дорожки"/></label><label>Общий норматив<input value={duration} maxLength={100} onChange={event => setDuration(event.target.value)} placeholder="Например, 2 рабочих дня"/></label></div>
@@ -112,7 +115,7 @@ export function ContextEditor({ processId, node, onCancel, onSaved }: {
         <label>Инструкция исполнителю<textarea value={instruction} maxLength={6000} rows={5} onChange={event => setInstruction(event.target.value)} placeholder="Последовательность работы, правила и важные исключения"/></label>
         <StepWorkRulesEditor rules={workRules} objects={informationObjects} onChange={setWorkRules}/>
         <div className="context-form-grid"><label>Способ выполнения<select value={executionMode} onChange={event => setExecutionMode(event.target.value as ExecutionMode | '')}><option value="">Не указан</option><option value="manual">Вручную</option><option value="external">Вне информационной системы</option><option value="system">В информационной системе</option></select></label><label>Информационная система<input value={systemName} maxLength={200} onChange={event => setSystemName(event.target.value)} placeholder="При наличии, например 1С:ERP"/></label></div>
-        <div className="context-form-grid"><label>Время работы<input value={workDuration} maxLength={100} onChange={event => setWorkDuration(event.target.value)} placeholder="Например, 30 минут"/></label><label>Время ожидания<input value={waitDuration} maxLength={100} onChange={event => setWaitDuration(event.target.value)} placeholder="Например, до 1 дня"/></label></div>
+        <div className="context-form-grid"><label>Время работы<input disabled={!!waitEvent} value={workDuration} maxLength={100} onChange={event => setWorkDuration(event.target.value)} placeholder="Например, 30 минут"/></label><label>Время ожидания<input disabled={!!waitEvent} value={waitDuration} maxLength={100} onChange={event => setWaitDuration(event.target.value)} placeholder="Например, до 1 дня"/></label></div>
         <div className="collection-heading"><div><h3>Участвующие подразделения</h3><small>Ответственное подразделение задаётся дорожкой; здесь указываются дополнительные участники.</small></div></div>
         <div className="context-form-grid"><label>Юридическое лицо<select value={selectedEntityId} onChange={event => { setSelectedEntityId(event.target.value); setSelectedUnitId(''); }}><option value="">Выберите юридическое лицо</option>{organization?.legalEntities.map(entity => <option key={entity.id} value={entity.id}>{entity.name}</option>)}</select></label><label>Подразделение<select value={selectedUnitId} onChange={event => setSelectedUnitId(event.target.value)} disabled={!selectedEntity}><option value="">Выберите подразделение</option>{selectedEntity?.units?.map(unit => <option key={unit.id} value={unit.id}>{unit.shortName ? `${unit.shortName} — ` : ''}{unit.name}</option>)}</select></label></div>
         <button type="button" disabled={!selectedEntityId || !selectedUnitId || participantUnitRefs.length >= 20 || participantUnitRefs.some(item => item.legalEntityId === selectedEntityId && item.unitId === selectedUnitId)} onClick={() => { setParticipantUnitRefs(items => [...items, { legalEntityId: selectedEntityId, unitId: selectedUnitId }]); setSelectedUnitId(''); }}><Plus size={15}/>Добавить подразделение</button>

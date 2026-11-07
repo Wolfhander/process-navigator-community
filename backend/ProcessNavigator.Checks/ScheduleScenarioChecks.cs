@@ -154,7 +154,7 @@ internal static class ScheduleScenarioChecks
         await File.WriteAllTextAsync(Path.Combine(root, "Data", model.Id + ".context.json"), JsonSerializer.Serialize(new {
             version = model.Version, owner = model.Owner, status = model.Status,
             passport = model.Passport,
-            elements = model.Nodes.ToDictionary(node => node.Id, node => new { workDuration = node.Type == "task" ? node.Duration : null, informationObjects = node.InformationObjects })
+            elements = model.Nodes.ToDictionary(node => node.Id, node => new { workDuration = node.Type == "task" ? node.Duration : null, informationObjects = node.InformationObjects,waitEvent=node.WaitEvent })
         }, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     }
     private sealed class Environment(string root) : IWebHostEnvironment

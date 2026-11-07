@@ -1,6 +1,7 @@
 using ProcessNavigator.Api.Models;
 namespace ProcessNavigator.Api.Services;
-public sealed record ExecutionTimingValue(double? Queue,double? Work,double? Total,double? Overdue);
+public sealed record ExecutionTimingValue(double? Queue,double? Work,double? Total,double? Overdue,
+    [property:System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)] double? EventWait=null);
 // Active elapsed minutes, excluding instance pauses; not a business-calendar calculation.
 public static class ExecutionTiming
 {
@@ -19,10 +20,18 @@ public static class ExecutionTiming
         double? work=end.HasValue?(step.StartedAt.HasValue?ActiveMinutes(instance,step.StartedAt.Value,end.Value):0):null;
         if(completed){queue=Fact(step.ActualQueueMinutes)??queue;work=Fact(step.ActualWorkMinutes)??work;}
         var total=(completed?Fact(step.ActualDurationMinutes):null)??(queue.HasValue&&work.HasValue?queue+work:null);
+        double? eventWait=null;
+        if(step.Waiting is not null){
+            work=0;
+            var waitEnd=step.Waiting.ResolvedAt??step.CompletedAt??(instance.Status=="Paused"?now:end);
+            eventWait=step.StartedAt.HasValue&&waitEnd.HasValue?Math.Max(0,(waitEnd.Value-step.StartedAt.Value).TotalMinutes):0;
+            if(completed)eventWait=Fact(step.ActualEventWaitMinutes)??eventWait;
+            total=queue+eventWait;
+        }
         var norm=Fact(step.PlannedDurationMinutes);
         var overdue=(completed?Fact(step.OverdueMinutes):null)??(total.HasValue&&norm>0?Math.Max(0,total.Value-norm.Value):null);
         static double? Round(double? v)=>v.HasValue?Math.Floor(v.Value*100+0.5)/100:null;
-        return new(Round(queue),Round(work),Round(total),Round(overdue));
+        return new(Round(queue),Round(work),Round(total),Round(overdue),Round(eventWait));
     }
     public static double ActiveMinutes(ProcessInstanceModel instance,DateTimeOffset from,DateTimeOffset to)
     {

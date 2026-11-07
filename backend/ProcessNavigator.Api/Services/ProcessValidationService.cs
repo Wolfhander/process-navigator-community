@@ -57,6 +57,10 @@ public sealed class ProcessValidationService(ProcessCatalogService catalog, Orga
 
         foreach (var node in process.Nodes)
         {
+            if(node.WaitEvent is not null){
+                if(WaitEvents.Problem(node.WaitEvent) is { } problem)Error("wait-event-definition",problem,node.Id,node.Name);
+                if(node.WaitEvent.Kind=="message"&&node.WaitEvent.ExpectedMinutes is null)Warning("wait-event-estimate","Не задан прогноз сообщения для расчёта сроков; тайм-аут не заменяет его.",node.Id,node.Name);
+            }
             foreach (var evidence in node.Evidence ?? [])
                 if (evidence.Status is "assumption" or "question")
                     Warning("task-evidence-unresolved", $"{(evidence.Status == "question" ? "Открытый вопрос" : "Предположение")}: {evidence.Statement}", node.Id, node.Name);

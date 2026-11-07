@@ -40,11 +40,12 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         await mutationLock.WaitAsync(cancellationToken);
         try {
         if(process.Nodes.Any(n=>n.EndEventDefinitions is not null))throw new InvalidDataException("Модель содержит специальное событие завершения. Его BPMN-семантика пока не исполняется; запуск заблокирован, чтобы не объявить ошибку или terminate успешным результатом.");
+        foreach(var node in process.Nodes)if(WaitEvents.Problem(node.WaitEvent) is { } issue)throw new InvalidDataException(node.Name+": "+issue);
         var startedAt = Now;
         var instance = new ProcessInstanceModel(Guid.NewGuid().ToString("N"), process.Id, process.Version,
             string.IsNullOrWhiteSpace(name) ? $"Выполнение от {Now.ToLocalTime():dd.MM.yyyy HH:mm}" : name.Trim(), "Active",
             startedAt, null, userId, process.Nodes.Where(node => node.Type == "task")
-                .Select(node => new StepExecutionModel(node.Id, "NotStarted", null, null, null)).ToArray());
+                .Select(node => new StepExecutionModel(node.Id, "NotStarted", null, null, null,Waiting:node.WaitEvent is null?null:new(node.WaitEvent))).ToArray());
         instance = instance with {Responsibility=responsibility is null?null:responsibility with{CapturedAt=startedAt}};
         instance = RefreshAvailablePlans(process, instance, startedAt);
         var instances = (await ReadAsync(process.Id, cancellationToken)).Append(instance).ToArray();
@@ -53,7 +54,7 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
     }
 
     public async Task<ProcessInstanceModel> UpdateStepAsync(ProcessModel process, string instanceId, string elementId, string status,
-        string userId, CancellationToken cancellationToken)
+        string userId, CancellationToken cancellationToken,WaitActionModel? waitAction=null)
 {
         await mutationLock.WaitAsync(cancellationToken);
         try {
@@ -64,13 +65,29 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         var index = Array.FindIndex(instances, item => item.Id == instanceId);
         if (index < 0) throw new KeyNotFoundException("Instance");
         var current = instances[index];
+        var currentStep = current.Steps.First(step => step.ElementId == elementId);
+        if(current.Status!="Active"&&waitAction is not null&&current.ProcessVersion==process.Version&&
+            currentStep.Waiting is {Status:"Received" or "Elapsed" or "TimedOut"} saved&&
+            WaitEvents.Transition(saved,waitAction,currentStep.Iteration,Now)==saved)return current;
         if (current.Status != "Active") throw new InvalidDataException(current.Status switch
         {
             "Paused" => "Приостановленный экземпляр сначала нужно возобновить.",
             "Cancelled" => "Отменённый экземпляр нельзя изменять.",
             _ => "Завершённый экземпляр нельзя изменять."
         });
-        var currentStep = current.Steps.First(step => step.ElementId == elementId);
+        var now=Now;
+        var eventNode=process.Nodes.Single(n=>n.Id==elementId);
+        WaitExecutionModel? nextWait=null;
+        if(waitAction is null&&(currentStep.Waiting is not null||eventNode.WaitEvent is not null))
+            throw new InvalidDataException("Используйте действия ожидания: начало, получение сообщения или проверку срока.");
+        if(waitAction is not null){
+            if(current.ProcessVersion!=process.Version)throw new InvalidDataException("Версия модели отличается от выполнения; ожидание не изменено. Запустите новое выполнение либо явно завершите старое с причиной.");
+            if(currentStep.Waiting is null)throw new InvalidDataException("В выполнении нет сохранённой спецификации ожидания. Запустите новое выполнение.");
+            nextWait=WaitEvents.Transition(currentStep.Waiting,waitAction,currentStep.Iteration,now);
+            if(nextWait==currentStep.Waiting)return current;
+            status=nextWait.Status is "Received" or "Elapsed"?"Completed":"InProgress";
+            nextWait=nextWait with{ResolvedBy=nextWait.ResolvedAt is null?null:userId};
+        }
         if (currentStep.Status == "Completed")
         {
             if (status == "Completed") return current;
@@ -92,7 +109,6 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
             if (missing.Length > 0)
                 throw new InvalidDataException($"Перед завершением зафиксируйте обязательные результаты: {string.Join(", ", missing)}.");
         }
-        var now = Now;
         var branchChoice = currentStep.Status == "NotStarted"
             ? ResolveBranchChoices(process, current, elementId, userId, now)
             : new BranchChoiceResult([], []);
@@ -104,8 +120,8 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         var steps = current.Steps.Select(step => skipped.TryGetValue(step.ElementId, out var skip)
             ? step with { Status = "Skipped", SkippedAt = now, SkipReason = skip.Reason, UserId = userId }
             : step.ElementId != elementId ? step : status == "InProgress"
-            ? plannedStep with { Status = status, StartedAt = startedAt, UserId = userId }
-            : completedStep with { Status = status, StartedAt = startedAt, CompletedAt = now, UserId = userId }).ToArray();
+            ? plannedStep with { Status = status, StartedAt = startedAt, UserId = userId,Waiting=nextWait??plannedStep.Waiting }
+            : completedStep with { Status = status, StartedAt = startedAt, CompletedAt = now, UserId = userId,Waiting=nextWait??completedStep.Waiting }).ToArray();
         var completed = steps.All(step => step.Status is "Completed" or "Skipped");
         var decisions = (current.BranchDecisions ?? []).Concat(branchChoice.Decisions)
             .GroupBy(item => item.GatewayId, StringComparer.Ordinal).Select(group => group.First()).ToArray();
@@ -184,13 +200,15 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
             ActualWorkMinutes = null,
             ActualDurationMinutes = null,
             OverdueMinutes = null,
+            Waiting=step.Waiting is null?null:new(step.Waiting.Specification),
+            ActualEventWaitMinutes=null,
             Iteration = Math.Max(1, step.Iteration) + 1,
             History = (step.History ?? []).Append(new StepExecutionIterationModel(Math.Max(1, step.Iteration), step.Status,
                 step.StartedAt, step.CompletedAt, step.UserId, step.SkippedAt, step.SkipReason, now, userId, cleanReason,
                 step.ResultText, step.ResultObjects, step.Attachments, step.ResultRecordedAt, step.ResultRecordedBy,
                 step.AvailableAt, step.NormText, step.PlannedWorkMinutes,
                 step.PlannedWaitMinutes, step.PlannedDurationMinutes, step.PlannedCompletedAt, step.ActualQueueMinutes,
-                step.ActualWorkMinutes, step.ActualDurationMinutes, step.OverdueMinutes, step.AssignedUserId)).ToArray()
+                step.ActualWorkMinutes, step.ActualDurationMinutes, step.OverdueMinutes, step.AssignedUserId,step.Waiting,step.ActualEventWaitMinutes)).ToArray()
         }).ToArray();
         var clearedGateways = process.Nodes.Where(node => segment.Contains(node.Id) && node.Type == "exclusiveGateway")
             .Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
@@ -388,6 +406,15 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         events.AddRange(commands.Select(item => new ExecutionTimelineEventModel($"command:{item.Id}", "ActionExecuted",
             $"Выполнено действие «{item.ActionLabel}»", item.Result ?? item.Message, item.ExecutedAt, item.ElementId,
             nodes.GetValueOrDefault(item.ElementId)?.Name, UserId: item.UserId, Severity: item.Status == "Failed" ? "Warning" : "Success")));
+        foreach(var step in instance.Steps){
+            foreach(var item in (step.History??[]).Select(h=>(h.Iteration,h.Waiting)).Append((step.Iteration,step.Waiting))){
+                if(item.Waiting?.StartedAt is { } start)events.Add(new($"wait:start:{step.ElementId}:{item.Iteration}","WaitStarted",
+                    "Начато ожидание «"+nodes.GetValueOrDefault(step.ElementId)?.Name+"»",item.Waiting.Specification.Source+" · "+item.Waiting.Specification.Channel,start,step.ElementId,Iteration:item.Iteration));
+                if(item.Waiting?.ResolvedAt is { } end)events.Add(new($"wait:end:{step.ElementId}:{item.Iteration}","WaitResolved",
+                    item.Waiting.Status switch{"Received"=>"Подтверждено получение сообщения","Elapsed"=>"Подтверждено истечение таймера",_=>"Срок сообщения истёк"},
+                    item.Waiting.Evidence??item.Waiting.Status,end,step.ElementId,Iteration:item.Iteration,UserId:item.Waiting.ResolvedBy,Severity:item.Waiting.Status=="TimedOut"?"Warning":"Info"));
+            }
+        }
         if (instance.CompletedAt.HasValue) events.Add(new($"instance:complete:{instance.Id}", "InstanceCompleted", "Экземпляр завершён",
             instance.Name, instance.CompletedAt.Value, Severity: "Success"));
         return new(process.Id, instance.Id, events.OrderByDescending(item => item.OccurredAt).ThenBy(item => item.Id).ToArray());
@@ -438,7 +465,7 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
             if (pausedAt.HasValue)
             {
                 var pauseDuration = now - pausedAt.Value;
-                steps = current.Steps.Select(step => step.Status is "Completed" or "Skipped" || !step.PlannedCompletedAt.HasValue
+                steps = current.Steps.Select(step => step.Status is "Completed" or "Skipped" || step.Waiting is not null || !step.PlannedCompletedAt.HasValue
                     ? step
                     : step with { PlannedCompletedAt = step.PlannedCompletedAt.Value.Add(pauseDuration) }).ToArray();
             }
@@ -572,13 +599,13 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         var path = PathFor(processId); if (!File.Exists(path)) return [];
         var items=JsonSerializer.Deserialize<List<ProcessInstanceModel>>(await AtomicTextFile.ReadAsync(path, cancellationToken),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
-        foreach(var item in items){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);}
+        foreach(var item in items){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);foreach(var step in item.Steps){WaitEvents.ValidateStep(step.Waiting,step.Status,step.StartedAt,step.CompletedAt);foreach(var old in step.History??[])WaitEvents.ValidateStep(old.Waiting,old.Status,old.StartedAt,old.CompletedAt);}}
         return items;
     }
 
     private async Task WriteAsync(string processId, IReadOnlyList<ProcessInstanceModel> instances, CancellationToken cancellationToken)
     {
-        foreach(var item in instances){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);}
+        foreach(var item in instances){ExecutionOutcome.Validate(item);ResponsibilitySnapshot.Validate(item);foreach(var step in item.Steps){WaitEvents.ValidateStep(step.Waiting,step.Status,step.StartedAt,step.CompletedAt);foreach(var old in step.History??[])WaitEvents.ValidateStep(old.Waiting,old.Status,old.StartedAt,old.CompletedAt);}}
         await writeLock.WaitAsync(cancellationToken);
         try { Directory.CreateDirectory(root); var path = PathFor(processId); var temporary = path + ".tmp"; await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(instances, new JsonSerializerOptions { WriteIndented = true }), cancellationToken); AtomicTextFile.Commit(temporary, path); }
         finally { writeLock.Release(); }
@@ -602,6 +629,11 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
 
     private static StepExecutionModel ApplyPlan(NodeModel node, StepExecutionModel step, DateTimeOffset availableAt)
     {
+        if(step.Waiting is { } state){
+            var minutes=state.Specification.Kind=="timer"?state.Specification.DurationMinutes:state.Specification.ExpectedMinutes;
+            return step with{AvailableAt=availableAt,NormText="Календарное ожидание: "+(minutes?.ToString(System.Globalization.CultureInfo.InvariantCulture)??"не задано")+" мин",
+                PlannedWorkMinutes=0,PlannedWaitMinutes=minutes,PlannedDurationMinutes=minutes,PlannedCompletedAt=minutes is not null?availableAt.AddMinutes(minutes.Value):null};
+        }
         var work = ParseNormMinutes(node.WorkDuration);
         var wait = ParseNormMinutes(node.WaitDuration);
         if (!work.HasValue && !wait.HasValue) work = ParseNormMinutes(node.Duration);
@@ -627,7 +659,7 @@ public sealed partial class ProcessExecutionService(IWebHostEnvironment environm
         DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
         var timing=ExecutionTiming.Measure(instance,step with{Status="Completed",StartedAt=startedAt,CompletedAt=completedAt},completedAt);
-        return step with{ActualQueueMinutes=timing.Queue,ActualWorkMinutes=timing.Work,ActualDurationMinutes=timing.Total,OverdueMinutes=timing.Overdue};
+        return step with{ActualQueueMinutes=timing.Queue,ActualWorkMinutes=timing.Work,ActualDurationMinutes=timing.Total,OverdueMinutes=timing.Overdue,ActualEventWaitMinutes=timing.EventWait};
     }
 
     private static string LifecycleTitle(string action) => action switch

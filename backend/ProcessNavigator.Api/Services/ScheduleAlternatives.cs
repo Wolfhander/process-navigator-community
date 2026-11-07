@@ -44,7 +44,7 @@ public sealed partial class ProcessScheduleService
             throw new InvalidDataException("Алгоритм снимка не соответствует условиям сценария.");
         var baseSource=frozen;
         if(frozen?.Algorithm==ScenarioAlgorithm){
-            if(frozen.BaseAlgorithm is not (Algorithm or CalendarAlgorithm))throw new InvalidDataException("В снимке не указан поддержанный базовый календарный алгоритм.");
+            if(frozen.BaseAlgorithm is not (Algorithm or CalendarAlgorithm or EventAlgorithm))throw new InvalidDataException("В снимке не указан поддержанный базовый календарный алгоритм.");
             baseSource=frozen with{Algorithm=frozen.BaseAlgorithm,BaseAlgorithm=null};
         }
         var basis=await CalculateCoreAsync(request,includeDrafts,baseSource,ct);

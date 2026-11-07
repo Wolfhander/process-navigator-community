@@ -1,0 +1,13 @@
+{
+  "id":"acceptance-message-timer",
+  "name":"Учебное ожидание ответа и таймера",
+  "messageName":"Подтверждение готовности комплекта",
+  "source":"Учебный отдел поставщика",
+  "channel":"Электронная почта",
+  "correlationKey":"WAIT-ORDER-001",
+  "expectedMinutes":30,
+  "timeoutMinutes":120,
+  "timerMinutes":0.001,
+  "anchorDate":"2026-11-13T13:30:00Z",
+  "utcOffsetMinutes":180
+}

@@ -93,6 +93,11 @@ public sealed partial class ProcessScheduleService
                 var work = ParseHours(node.WorkDuration).GetValueOrDefault();
                 var wait = request.IncludeWaitTime ? ParseHours(node.WaitDuration).GetValueOrDefault() : 0;
                 var hours = node.Type=="task" ? ((work+wait)>0 ? work+wait : ParseHours(node.Duration).GetValueOrDefault()) * estimates[id].AppliedScalePercent/100 : 0;
+                if(node.WaitEvent is not null){
+                    var minutes=WaitEvents.Minutes(node)??0;
+                    dates[nodeId]=new(nodeId,"Календарное ожидание · "+node.WaitEvent.Kind,forward?at:at.AddMinutes(-minutes),forward?at.AddMinutes(minutes):at);
+                    continue;
+                }
                 var boundary = hours>0 ? engine.Normalize(at,forward) : at;
                 var other = hours>0 ? engine.Add(boundary,hours,forward) : boundary;
                 dates[nodeId] = new(nodeId,resolved.Source+" · "+resolved.Calendar.WorkdayStart+"–"+resolved.Calendar.WorkdayEnd+" · "+(resolved.Calendar.TimeZoneId??"UTC "+resolved.Calendar.UtcOffsetMinutes+" мин"),forward ? boundary : other,forward ? other : boundary);

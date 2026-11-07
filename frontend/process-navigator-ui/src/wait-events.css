@@ -1,0 +1,7 @@
+.wait-panel,.wait-definition{padding:12px;border:1px solid var(--line);border-radius:9px;margin:14px 0;background:#f7faf7;min-width:0}
+.wait-panel label,.wait-definition label{display:grid;gap:6px;margin:10px 0;font-size:13px;min-width:0}
+.wait-panel input,.wait-panel textarea,.wait-definition input,.wait-definition select{min-width:0;max-width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:7px;background:white;color:var(--ink);font:inherit}
+.wait-panel input:not([type=checkbox]),.wait-panel textarea,.wait-definition input:not([type=checkbox]),.wait-definition select{width:100%;min-height:38px}
+.wait-panel fieldset{min-width:0;border:0;padding:0}.wait-panel button{padding:9px 12px;margin:5px 5px 5px 0;border:1px solid var(--line);border-radius:7px;background:white;color:var(--green);cursor:pointer}
+.wait-panel p,.wait-definition p{font-size:12px;line-height:1.55;overflow-wrap:anywhere}.wait-error{color:#9a3e25}
+.wait-panel button:disabled{opacity:.5;cursor:default}.wait-event-label{font-size:12px;line-height:1.25;text-align:center;overflow:hidden;overflow-wrap:anywhere;max-height:48px}

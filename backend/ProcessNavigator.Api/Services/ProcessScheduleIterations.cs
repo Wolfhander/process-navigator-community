@@ -105,7 +105,7 @@ public sealed partial class ProcessScheduleService
             var advanced=request.UseOrganizationCalendars||internalRequest.StepCalendars?.Count>0||!string.IsNullOrWhiteSpace(request.TimeZoneId)||
                 ScheduleWorkCalendar.IsNight(request.WorkdayStart,request.WorkdayEnd)||
                 internalRequest.ProcessCalendars?.Values.Any(c=>!string.IsNullOrWhiteSpace(c.TimeZoneId)||ScheduleWorkCalendar.IsNight(c.WorkdayStart,c.WorkdayEnd))==true;
-            var transformed=source with{Algorithm=advanced?CalendarAlgorithm:Algorithm,BaseAlgorithm=null,
+            var transformed=source with{Algorithm=routes.Values.Any(r=>r.Model.Nodes.Any(n=>n.WaitEvent is not null))?EventAlgorithm:advanced?CalendarAlgorithm:Algorithm,BaseAlgorithm=null,
                 Processes=routes.Values.Select(r=>r.Model).ToArray(),Objects=objects};
             var result=await CalculateCoreAsync(internalRequest,false,transformed,ct);
             var passes=new List<SchedulePassDateModel>();

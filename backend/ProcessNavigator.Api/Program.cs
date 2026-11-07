@@ -598,6 +598,14 @@ app.MapPut("/api/processes/{processId}/instances/{instanceId}/steps/{elementId}/
     catch (InvalidDataException exception) { return Results.Problem(exception.Message, statusCode: 422, title: "Step assignment validation failed"); }
 });
 
+app.MapPost("/api/processes/{processId}/instances/{instanceId}/steps/{elementId}/wait",async(string processId,string instanceId,string elementId,
+    WaitActionModel request,HttpContext context,ProcessCatalogService catalog,ProcessExecutionService executions,AccessControlService access,CancellationToken ct)=>{
+    if(!access.Has(context,ProcessPermissions.Execute))return Forbidden(ProcessPermissions.Execute);
+    try{return Results.Ok(await executions.UpdateStepAsync(await catalog.LoadAsync(processId,false,ct),instanceId,elementId,"InProgress",access.CurrentUser(context).Id,ct,request));}
+    catch(KeyNotFoundException){return Results.NotFound(new{message="Экземпляр или шаг не найден."});}
+    catch(InvalidDataException e){return Results.Problem(e.Message,statusCode:422,title:"Wait event validation failed");}
+});
+
 app.MapPost("/api/processes/{processId}/instances/{instanceId}/steps/{elementId}/return", async (string processId, string instanceId,
     string elementId, ReturnStepModel request, HttpContext context, ProcessCatalogService catalog,
     ProcessExecutionService executions, AccessControlService access, CancellationToken cancellationToken) =>

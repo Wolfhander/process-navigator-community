@@ -22,11 +22,12 @@ export function StepTimingPanel({ instance, step }: { instance: ProcessInstance;
       <article><Clock3 size={16}/><span>Срок по нормативу<strong>{dateTime(step.plannedCompletedAt)}</strong></span></article>
       <article><Hourglass size={16}/><span>До начала / передача<strong>{formatMinutes(timing.queue)}</strong></span></article>
       <article><CheckCircle2 size={16}/><span>Фактическая работа<strong>{formatMinutes(timing.work)}</strong></span></article>
+      {step.waiting&&<article><Hourglass size={16}/><span>Календарное ожидание события<strong>{formatMinutes(timing.eventWait)}</strong></span></article>}
     </div>
     {step.normText&&<p className="step-timing-norm">Снимок норматива: {step.normText}{normKnown?` · всего ${formatMinutes(step.plannedDurationMinutes)}`:''}</p>}
     {!normKnown&&<p className="step-timing-norm is-missing">Числовой норматив отсутствует или не распознан — текущая просрочка не рассчитывается.</p>}
-    <p>Оперативная оценка по времени устройства: активные календарные минуты без пауз экземпляра, не рабочий календарь. Норматив шага не заменяет отдельный календарный базовый план. При отмене счёт останавливается; неизвестная дата остановки не заменяется нулём.</p>
-    {instance.status==='Paused'&&<p>На паузе срок по нормативу остаётся прежним; при возобновлении он сдвигается на длительность паузы. Активное время в паузе не растёт.</p>}
+    <p>{step.waiting?'Ожидание события считается в календарных минутах, включая паузы и выходные; это не работа сотрудника. Тайм-аут и прогноз показаны отдельно.':'Оперативная оценка по времени устройства: активные календарные минуты без пауз экземпляра, не рабочий календарь.'} Норматив шага не заменяет отдельный календарный базовый план.</p>
+    {instance.status==='Paused'&&!step.waiting&&<p>На паузе срок по нормативу остаётся прежним; при возобновлении он сдвигается на длительность паузы. Активное время в паузе не растёт.</p>}
     {overdue && <div className="step-timing-alert"><AlertTriangle size={15}/>Отклонение от норматива: {formatMinutes(timing.overdue)}</div>}
   </section>;
 }
