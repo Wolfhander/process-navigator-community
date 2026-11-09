@@ -14,7 +14,13 @@ public static class AtomicTextFile
     {
         var gate = Gate(path);
         gate.Wait();
-        try { return new MemoryStream(File.ReadAllBytes(path), writable: false); }
+        try
+        {
+            using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+            var bytes = new byte[checked((int)source.Length)];
+            source.ReadExactly(bytes);
+            return new MemoryStream(bytes, writable: false);
+        }
         finally { gate.Release(); }
     }
 
@@ -23,7 +29,13 @@ public static class AtomicTextFile
         cancellationToken.ThrowIfCancellationRequested();
         var gate = Gate(path);
         await gate.WaitAsync(cancellationToken);
-        try { return await File.ReadAllTextAsync(path, cancellationToken); }
+        try
+        {
+            using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete,
+                bufferSize: 4096, useAsync: true);
+            using var reader = new StreamReader(source, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            return await reader.ReadToEndAsync(cancellationToken);
+        }
         finally { gate.Release(); }
     }
 

@@ -443,9 +443,8 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     {
         if (!draft) return await loader.LoadAsync(processId, cancellationToken);
         var (bpmnPath, contextPath) = DraftPaths(processId);
-        if (!File.Exists(bpmnPath) || !File.Exists(contextPath))
-            throw new FileNotFoundException($"Draft for process '{processId}' was not found.");
-        return await loader.LoadFilesAsync(bpmnPath, contextPath, processId, cancellationToken);
+        try { return await loader.LoadFilesAsync(bpmnPath, contextPath, processId, cancellationToken); }
+        catch (DirectoryNotFoundException error) { throw new FileNotFoundException($"Draft for process '{processId}' was not found.", error); }
     }
 
     public async Task<ProcessModel> LoadArchivedAsync(string processId, string version, CancellationToken cancellationToken = default)
@@ -769,8 +768,10 @@ public sealed partial class ProcessCatalogService(BpmnProcessLoader loader)
     public async Task<ProcessWorkflowModel> WorkflowAsync(string processId, CancellationToken cancellationToken = default)
     {
         var paths = DraftPaths(processId);
-        if (!File.Exists(paths.Context)) throw new FileNotFoundException();
-        var root = JsonNode.Parse(await AtomicTextFile.ReadAsync(paths.Context, cancellationToken))?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
+        string snapshot;
+        try { snapshot = await AtomicTextFile.ReadAsync(paths.Context, cancellationToken); }
+        catch (DirectoryNotFoundException error) { throw new FileNotFoundException($"Draft for process '{processId}' was not found.", error); }
+        var root = JsonNode.Parse(snapshot)?.AsObject() ?? throw new InvalidDataException("Process context JSON is empty.");
         var status = root["status"]?.GetValue<string>() ?? "Draft";
         var events = root["workflow"]?.Deserialize<List<ProcessWorkflowEventModel>>(new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? [];
         return BuildWorkflow(processId, status, root, events);

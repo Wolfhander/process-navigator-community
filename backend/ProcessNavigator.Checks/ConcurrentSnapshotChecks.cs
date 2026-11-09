@@ -82,6 +82,11 @@ internal static class ConcurrentSnapshotChecks
 
             var host = new Host(root);
             var catalog = new ProcessCatalogService(new BpmnProcessLoader(host));
+            foreach (var read in new Func<Task>[] { () => catalog.LoadAsync("absent", true), () => catalog.WorkflowAsync("absent") })
+            {
+                try { await read(); throw new Exception("Missing draft read succeeded"); }
+                catch (FileNotFoundException) { count++; }
+            }
             await catalog.CreateAsync(new CreateProcessModel("concurrent", "Учебная модель"));
             var workflowWriter = Task.Run(async () =>
             {
