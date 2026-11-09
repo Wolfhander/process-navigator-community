@@ -38,10 +38,15 @@ for (const [id, command, args] of stages) {
   let result;
   try {
     const pnpmShim = process.platform==='win32' && command==='pnpm';
+    const env = {...process.env,TEMP:temp,TMP:temp,TMPDIR:temp};
+    // Do not pass PowerShell 7's module search path to Windows PowerShell 5.1.
+    if (command==='powershell.exe') {
+      for (const key of Object.keys(env)) if (key.toLowerCase()==='psmodulepath') delete env[key];
+    }
     // Windows pnpm is a command shim. No user paths or arguments enter this command.
     result = spawnSync(pnpmShim ? 'pnpm --dir frontend/process-navigator-ui build' : command,
       pnpmShim ? [] : args,{cwd:root,windowsHide:true,stdio:['ignore',fd,fd],shell:pnpmShim,
-      env:{...process.env,TEMP:temp,TMP:temp,TMPDIR:temp}});
+      env});
   } finally {
     fs.closeSync(fd);
   }

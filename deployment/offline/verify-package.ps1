@@ -26,7 +26,7 @@ foreach ($line in Get-Content -LiteralPath $manifest -Encoding UTF8) {
     }
     $expected[$relative] = $hash
 }
-foreach ($required in 'app/ProcessNavigator.Api.exe', 'app/wwwroot/index.html', 'verify-package.ps1') {
+foreach ($required in 'app/ProcessNavigator.Api.exe', 'app/wwwroot/index.html', 'verify-package.ps1', 'app-transition.ps1') {
     if (-not $expected.ContainsKey($required)) { throw "Required manifest entry is missing: $required" }
 }
 $seen = @{}

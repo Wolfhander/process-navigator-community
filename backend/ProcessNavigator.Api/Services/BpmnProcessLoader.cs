@@ -88,9 +88,6 @@ public sealed class BpmnProcessLoader(IWebHostEnvironment environment)
         string? expectedProcessId = null,
         CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(bpmnPath) || !File.Exists(contextPath))
-            throw new FileNotFoundException("BPMN or context file was not found.");
-
         await using var bpmnStream = AtomicTextFile.OpenRead(bpmnPath);
         var document = await XDocument.LoadAsync(bpmnStream, LoadOptions.None, cancellationToken);
         await using var contextStream = AtomicTextFile.OpenRead(contextPath);

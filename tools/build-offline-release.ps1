@@ -41,6 +41,7 @@ Copy-Item -Path (Join-Path $frontend "dist/*") -Destination $wwwroot -Recurse -F
 
 Copy-Item (Join-Path $repoRoot "deployment/offline/install.ps1") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/verify-package.ps1") $packageRoot
+Copy-Item (Join-Path $repoRoot "deployment/offline/app-transition.ps1") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/uninstall.ps1") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/Start-ProcessNavigator.cmd") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/Install-ProcessNavigator.cmd") $packageRoot
