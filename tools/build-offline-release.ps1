@@ -40,6 +40,7 @@ New-Item -ItemType Directory -Path $wwwroot -Force | Out-Null
 Copy-Item -Path (Join-Path $frontend "dist/*") -Destination $wwwroot -Recurse -Force
 
 Copy-Item (Join-Path $repoRoot "deployment/offline/install.ps1") $packageRoot
+Copy-Item (Join-Path $repoRoot "deployment/offline/verify-package.ps1") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/uninstall.ps1") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/Start-ProcessNavigator.cmd") $packageRoot
 Copy-Item (Join-Path $repoRoot "deployment/offline/Install-ProcessNavigator.cmd") $packageRoot

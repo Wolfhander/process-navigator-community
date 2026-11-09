@@ -20,18 +20,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 if (-not (Test-Path (Join-Path $sourceApp "ProcessNavigator.Api.exe"))) {
     throw "Invalid package: app\ProcessNavigator.Api.exe is missing."
 }
-
-$manifest = Join-Path $PSScriptRoot "manifest.sha256"
-if (Test-Path $manifest) {
-    foreach ($line in Get-Content -LiteralPath $manifest -Encoding UTF8) {
-        if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        $parts = $line -split "  ", 2
-        $filePath = Join-Path $PSScriptRoot ($parts[1].Replace("/", "\"))
-        if (-not (Test-Path $filePath)) { throw "Package file is missing: $($parts[1])" }
-        $actual = (Get-FileHash -LiteralPath $filePath -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -ne $parts[0]) { throw "Checksum mismatch: $($parts[1])" }
-    }
-}
+& (Join-Path $PSScriptRoot 'verify-package.ps1')
 
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
     Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue

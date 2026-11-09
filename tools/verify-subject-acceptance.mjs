@@ -26,6 +26,7 @@ const stages = [
     .filter(name=>name.endsWith('.test.mjs')).sort().map(name=>path.join(frontend,'tests',name))]],
   // The master-data suite already runs all server checks and captures their log.
   ['master-data',process.execPath,['tools/verify-master-data.mjs']],
+  ...(process.platform==='win32'?[['offline-package','powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File','tools/verify-offline-package.ps1']]]:[]),
   ['browser',process.execPath,['tools/verify-core-flow-browser.mjs']],
 ];
 save();
