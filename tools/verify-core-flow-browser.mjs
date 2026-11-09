@@ -564,6 +564,19 @@ try {
   assert.equal(waitPlan.complete,true);
   check('Explicit message evidence/correlation, native timer and execution barriers work without background subscriptions');
   check('XLSX export/preview/import retains wait definitions and source/channel; event scheduling is versioned');
+  await navigate('process='+spec.id);await wait("!!document.querySelector('.canvas')",'route comparison source diagram');
+  stage='route comparison';
+  await clickText('Новая редакция');
+  await wait("!!document.querySelector('.process-bar .eyebrow.is-draft')",'new comparison draft');
+  await clickText('История');
+  await clickText('Сравнить');
+  await wait("document.querySelector('[aria-label=\"Сравнение маршрутов\"]')?.textContent.includes('Отличий маршрута не найдено')",'compare unchanged route');
+  assert.equal((await api('/api/processes/'+spec.id+'?draft=true')).status,'Draft');
+  await clickText('← Вернуться');
+  await clickText('История');
+  await wait("!!document.querySelector('.version-row.is-published')",'published version in history');
+  await click('.version-row.is-published','return to published edition');
+  check('History compares draft and published route without modifying either edition');
   assert.deepEqual(browser.errors,[],'Browser runtime errors after source workflow');
   report.result='PASS';console.log('Core flow browser/API PASS: '+report.checks.length+' groups; '+folder);
 } catch(error){
